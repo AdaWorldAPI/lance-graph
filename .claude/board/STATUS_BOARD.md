@@ -8,7 +8,7 @@ Plan: `.claude/plans/global-pattern-words-v1.md`. Documentation only.
 | D-GPW-1 | Census of every pattern match in lance-graph and its consumers, counted from source | Queued |
 | D-GPW-2 | The absent-case policy as a declared parameter beside `Logic` | Queued (needs decision 2) |
 | D-GPW-3 | The across dimension: one pattern word over a declared relation, SQL and MeTTa alias names | Queued (needs decisions 1 and 4) |
-| D-GPW-4 | The within dimension: a value's parts declared at intake | Queued |
+| D-GPW-4 | The within dimension: a value's parts declared at intake | In PR, first step: SQL `LIKE` resolved at Quack's bind into the identities it covers (entry `2026-11-19-d-gpw-quack-like-at-bind.md`); other spellings and a declared split of a value not started |
 | D-GPW-5 | zammad-rs: `under` and `LIKE` replaced by the word, own paths kept as oracle | Queued (zammad-rs side) |
 | D-GPW-6 | `lance-graph-metta` front end lowering `match` onto the word | Queued (metta-polyfill-v1) |
 

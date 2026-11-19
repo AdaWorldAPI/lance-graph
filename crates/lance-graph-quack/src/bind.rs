@@ -100,6 +100,92 @@ pub trait Binder {
     /// Never mints: a literal the domain has never seen matches nothing and
     /// is reported as [`BindError::UnknownValue`].
     fn code(&self, table: TableId, field: Col, literal: &str) -> Option<u32>;
+    /// The numeric identities of every value in a field's domain that
+    /// `pattern` matches. The binder owns the codebook, so it walks its own
+    /// values and asks [`Pattern::matches`]; nothing is minted, and no text
+    /// leaves the binder. `None` (the default) means this binder cannot
+    /// enumerate that domain, reported as [`BindError::PatternUnsupported`].
+    /// An empty list is an answer: the pattern names no member.
+    fn codes_matching(&self, table: TableId, field: Col, pattern: &Pattern) -> Option<Vec<u32>> {
+        let _ = (table, field, pattern);
+        None
+    }
+}
+
+/// One element of a [`Pattern`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Piece {
+    /// Any run of characters, the empty one included.
+    Run,
+    /// Exactly one character.
+    One,
+    /// This character.
+    Char(char),
+}
+
+/// A text with holes, matched against whole values of a coded field at bind
+/// time. It exists only here, in the developer world: binding turns it into
+/// the set of numeric identities it covers ([`Binder::codes_matching`]), and
+/// the bound [`Query`] holds that set as an ordinary membership filter. No
+/// pattern, and no text, reaches `lower` or the executor.
+///
+/// What a pattern does with a value that is not there is fixed, and differs
+/// from `=` on purpose: `field = 'x'` for an `x` the domain has never seen is
+/// refused ([`BindError::UnknownValue`]), while a pattern that covers no
+/// value binds to a filter that keeps no row. A pattern states a shape, not
+/// a member, so an empty cover is an answer and not a mistake.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Pattern {
+    pieces: Vec<Piece>,
+}
+
+impl Pattern {
+    /// SQL's `LIKE` spelling: `%` is any run, `_` is one character, `\`
+    /// makes the next character literal. Case-sensitive. `None` when the
+    /// text ends in an unfinished escape.
+    pub fn like(text: &str) -> Option<Pattern> {
+        let mut pieces = Vec::new();
+        let mut chars = text.chars();
+        while let Some(c) = chars.next() {
+            pieces.push(match c {
+                '%' => Piece::Run,
+                '_' => Piece::One,
+                '\\' => Piece::Char(chars.next()?),
+                other => Piece::Char(other),
+            });
+        }
+        Some(Pattern { pieces })
+    }
+
+    /// Whether the WHOLE of `value` matches.
+    pub fn matches(&self, value: &str) -> bool {
+        let text: Vec<char> = value.chars().collect();
+        let (mut p, mut t) = (0, 0);
+        // The last run seen and how far into `text` it has been stretched.
+        let mut run: Option<(usize, usize)> = None;
+        while t < text.len() {
+            match self.pieces.get(p) {
+                Some(Piece::Run) => {
+                    run = Some((p, t));
+                    p += 1;
+                    continue;
+                }
+                Some(Piece::One) => {}
+                Some(Piece::Char(c)) if *c == text[t] => {}
+                _ => {
+                    let Some((at, from)) = run else {
+                        return false;
+                    };
+                    run = Some((at, from + 1));
+                    (p, t) = (at + 1, from + 1);
+                    continue;
+                }
+            }
+            p += 1;
+            t += 1;
+        }
+        self.pieces[p..].iter().all(|piece| *piece == Piece::Run)
+    }
 }
 
 /// A literal as a developer writes it.
@@ -147,6 +233,8 @@ pub enum Op {
     Gt,
     /// `>=`, on an integer field.
     Ge,
+    /// `LIKE`, on a coded field: the literal is a [`Pattern::like`] text.
+    Like,
 }
 
 /// One unbound predicate: `field <op> literal`.
@@ -195,6 +283,10 @@ impl FieldRef {
     /// `field >= value`.
     pub fn ge(self, value: impl Into<Literal>) -> Predicate {
         self.pred(Op::Ge, value)
+    }
+    /// `field LIKE pattern`, in SQL's spelling ([`Pattern::like`]).
+    pub fn like(self, pattern: &str) -> Predicate {
+        self.pred(Op::Like, pattern)
     }
     /// `lo <= field AND field <= hi`, both ends included.
     pub fn between(self, lo: impl Into<Literal>, hi: impl Into<Literal>) -> [Predicate; 2] {
@@ -293,6 +385,17 @@ pub enum BindError {
         /// Field.
         field: String,
     },
+    /// A `LIKE` text that is not a pattern (it ends in an unfinished escape).
+    BadPattern {
+        /// Field.
+        field: String,
+    },
+    /// A pattern on a field whose binder cannot enumerate its domain
+    /// ([`Binder::codes_matching`] answered `None`).
+    PatternUnsupported {
+        /// Field.
+        field: String,
+    },
     /// [`TypedQuery::admit`]: a code space this query was bound under has
     /// since been renumbered, so its literal codes no longer mean what they
     /// meant at bind time.
@@ -317,6 +420,10 @@ impl Draft {
             op,
             value: value.into(),
         })
+    }
+    /// `AND field LIKE pattern`, in SQL's spelling ([`Pattern::like`]).
+    pub fn where_like(self, field: &str, pattern: &str) -> Self {
+        self.where_cmp(field, Op::Like, pattern)
     }
     /// `AND lo <= field AND field <= hi`, both ends included.
     pub fn where_between(
@@ -457,7 +564,24 @@ impl Draft {
                     Op::Le => Cmp::LeI32(v),
                     Op::Gt => Cmp::GtI32(v),
                     Op::Ge => Cmp::GeI32(v),
+                    Op::Like => return Err(mismatch()),
                 }
+            }
+            (FieldKind::Code, Literal::Text(s)) if p.op == Op::Like => {
+                let field = || p.field.clone();
+                let pattern =
+                    Pattern::like(s).ok_or_else(|| BindError::BadPattern { field: field() })?;
+                let codes = b
+                    .codes_matching(t, f.col, &pattern)
+                    .ok_or_else(|| BindError::PatternUnsupported { field: field() })?;
+                // `x IN ()` has no lowering; a pattern that covers no value
+                // keeps no row of the table.
+                let leaf = if codes.is_empty() {
+                    Filter::negate(Filter::plane(b.live(t)))
+                } else {
+                    Filter::in_u32(f.col, codes)
+                };
+                return Ok((leaf, f));
             }
             (FieldKind::Code, Literal::Text(s)) => {
                 // Refused before the codebook is asked: no order to resolve.
@@ -700,6 +824,16 @@ mod tests {
                 .position(|s| *s == literal.to_ascii_lowercase())
                 .map(|i| i as u32)
         }
+        fn codes_matching(&self, _: TableId, _: Col, pattern: &Pattern) -> Option<Vec<u32>> {
+            self.tick();
+            Some(
+                (0u32..)
+                    .zip(&self.smtp)
+                    .filter(|(_, s)| pattern.matches(s))
+                    .map(|(code, _)| code)
+                    .collect(),
+            )
+        }
     }
 
     /// 200 rows: smtp code = i % 3, age = 20 + i % 50, row 13 not live.
@@ -733,6 +867,164 @@ mod tests {
         };
         let v = execute_into(&p, &planes, &Foreign::NONE, &mut scratch, out).unwrap();
         (v, materialize_rows(&bits, n))
+    }
+
+    /// Rows of [`run`]'s table a pattern keeps, counted without the binder:
+    /// row `i` holds `smtp[i % 3]` and row 13 is not live.
+    fn like_oracle(smtp: &[&str], keep: impl Fn(&str) -> bool) -> usize {
+        (0..200).filter(|&i| i != 13 && keep(smtp[i % 3])).count()
+    }
+
+    /// FAILS IF: a pattern binds to another set of identities than the
+    /// values it matches, or the bound query holds anything but a membership
+    /// filter over those identities.
+    #[test]
+    fn a_pattern_binds_to_the_identities_it_covers() {
+        let users = Users::new();
+        type Case = (&'static str, fn(&str) -> bool);
+        let cases: [Case; 5] = [
+            ("alice%", |s| s.starts_with("alice")),
+            ("%@x.de", |s| s.ends_with("@x.de")),
+            ("_ob@x.de", |s| s == "bob@x.de"),
+            ("%o%", |s| s.contains('o')),
+            ("carol@x.de", |s| s == "carol@x.de"),
+        ];
+        let mut counts = Vec::new();
+        for (pattern, keep) in cases {
+            let q = table("users")
+                .where_like("smtp", pattern)
+                .count()
+                .bind(&users)
+                .unwrap();
+            let (v, _) = run(&q);
+            let want = like_oracle(&users.smtp, keep);
+            assert_eq!(v, Value::Count(want), "{pattern}");
+            counts.push(want);
+        }
+        // Anti-vacuity: the patterns keep different numbers of rows, none of
+        // them every row but the one that should.
+        assert_eq!(counts, [67, 199, 66, 132, 66]);
+
+        // The bound query is the membership filter an expert writes.
+        let by_pattern = table("users")
+            .where_like("smtp", "%o%")
+            .count()
+            .bind(&users)
+            .unwrap();
+        let by_hand = Query {
+            filter: Filter::and([Filter::plane(Mask(0)), Filter::in_u32(Col(0), [1, 2])]),
+            agg: Agg::Count,
+        };
+        assert_eq!(by_pattern, by_hand);
+    }
+
+    /// FAILS IF: a pattern that covers no value is refused, or keeps a row.
+    /// The twin: `=` on a value the domain has never seen IS refused.
+    #[test]
+    fn a_pattern_that_covers_nothing_keeps_no_row_and_equality_is_refused() {
+        let users = Users::new();
+        let q = table("users")
+            .where_like("smtp", "dave%")
+            .count()
+            .bind(&users)
+            .unwrap();
+        assert_eq!(run(&q).0, Value::Count(0));
+        let rows = table("users")
+            .where_like("smtp", "dave%")
+            .rows()
+            .bind(&users)
+            .unwrap();
+        assert!(run(&rows).1.is_empty());
+        assert_eq!(
+            table("users")
+                .where_eq("smtp", "dave@x.de")
+                .count()
+                .bind(&users),
+            Err(BindError::UnknownValue {
+                field: "smtp".into(),
+                value: "dave@x.de".into(),
+            })
+        );
+    }
+
+    /// FAILS IF: `LIKE` semantics drift from SQL's: `%` any run, `_` exactly
+    /// one character, `\` escapes, whole value, case-sensitive.
+    #[test]
+    fn like_matches_as_sql_does() {
+        let m = |p: &str, v: &str| Pattern::like(p).unwrap().matches(v);
+        for (pattern, value, want) in [
+            ("a.%", "a.b", true),
+            ("a.%", "a.", true),
+            ("a.%", "a", false),
+            ("a.%", "ab.c", false),
+            ("a_", "ab", true),
+            ("a_", "a", false),
+            ("a_", "abc", false),
+            ("%", "", true),
+            ("", "", true),
+            ("", "a", false),
+            ("%a%b%", "xaxbx", true),
+            ("%a%b%", "xbxax", false),
+            ("a%a", "aba", true),
+            ("a%a", "a", false),
+            ("A%", "abc", false),
+            ("50\\%", "50%", true),
+            ("50\\%", "500", false),
+            ("a\\_b", "a_b", true),
+            ("a\\_b", "axb", false),
+            ("%é", "café", true),
+            ("_", "é", true),
+        ] {
+            assert_eq!(m(pattern, value), want, "{pattern:?} against {value:?}");
+        }
+        assert_eq!(Pattern::like("abc\\"), None, "an unfinished escape");
+    }
+
+    /// FAILS IF: a pattern is accepted where it cannot be resolved.
+    #[test]
+    fn a_pattern_is_refused_where_it_cannot_be_resolved() {
+        let users = Users::new();
+        let field = || "smtp".to_string();
+        assert_eq!(
+            table("users")
+                .where_like("smtp", "x\\")
+                .count()
+                .bind(&users),
+            Err(BindError::BadPattern { field: field() })
+        );
+        assert_eq!(
+            table("users").where_like("age", "2%").count().bind(&users),
+            Err(BindError::KindMismatch {
+                field: "age".into()
+            })
+        );
+        // A binder that cannot enumerate its domain: the default.
+        struct Blind(Users);
+        impl Binder for Blind {
+            fn table(&self, name: &str) -> Option<TableId> {
+                self.0.table(name)
+            }
+            fn live(&self, t: TableId) -> Mask {
+                self.0.live(t)
+            }
+            fn field(&self, t: TableId, name: &str) -> Option<BoundField> {
+                self.0.field(t, name)
+            }
+            fn code(&self, t: TableId, c: Col, literal: &str) -> Option<u32> {
+                self.0.code(t, c, literal)
+            }
+        }
+        let blind = Blind(Users::new());
+        assert_eq!(
+            table("users").where_like("smtp", "a%").count().bind(&blind),
+            Err(BindError::PatternUnsupported { field: field() })
+        );
+        // The twin: the same binder still binds an equality.
+        assert!(table("users")
+            .where_eq("smtp", "bob@x.de")
+            .count()
+            .bind(&blind)
+            .is_ok());
     }
 
     #[test]

@@ -25,11 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-663 entries, 2026-08-06 .. 2026-11-19.
+665 entries, 2026-08-06 .. 2026-11-19.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-19 | `D-XLOG-W7-2-STEP-4B` |  | [2026-11-19-d-xlog-w7-2-method-is-a-called-do.md](2026-11-19-d-xlog-w7-2-method-is-a-called-do.md) |
+| 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-quack-like-at-bind.md](2026-11-19-d-gpw-quack-like-at-bind.md) |
+| 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-lance-graph-spacy-front-end.md](2026-11-19-d-gpw-lance-graph-spacy-front-end.md) |
 | 2026-11-19 | `D-GPW-0` |  | [2026-11-19-d-gpw-global-pattern-words.md](2026-11-19-d-gpw-global-pattern-words.md) |
 | 2026-11-18 | `exo-328-advance-codes` |  | [2026-11-18-exo-328-advance-codes.md](2026-11-18-exo-328-advance-codes.md) |
 | 2026-11-18 | `exo-326-kleene-gate` |  | [2026-11-18-exo-326-kleene-gate.md](2026-11-18-exo-326-kleene-gate.md) |
