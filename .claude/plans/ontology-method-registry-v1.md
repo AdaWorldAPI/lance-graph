@@ -108,7 +108,7 @@ bound, at the bound schema revision.
 
 | odoo | Row |
 | --- | --- |
-| `@api.depends(targets)`, `@api.onchange` | ON: which predicates trigger |
+| `@api.depends(targets)`, `@api.onchange` | ON: which predicates the method is declared over. (This row said "which predicates trigger" until 2026-11-19. Nothing is triggered: a method is called, and the classid's left side already names what it is on. Owner statements on EXO-329 and EXO-333; the wording of the dt64 comments is EXO-336's to rule.) |
 | state-machine transition guard | WHEN |
 | `@api.constrains`, constraint | effect class `Validation`; **not** a WHEN. It adds errors to a record; it does not decide whether a method fires. Refused for `F000` **[HIRO]** |
 | `Compute` / `Inverse` | effect class `FieldTransform`, through the gate. A field write is never an `F000` effect. Only a pure compute lowered as a query can be an `F000` fold, and that lowering does not exist yet **[HIRO]** |

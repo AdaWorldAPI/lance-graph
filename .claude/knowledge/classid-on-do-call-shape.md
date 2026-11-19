@@ -168,10 +168,21 @@ Not settled by this, and still EXO-140: whether `EqU32Via`, `Semijoin` and
 `Gather` are admitted on a query path for a relation the ontology declares.
 The statements above were not read as admitting them.
 
-OPEN in lance-graph: the cube lends a pair plane per relation (#2131), but its
-row-returning and counting terminals work on one tile (at most 256 ids across
-all relations) and a cube side cannot filter on a property of the joined row
-(EXO-327, unanswered).
+OPEN in lance-graph: the cube lends a pair plane per relation (#2131), and a
+cube side cannot filter on a property of the joined row (EXO-327,
+unanswered).
+
+Corrected 2026-11-19 (EXO-338). An earlier version of this paragraph said the
+cube's "row-returning and counting terminals work on one tile (at most 256
+ids across all relations)". That copied the header of `cube.rs` without
+reading each terminal. VERIFIED-IN-CODE, `crates/lance-graph-xlog/src`:
+`Cube::new_tiled` spans tiles. Four entry points refuse a tiled cube
+(`CubeRefusal::Tiled`): `add_relation` (`cube.rs:518-520`),
+`materialize_rows` (`cube.rs:1580`), `body_answer` (`cube/body.rs:540`) and
+`materialize_witnesses` (`cube/body.rs:576`). The counting terminals
+`bag_count`, `column_counts` and `join_size` have no tiled check. Not run on
+a tiled cube by the session that wrote this. The header at `cube.rs:28` still
+carries the old sentence; changing it is EXO-338's to rule.
 
 ## 5. The goal: a call shape
 

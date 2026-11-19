@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-665 entries, 2026-08-06 .. 2026-11-19.
+666 entries, 2026-08-06 .. 2026-11-19.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-quack-like-at-bind.md](2026-11-19-d-gpw-quack-like-at-bind.md) |
 | 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-lance-graph-spacy-front-end.md](2026-11-19-d-gpw-lance-graph-spacy-front-end.md) |
 | 2026-11-19 | `D-GPW-0` |  | [2026-11-19-d-gpw-global-pattern-words.md](2026-11-19-d-gpw-global-pattern-words.md) |
+| 2026-11-19 | `corrections-cube-tiles-and-trigger-wording` |  | [2026-11-19-corrections-cube-tiles-and-trigger-wording.md](2026-11-19-corrections-cube-tiles-and-trigger-wording.md) |
 | 2026-11-18 | `exo-328-advance-codes` |  | [2026-11-18-exo-328-advance-codes.md](2026-11-18-exo-328-advance-codes.md) |
 | 2026-11-18 | `exo-326-kleene-gate` |  | [2026-11-18-exo-326-kleene-gate.md](2026-11-18-exo-326-kleene-gate.md) |
 | 2026-11-18 | `exo-292-draft-ranges-count-by` |  | [2026-11-18-exo-292-draft-ranges-count-by.md](2026-11-18-exo-292-draft-ranges-count-by.md) |
