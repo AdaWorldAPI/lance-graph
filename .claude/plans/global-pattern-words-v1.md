@@ -74,11 +74,21 @@ naming either, and its absent-case policy is "a name needs no member".
   aliases. One position has a name per language
   (`AliasLanguage::{R2il, Sql, Quack}`). No word has a hole: `=`, `<`, `AND`,
   `OR`, `NOT`, the folds. `LIKE` and `IN` have no position.
-- PROPOSAL, D-MTP-0 done 2026-10-14: `.claude/plans/metta-polyfill-v1.md`.
-  MeTTa as a front end over the masking-algebra polyfill, attached at
-  `Space::query(&Atom) -> BindingsSet`. Proposed crate `lance-graph-metta`,
-  not created. This plan builds on it for the across dimension; it does not
-  restate it.
+- VERIFIED-IN-CODE and MEASURED there: `.claude/plans/metta-polyfill-v1.md`
+  and its umbrella `metta-datalog-assimilation-v1.md` (D-ASM). MeTTa as a
+  front end over the masking-algebra polyfill, attached at
+  `Space::query(&Atom) -> BindingsSet`. The crate `crates/lance-graph-metta`
+  EXISTS (its own workspace root; `src/lib.rs` plus three probes; D-MTP-1 and
+  D-MTP-1b measured, the `Space` adapter D-MTP-2 queued). The plan's own
+  header still says "No crate exists yet"; an earlier version of this file
+  repeated that without opening the crate. This plan builds on it for the
+  across dimension; it does not restate it.
+- CURRENT-CONTRACT, D-ASM-10: MORK runs as an oracle outside the workspace
+  (`crates/mork-pathmap-probe`: "results only; no Lance storage, no
+  production executor").
+- The name "Ruler" is taken twice: `dr-mathematical-compiler-v1.md:41` uses
+  "Ruler/Enumo" for cold rule synthesis ahead of egglog, and ndarray ships
+  `CurveRuler`.
 - CURRENT-CONTRACT:
   `.claude/plans/d-cgmm-lazy-codegraph-fact-demand-v1.md:125`. A spaCy-like
   `Doc/Token/Span/Matcher` pipeline is "a useful cold annotation interface
@@ -125,7 +135,7 @@ dimension should reuse. D-GPW-1 is that census.
 | D-GPW-3 | The across dimension: one pattern word over a declared relation, in the lens the owner decides (§5.1), with its SQL and MeTTa alias names | equals zammad-rs `under` on the 57 recorded lookups and equals D-MTP-0's oracle on its join program; a name that is no alias is refused |
 | D-GPW-4 | The within dimension: how a value's parts are declared at intake so a hole can cover a span, reusing whatever D-GPW-1 finds | `LIKE 'a.%'`, `LIKE 'a_'` and an escaped pattern answered without text at run time, equal to PostgreSQL |
 | D-GPW-5 | zammad-rs: `under` and the fragment reader's `LIKE` replaced by the word; its own paths kept only as the oracle | all 512 SELECTs still equal PostgreSQL |
-| D-GPW-6 | The `lance-graph-metta` front end of metta-polyfill-v1 lowering `match` onto the same word | D-MTP's own gates |
+| D-GPW-6 | The existing `lance-graph-metta` front end (D-MTP-2 / D-ASM-4) lowering `match` onto the same word | D-MTP's and D-ASM's own gates |
 
 ## 5. Decisions needed
 
@@ -144,6 +154,26 @@ dimension should reuse. D-GPW-1 is that census.
    carries none (EXO-291, with zammad-rs's count: 53 conditions with
    constants for 18 shapes). D-GPW-3 cannot register a pattern once per shape
    without it.
+
+## 5a. Where it lives (owner's options, 2026-11-19, verbatim)
+
+> Eg Lance-graph-ruler global Or 3 different dialects Lance-graph-spaCy
+> Lance-graph-mork Lance-graph-metta
+
+Recommendation of this session, not a decision:
+
+- **One global home for the word and its parameters.** A dialect is a set of
+  names for the same positions (D-DT64-7 §1b), so three dialect crates would
+  each need the word and would differ only in spelling.
+- **A dialect gets a crate only where it has a front end of its own to
+  hold.** MeTTa has one (a text language and Hyperon's `Space` seam) and the
+  crate already exists. spaCy's and SQL's spellings are alias views in the
+  global home, which also keeps the existing rule that a spaCy-like pipeline
+  is not a second text representation. MORK stays an oracle (D-ASM-10)
+  unless that decision is changed.
+- **The name.** `lance-graph-ruler` reads well against "holding a ruler
+  against a stack", and collides with Ruler/Enumo and `CurveRuler`. Either
+  accept the collision knowingly or pick another name.
 
 ## 6. Not verified by this session
 

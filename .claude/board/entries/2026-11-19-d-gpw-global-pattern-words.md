@@ -26,7 +26,13 @@ VERIFIED-IN-CODE: `POLYFILL` has 17 words and none with a hole; `LIKE` and
 `IN` have no position. `Logic::{TwoValued, Kleene}` is already an absent-case
 declaration, for truth.
 
-Prior art built on, not restated: `metta-polyfill-v1.md` (across dimension);
+Correction, same day: the first version of the plan said the crate
+`lance-graph-metta` was "not created", copied from the header of
+`metta-polyfill-v1.md`. The crate exists (`src/lib.rs`, three probes, D-MTP-1
+measured). The plan now says so.
+
+Prior art built on, not restated: `metta-polyfill-v1.md` and
+`metta-datalog-assimilation-v1.md` (across dimension);
 `d-cgmm-lazy-codegraph-fact-demand-v1.md:125` (a spaCy-like pipeline is an
 analogy, not a second text representation).
 
