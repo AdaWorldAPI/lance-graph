@@ -1,3 +1,17 @@
+## D-GPW: global pattern words (2026-11-19)
+
+Plan: `.claude/plans/global-pattern-words-v1.md`. Documentation only.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-GPW-0 | Plan and the four owner decisions (lens, absent-case variants, relation to `Logic`, call parameters) | In PR, docs only; decisions open |
+| D-GPW-1 | Census of every pattern match in lance-graph and its consumers, counted from source | Queued |
+| D-GPW-2 | The absent-case policy as a declared parameter beside `Logic` | Queued (needs decision 2) |
+| D-GPW-3 | The across dimension: one pattern word over a declared relation, SQL and MeTTa alias names | Queued (needs decisions 1 and 4) |
+| D-GPW-4 | The within dimension: a value's parts declared at intake | Queued |
+| D-GPW-5 | zammad-rs: `under` and `LIKE` replaced by the word, own paths kept as oracle | Queued (zammad-rs side) |
+| D-GPW-6 | `lance-graph-metta` front end lowering `match` onto the word | Queued (metta-polyfill-v1) |
+
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
 Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291. Subordinate to D-DT64-7 (plan §9); the remaining rows are consumers of it.
