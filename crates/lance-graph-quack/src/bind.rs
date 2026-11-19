@@ -881,7 +881,8 @@ mod tests {
     #[test]
     fn a_pattern_binds_to_the_identities_it_covers() {
         let users = Users::new();
-        let cases: [(&str, fn(&str) -> bool); 5] = [
+        type Case = (&'static str, fn(&str) -> bool);
+        let cases: [Case; 5] = [
             ("alice%", |s| s.starts_with("alice")),
             ("%@x.de", |s| s.ends_with("@x.de")),
             ("_ob@x.de", |s| s == "bob@x.de"),
