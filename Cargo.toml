@@ -148,6 +148,10 @@ exclude = [
     # D-MTP-1: its own workspace root (datafrog oracle is a git dev-dependency).
     # `cargo test --manifest-path crates/lance-graph-metta/Cargo.toml`.
     "crates/lance-graph-metta",
+    # D-GPW: spaCy's Matcher token-pattern format as a front end; own
+    # workspace root.
+    # `cargo test --manifest-path crates/lance-graph-spacy/Cargo.toml`.
+    "crates/lance-graph-spacy",
     # D-COGNITIVE-POLYFILL P0 lab probe; own workspace root.
     # `cargo test --manifest-path crates/cognitive-polyfill-probe/Cargo.toml`.
     "crates/cognitive-polyfill-probe",

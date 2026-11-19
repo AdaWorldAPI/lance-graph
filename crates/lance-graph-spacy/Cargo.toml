@@ -1,0 +1,18 @@
+[package]
+name = "lance-graph-spacy"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "A front end that reads spaCy's Matcher token-pattern format (JSON) and answers whether a value's tokens match; no document, tokenizer rules, vocabulary or model."
+
+# Its OWN workspace root, like `lance-graph-metta`: a front end that stays
+# out of the main workspace's resolution.
+# Verify via `cargo test --manifest-path crates/lance-graph-spacy/Cargo.toml`.
+[workspace]
+
+[dependencies]
+serde_json = "1"
+
+[dev-dependencies]
+# One equivalence test against `Pattern::like`. Test only.
+lance-graph-quack = { path = "../lance-graph-quack" }
