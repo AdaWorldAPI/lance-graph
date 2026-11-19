@@ -175,6 +175,35 @@ Recommendation of this session, not a decision:
   against a stack", and collides with Ruler/Enumo and `CurveRuler`. Either
   accept the collision knowingly or pick another name.
 
+### 5b. A third option (owner, 2026-11-19, verbatim)
+
+> Or just inside quack Easy and simple
+
+**This session's recommendation now.** It needs no new crate and no new layer:
+
+- VERIFIED-IN-CODE. Quack already has both ends. `bind.rs` is its text
+  frontend, the one file where a name or a literal may appear
+  (`tests/string_fence.rs` keeps text out of everything else). The executable
+  vocabulary already has membership (`Filter::in_u32`) and the relation hop
+  (`Filter::Semijoin`, `Filter::EqU32Via`).
+- So the pattern word is a `Filter` leaf, the within dimension is resolved in
+  `bind.rs` (a pattern's text becomes members there and never passes it), and
+  the across dimension lowers to the hop leaves that exist. R3 of this plan
+  is then Quack's existing fence, not a new rule.
+- The global name stays where names live: a position in `POLYFILL` with its
+  SQL, Quack and MeTTa aliases. Quack holds the reading, the lens holds the
+  address, as for `=` and `AND` today.
+- `lance-graph-metta` already lowers through Quack, so D-GPW-6 needs nothing
+  new on that side.
+
+Two things this option does not remove:
+
+- `Semijoin` and `EqU32Via` are not yet admitted for a consumer's map lanes
+  (EXO-140). The across dimension inherits that gate.
+- The absent-case policy (§5.2) still has to be declared somewhere. Inside
+  Quack it would be a parameter of the leaf, set at bind from the class
+  field's declaration.
+
 ## 6. Not verified by this session
 
 - Hyperon and PeTTa were not run here; §2 quotes metta-polyfill-v1.
