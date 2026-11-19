@@ -1,23 +1,29 @@
-//! A registered method executed over a cube relation's lent lanes.
+//! A registered method called over a cube relation's lent lanes.
 //!
-//! The store holds the method with its WHEN guard over the class's field
-//! positions. `Prepared::prepare` does everything that depends on the binding
-//! once: admit the reference, bind the method's reads through the lane
-//! socket, borrow both lanes and the live plane, lower the guard. `run` only
-//! executes the lowered program over the cube's own words.
+//! The method has no WHEN. What it computes is its DO: an ordered list of
+//! effects, each a frozen word of the polyfill lens (`0xFFFF :: 0xF000`)
+//! addressed by position, with its operands. A call does the work:
+//! `Prepared::prepare` admits the reference, borrows the method's reads from
+//! the cube through the lane socket and binds the words once; `run` executes
+//! the bound plan over the cube's own words. Nothing is evaluated for a
+//! method that is not called.
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
-use lance_graph_contract::set_algebra::{Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
-use lance_graph_dt64::dr::{LocalMap, MapTable, Scope, Width};
+use lance_graph_dt64::dr::{Focus, Guards, LocalMap, MapTable, Scope, Width};
 use lance_graph_dt64::{
-    BindStore, ClassSchema, Extent, Guard, LaneRefusal, LaneRequest, MethodBinding, MethodId,
-    MethodRef, Refusal, RouteAt, SchemaRev, SigRev, ValueDemand,
+    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, LaneRefusal, LaneRequest,
+    MethodBinding, MethodId, MethodRef, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Program, Scratch, Value};
-use lance_graph_quack::set::{lower_set, SetLowered};
-use lance_graph_quack::{lower, Agg, Filter, Mask, Query};
+use lance_graph_mask_risc::{Foreign, LaneRef, Planes};
+use lance_graph_r2il::binding::{
+    prepare, run, ExecPermit, ExecRefusal, FieldLanes, Prepared as Plan, R2ilLens, Resolution,
+};
+use lance_graph_r2il::polyfill::{
+    polyfill_arities, position_of, HARDCODED, POLYFILL, POLYFILL_LENS,
+};
+use lance_graph_r2il::FoldDialect;
 use lance_graph_xlog::cube::CubeLanes;
 
 pub const TILE: u32 = 5;
@@ -26,21 +32,50 @@ const CLASS_VIEW: ClassId = 0x7F0E;
 pub const REV: SchemaRev = SchemaRev(1);
 pub const POSITION: u16 = 2;
 pub const READER: Scope = Scope { id: 9 };
+const FOCUS: Focus = Focus { revision: 1 };
 pub const X: &str = "lab:edge/x";
 pub const Y: &str = "lab:edge/y";
 /// Field positions in the view: `y` is listed before `x`.
-pub const FIELD_Y: u16 = 0;
-pub const FIELD_X: u16 = 1;
+pub const FIELD_Y: u8 = 0;
+pub const FIELD_X: u8 = 1;
+/// Fields from here on hold a method's intermediate values and its answer.
+const SCRATCH: u8 = 2;
+const N_FIELDS: usize = 8;
+const LENS: R2ilLens = R2ilLens {
+    lens: POLYFILL_LENS,
+    schema_rev: REV,
+};
 
-pub struct View(Vec<FieldRef>);
+pub struct View {
+    class: Vec<FieldRef>,
+    lens: Vec<FieldRef>,
+}
+
+impl View {
+    fn new() -> Self {
+        let mut class = vec![FieldRef::new(Y, "y"), FieldRef::new(X, "x")];
+        class.extend(
+            (class.len()..N_FIELDS)
+                .map(|i| FieldRef::new(format!("lab:edge/t{i}"), format!("t{i}"))),
+        );
+        let lens = POLYFILL
+            .iter()
+            .map(|w| FieldRef::new(format!("lab:polyfill/{}", w.aliases[0]), w.aliases[0]))
+            .collect();
+        View { class, lens }
+    }
+}
 
 impl ClassView for View {
     fn fields(&self, class: ClassId) -> &[FieldRef] {
-        if class == CLASS_VIEW {
-            &self.0
-        } else {
-            &[]
+        match class {
+            CLASS_VIEW => &self.class,
+            HARDCODED => &self.lens,
+            _ => &[],
         }
+    }
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        (lens == POLYFILL_LENS).then_some(self.lens.as_slice())
     }
     fn template(&self, _class: ClassId) -> DisplayTemplate {
         DisplayTemplate::Card
@@ -64,27 +99,48 @@ pub fn table(ids: &[u32]) -> MapTable {
     t
 }
 
-/// The method `from(src) and not to(dst)`: the edges out of `src` that do
-/// not end in `dst`. The guard is stated over the class's lanes, which hold
-/// tile coordinates, so its constants are the coordinates of the two ids in
+/// One effect: the word named `name` in any of the lens's languages, by the
+/// position that name is an alias of.
+fn word(target: u8, name: &str, args: Vec<Arg>) -> Effect {
+    Effect {
+        target,
+        algebra: AlgebraRef {
+            lens: POLYFILL_LENS,
+            word: position_of(name).unwrap_or_else(|| panic!("{name:?} is no polyfill alias")),
+        },
+        args,
+    }
+}
+
+/// The field a method leaves its answer in.
+pub const ANSWER: u8 = SCRATCH + 4;
+
+/// The method `from(src) and not to(dst)`, counting the edges out of `src`
+/// that do not end in `dst`, as five words:
+/// `=`(x, src), `=`(y, dst), NOT, AND, COUNT. The lanes hold tile
+/// coordinates, so the two constants are the coordinates of the ids in
 /// `table`'s current frame.
 pub fn method(id: u32, table: &MapTable, src: u32, dst: u32) -> MethodBinding {
     let frame = table.seal();
     let map = table.map(&frame, TILE).unwrap();
-    let code = |g: u32| u32::from(map.local(u64::from(g)).unwrap());
-    let guard = SetExpr::And(vec![
-        SetExpr::eq_u32(FIELD_X, code(src)),
-        SetExpr::ne_u32(FIELD_Y, code(dst)),
-    ]);
-    let reads = WideFieldMask::from_positions(&[FIELD_X as u8, FIELD_Y as u8]);
+    let code = |g: u32| i64::from(map.local(u64::from(g)).unwrap());
+    let (from, to, not_to, both) = (SCRATCH, SCRATCH + 1, SCRATCH + 2, SCRATCH + 3);
+    let effects = vec![
+        word(from, "=", vec![Arg::Field(FIELD_X), Arg::Const(code(src))]),
+        word(to, "=", vec![Arg::Field(FIELD_Y), Arg::Const(code(dst))]),
+        word(not_to, "NOT", vec![Arg::Field(to)]),
+        word(both, "AND", vec![Arg::Field(from), Arg::Field(not_to)]),
+        word(ANSWER, "COUNT", vec![Arg::Field(both)]),
+    ];
+    let reads = WideFieldMask::from_positions(&[FIELD_X, FIELD_Y]);
     MethodBinding {
         id: MethodId(id),
         sig_rev: SigRev(1),
         name: format!("from {src} and not to {dst}"),
         on: reads.clone(),
-        when: Some(Guard::new(guard, Logic::TwoValued)),
+        when: None,
         reads,
-        effects: Vec::new(),
+        effects,
         population: Population::Bag,
         truth: Truth::TwoValued,
         demand: ValueDemand::Values,
@@ -99,14 +155,17 @@ pub struct World {
 
 pub fn world(methods: Vec<MethodBinding>) -> World {
     let mut store = BindStore::new();
-    let view = View(vec![FieldRef::new(Y, "y"), FieldRef::new(X, "x")]);
+    let view = View::new();
+    store
+        .declare_algebra(POLYFILL_LENS, REV, Extent::DR64_CUBE, polyfill_arities())
+        .unwrap();
     store
         .register(
             &view,
             CLASS,
             ClassSchema {
                 schema_rev: REV,
-                field_count: 2,
+                field_count: N_FIELDS,
                 extent: Extent::DR64_CUBE,
             },
             methods,
@@ -127,23 +186,22 @@ pub fn world(methods: Vec<MethodBinding>) -> World {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum MethodRefusal {
-    Admit(Refusal),
+    /// The words could not be bound, or the reference was not admitted.
+    Prepare(ExecRefusal),
     Lane(LaneRefusal),
-    NoGuard,
-    /// The guard reduced to a constant, so there is no program to run.
-    Constant,
-    /// A field the guard names was not lent.
-    NotLent(u16),
-    Lower(String),
+    /// A field the method reads was not lent.
+    NotLent(u8),
+    Run(ExecRefusal),
+    /// The method wrote no value to its answer field.
+    NoAnswer,
 }
 
-/// A method made ready once per binding.
+/// A method made ready by one call's preparation.
 pub struct Prepared<'s> {
+    plan: Plan,
     lanes: Vec<LaneRef<'s>>,
-    masks: Vec<&'s [u64]>,
+    field_lanes: [Option<u16>; N_FIELDS],
     rows: usize,
-    program: Program,
-    scratch: Scratch<'static>,
 }
 
 impl<'s> Prepared<'s> {
@@ -153,14 +211,26 @@ impl<'s> Prepared<'s> {
         table: &MapTable,
         r: &MethodRef,
     ) -> Result<Prepared<'s>, MethodRefusal> {
-        let bound = w.store.admit(r).map_err(MethodRefusal::Admit)?;
-        let guard = bound.when.as_ref().ok_or(MethodRefusal::NoGuard)?;
-        let set = match lower_set(&guard.expr, guard.logic) {
-            Ok(SetLowered::Filter(set)) => set,
-            Ok(_) => return Err(MethodRefusal::Constant),
-            Err(e) => return Err(MethodRefusal::Lower(format!("{e:?}"))),
+        let guards = Guards {
+            frame: table.seal(),
+            focus: FOCUS,
+            scope: READER,
         };
-        let frame = table.seal();
+        let plan = prepare(
+            &w.store,
+            &w.view,
+            LENS,
+            &Resolution {
+                method: r,
+                schema_rev: REV,
+                route: (w.route.version, POSITION),
+                guards: &guards,
+            },
+            table.frames(),
+            (FOCUS, READER),
+        )
+        .map_err(MethodRefusal::Prepare)?;
+        let reads = WideFieldMask::from_positions(&[FIELD_X, FIELD_Y]);
         let binding = w
             .store
             .bind_lanes(
@@ -170,71 +240,70 @@ impl<'s> Prepared<'s> {
                 LaneRequest {
                     route: w.route,
                     rev: REV,
-                    fields: &bound.reads,
-                    frame: &frame,
+                    fields: &reads,
+                    frame: &guards.frame,
                     scope: READER,
                     selection: source.space(),
                 },
             )
             .map_err(MethodRefusal::Lane)?;
-        // Column `i` of the filter reads the lane of field `set.lanes()[i]`.
-        let mut by_field: Vec<Option<LaneRef<'s>>> = vec![None; set.lanes().len()];
-        let mut live: Option<&'s [u64]> = None;
+        let mut lanes = Vec::new();
+        let mut field_lanes = [None; N_FIELDS];
+        let mut rows = 0;
         for lent in binding
             .borrow_all_present(&w.store, &w.view, table.frames(), source)
             .map_err(MethodRefusal::Lane)?
         {
-            let (field, lane, plane) = lent.map_err(MethodRefusal::Lane)?;
-            if let Some(at) = set.lanes().iter().position(|&l| l == u16::from(field)) {
-                by_field[at] = Some(lane);
+            let (field, lane, _live) = lent.map_err(MethodRefusal::Lane)?;
+            if let LaneRef::U32(values) = lane {
+                rows = values.len();
             }
-            live = Some(plane);
+            field_lanes[usize::from(field)] = Some(lanes.len() as u16);
+            lanes.push(lane);
         }
-        let mut lanes = Vec::with_capacity(by_field.len());
-        for (at, lane) in by_field.into_iter().enumerate() {
-            lanes.push(lane.ok_or(MethodRefusal::NotLent(set.lanes()[at]))?);
+        for field in [FIELD_X, FIELD_Y] {
+            if field_lanes[usize::from(field)].is_none() {
+                return Err(MethodRefusal::NotLent(field));
+            }
         }
-        let live = live.ok_or(MethodRefusal::NotLent(FIELD_X))?;
-        let rows = match lanes[0] {
-            LaneRef::U32(v) => v.len(),
-            _ => return Err(MethodRefusal::Lower("a relation lane is u32".into())),
-        };
-        let filter = set
-            .two_valued(set.lanes())
-            .map_err(|e| MethodRefusal::Lower(format!("{e:?}")))?;
-        let program = lower(&Query {
-            filter: Filter::and([Filter::plane(Mask(0)), filter]),
-            agg: Agg::Count,
-        })
-        .map_err(|e| MethodRefusal::Lower(format!("{e:?}")))?;
-        let scratch = Scratch::for_program(&program, rows)
-            .map_err(|e| MethodRefusal::Lower(format!("{e:?}")))?;
         Ok(Prepared {
+            plan,
             lanes,
-            masks: vec![live],
+            field_lanes,
             rows,
-            program,
-            scratch,
         })
     }
 
-    /// How many live rows of the relation satisfy the guard.
-    pub fn run(&mut self) -> u64 {
+    /// One call: the value the method leaves in its answer field.
+    pub fn run(&self, w: &World, table: &MapTable) -> Result<u64, MethodRefusal> {
         let planes = Planes {
             n_rows: self.rows,
-            masks: &self.masks,
+            masks: &[],
             lanes: &self.lanes,
         };
-        match execute_into(
-            &self.program,
-            &planes,
-            &Foreign::NONE,
-            &mut self.scratch,
-            Out::None,
-        ) {
-            Ok(Value::Count(n)) => n as u64,
-            other => panic!("a count terminal: {other:?}"),
-        }
+        let foreign = Foreign::NONE;
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let receipt = run(
+            &self.plan,
+            &w.store,
+            table.frames(),
+            (FOCUS, READER),
+            &ExecPermit {
+                methods: vec![self.plan.method().clone()],
+            },
+            FieldLanes {
+                lanes: &self.field_lanes,
+            },
+            &mut dialect,
+        )
+        .map_err(MethodRefusal::Run)?;
+        receipt
+            .output
+            .values
+            .iter()
+            .find(|(f, _)| *f == ANSWER)
+            .map(|(_, v)| *v as u64)
+            .ok_or(MethodRefusal::NoAnswer)
     }
 }
 

@@ -1,3 +1,8 @@
+## 2026-11-19 — D-GPW-0: global pattern words, one word with a hole, its two dimensions and its absent-case policy as parameters → `.claude/plans/global-pattern-words-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. A pattern (`LIKE 'a.%'`, a spaCy token pattern, a MeTTa `match`) is one global word; within-a-value and across-values are its two dimensions and the absent case is a declared policy, by analogy with `Codec8<T, S, R, N>`'s `Rounding` and `NanPolicy`. Builds on metta-polyfill-v1 for the across dimension. Four owner decisions listed (lens, absent-case variants, relation to `Logic`, call parameters). The reading is this session's and unconfirmed.
+**Confidence:** `POLYFILL` (17 words, alias languages), `Codec8`'s `NanPolicy` and `Logic` read in source; the zammad-rs numbers measured against PostgreSQL 16.15 (zammad-rs #41, #45); metta-polyfill-v1 quoted, Hyperon and spaCy not run here.
+
 ## 2026-11-18 — D-OMR-0: an ontology ↔ method registry through the `lance-graph-ontology` cache → `.claude/plans/ontology-method-registry-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. A fourth row kind, Method, beside entity, edge and attribute: ON / WHEN (with its logic) / DO and the effect class, stated in predicate IRIs and appended at intake; DT64 bindings are hydrated from it. `ActionDef` is the input form. Five owner decisions listed in the plan (minting, cache schema bump, odoo constants, promotion of rows below confidence 1.0, call parameters). Discussion and the HIRO session's agreement: EXO-291.
