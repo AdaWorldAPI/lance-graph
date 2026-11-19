@@ -83,6 +83,16 @@ naming either, and its absent-case policy is "a name needs no member".
   header still says "No crate exists yet"; an earlier version of this file
   repeated that without opening the crate. This plan builds on it for the
   across dimension; it does not restate it.
+- VERIFIED-IN-CODE: `crates/vrl-recipe-probe` (lab probe, its own workspace
+  root). It lowers the read / rename / filter subset of Vector's VRL onto
+  DT64 lane binding and mask-risc, checked against a naive interpreter, with
+  a parity test through the frozen `F000` words. It refuses every function
+  call but `del`, so `starts_with(.name, "a.")` and `split(.name, ".")`, VRL's
+  spellings of this plan's pattern and of its within dimension, are refused
+  there today. Owner, 2026-11-19: "If spacy is rust it might be valuable
+  along with VRL". spaCy is Python with a Cython core, not Rust; VRL is Rust.
+  VRL is a fourth alias language for the word, and that probe is the place
+  to extend.
 - CURRENT-CONTRACT, D-ASM-10: MORK runs as an oracle outside the workspace
   (`crates/mork-pathmap-probe`: "results only; no Lance storage, no
   production executor").
