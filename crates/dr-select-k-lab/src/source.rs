@@ -150,6 +150,12 @@ impl Source {
         }
     }
 
+    /// The `a` and `b` lanes as a fold's operands, read where they are. Not a
+    /// storage access: nothing is selected, staged or copied.
+    pub(crate) fn operand_lanes(&self) -> (&[i32], &[i32]) {
+        (&self.a, &self.b)
+    }
+
     /// For the oracle and the resident baseline only: the source lanes as
     /// `(guid, key, a, b)`. Does not count as a storage access; callers
     /// outside `oracle` and the baseline arm must not use it.

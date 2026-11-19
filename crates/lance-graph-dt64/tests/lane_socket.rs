@@ -789,3 +789,329 @@ mod relation_socket {
         );
     }
 }
+
+mod relation_reach {
+    use lance_graph_dt64::dr::{Axis, Frame, MapTable, PairDir, PairPlane, PairRefusal, Width};
+    use lance_graph_dt64::{
+        reach_path, relation_reach, ReachBuf, ReachPart, ReachRefusal, RelNo, RelationRefusal,
+        RelationSource, UNREACHED,
+    };
+
+    const P: usize = 512;
+    const W: usize = P / 64;
+
+    struct Owner {
+        plane: PairPlane,
+    }
+
+    impl RelationSource for Owner {
+        fn borrow_relation(&self, rel: RelNo) -> Option<&PairPlane> {
+            (rel == 0).then_some(&self.plane)
+        }
+    }
+
+    fn splitmix(s: &mut u64) -> u64 {
+        *s = s.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = *s;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    /// A chain 0→1→…→9, a branch 3→400→401, a cycle 20→21→22→20, an island
+    /// 300→301, and `extra` random edges among positions 100..200.
+    fn edges(extra: usize) -> Vec<(usize, usize)> {
+        let mut e: Vec<(usize, usize)> = (0..9).map(|i| (i, i + 1)).collect();
+        e.extend([
+            (3, 400),
+            (400, 401),
+            (20, 21),
+            (21, 22),
+            (22, 20),
+            (300, 301),
+        ]);
+        let mut s = 7u64;
+        for _ in 0..extra {
+            let a = 100 + (splitmix(&mut s) % 100) as usize;
+            let b = 100 + (splitmix(&mut s) % 100) as usize;
+            e.push((a, b));
+        }
+        e
+    }
+
+    fn owner(f: &Frame, edges: &[(usize, usize)]) -> Owner {
+        let axis = Axis::new(Width::W256, 2);
+        let mut plane = PairPlane::new(f, axis, axis);
+        for &(a, b) in edges {
+            plane.insert(a, b).unwrap();
+        }
+        Owner { plane }
+    }
+
+    fn mask(bits: &[usize]) -> Vec<u64> {
+        let mut m = vec![0u64; W];
+        for &b in bits {
+            m[b / 64] |= 1 << (b % 64);
+        }
+        m
+    }
+
+    /// Breadth first over the edge list: per position its distance from the
+    /// seeds, every step landing in `target`. Shares nothing with the plane.
+    fn bfs(
+        edges: &[(usize, usize)],
+        seeds: &[usize],
+        target: Option<&[u64]>,
+        fwd: bool,
+    ) -> Vec<u16> {
+        let mut dist = vec![UNREACHED; P];
+        let mut queue = std::collections::VecDeque::new();
+        for &s in seeds {
+            dist[s] = 0;
+            queue.push_back(s);
+        }
+        while let Some(x) = queue.pop_front() {
+            for &(a, b) in edges {
+                let (from, to) = if fwd { (a, b) } else { (b, a) };
+                let ok = target.is_none_or(|t| t[to / 64] >> (to % 64) & 1 == 1);
+                if from == x && ok && dist[to] == UNREACHED {
+                    dist[to] = dist[x] + 1;
+                    queue.push_back(to);
+                }
+            }
+        }
+        dist
+    }
+
+    struct Run {
+        reached: Vec<u64>,
+        hop: Vec<u16>,
+        scratch: Vec<u64>,
+    }
+
+    fn run() -> Run {
+        Run {
+            reached: vec![u64::MAX; W],
+            hop: vec![7; P],
+            scratch: vec![u64::MAX; 2 * W],
+        }
+    }
+
+    impl Run {
+        fn buf(&mut self) -> ReachBuf<'_> {
+            ReachBuf {
+                reached: &mut self.reached,
+                hop: &mut self.hop,
+                scratch: &mut self.scratch,
+            }
+        }
+    }
+
+    /// The reached mask and the hop of every position equal the BFS oracle,
+    /// forward and backward, with and without a target, from buffers that
+    /// start dirty. The answer is a strict, non-empty subset of the axis.
+    #[test]
+    fn reach_and_hops_equal_bfs() {
+        let t = MapTable::new(1, 1);
+        let f = t.seal();
+        let e = edges(150);
+        let o = owner(&f, &e);
+        let no_401 = {
+            let mut m = vec![u64::MAX; W];
+            m[401 / 64] &= !(1 << (401 % 64));
+            m
+        };
+        type Case<'a> = (&'a [usize], Option<&'a [u64]>, PairDir);
+        let cases: [Case<'_>; 5] = [
+            (&[0], None, PairDir::Forward),
+            (&[0, 20, 150], None, PairDir::Forward),
+            (&[0], Some(&no_401), PairDir::Forward),
+            (&[9, 401], None, PairDir::Backward),
+            (&[300], None, PairDir::Forward),
+        ];
+        for (seeds, target, dir) in cases {
+            let mut r = run();
+            let stats = relation_reach(&o, 0, &f, dir, &mask(seeds), target, &mut r.buf()).unwrap();
+            let want = bfs(&e, seeds, target, dir == PairDir::Forward);
+            assert_eq!(r.hop, want, "{seeds:?} {dir:?}");
+            let hit: Vec<usize> = (0..P).filter(|&p| want[p] != UNREACHED).collect();
+            assert_eq!(r.reached, mask(&hit));
+            assert_eq!(stats.reached as usize, hit.len());
+            assert!(!hit.is_empty() && hit.len() * 2 < P);
+        }
+        // The chain: nine hops to position 9, and the branch is two past 3.
+        let mut r = run();
+        relation_reach(&o, 0, &f, PairDir::Forward, &mask(&[0]), None, &mut r.buf()).unwrap();
+        assert_eq!((r.hop[9], r.hop[400], r.hop[401]), (9, 4, 5));
+        assert_eq!(r.hop[300], UNREACHED);
+    }
+
+    /// A path read back from the witness starts at a seed, ends at the asked
+    /// position, has `hop + 1` entries, and every step is an edge.
+    #[test]
+    fn a_path_is_made_of_held_edges() {
+        let t = MapTable::new(1, 1);
+        let f = t.seal();
+        let e = edges(150);
+        let o = owner(&f, &e);
+        for dir in [PairDir::Forward, PairDir::Backward] {
+            let seeds: &[usize] = if dir == PairDir::Forward {
+                &[0, 150]
+            } else {
+                &[9, 150]
+            };
+            let mut r = run();
+            relation_reach(&o, 0, &f, dir, &mask(seeds), None, &mut r.buf()).unwrap();
+            let mut walked = 0;
+            for to in (0..P).filter(|&p| r.hop[p] != UNREACHED) {
+                let mut path = [u32::MAX; 64];
+                let n = reach_path(&o, 0, &f, dir, &r.hop, to, &mut path).unwrap();
+                assert_eq!(n, r.hop[to] as usize + 1);
+                assert!(seeds.contains(&(path[0] as usize)));
+                assert_eq!(path[n - 1] as usize, to);
+                for s in path[..n].windows(2) {
+                    let (a, b) = (s[0] as usize, s[1] as usize);
+                    let pair = if dir == PairDir::Forward {
+                        (a, b)
+                    } else {
+                        (b, a)
+                    };
+                    assert!(e.contains(&pair), "{pair:?} is not an edge");
+                    walked += 1;
+                }
+            }
+            assert!(walked > 20);
+        }
+    }
+
+    /// A witness is refused once the relation no longer holds its hops, and
+    /// an unreached or out-of-axis position is refused by name.
+    #[test]
+    fn a_stale_witness_is_refused() {
+        let t = MapTable::new(1, 1);
+        let f = t.seal();
+        let e = edges(0);
+        let mut o = owner(&f, &e);
+        let mut r = run();
+        relation_reach(&o, 0, &f, PairDir::Forward, &mask(&[0]), None, &mut r.buf()).unwrap();
+        let mut path = [0u32; 16];
+        assert_eq!(
+            reach_path(&o, 0, &f, PairDir::Forward, &r.hop, 300, &mut path),
+            Err(ReachRefusal::NotReached(300))
+        );
+        assert_eq!(
+            reach_path(&o, 0, &f, PairDir::Forward, &r.hop, P, &mut path),
+            Err(ReachRefusal::OutOfAxis {
+                at: P,
+                positions: P
+            })
+        );
+        assert_eq!(
+            reach_path(&o, 0, &f, PairDir::Forward, &r.hop, 9, &mut path[..9]),
+            Err(ReachRefusal::Length {
+                part: ReachPart::Path,
+                want: 10,
+                got: 9
+            })
+        );
+        assert_eq!(
+            reach_path(&o, 0, &f, PairDir::Forward, &r.hop, 9, &mut path),
+            Ok(10)
+        );
+        o.plane.remove(4, 5).unwrap();
+        assert_eq!(
+            reach_path(&o, 0, &f, PairDir::Forward, &r.hop, 9, &mut path),
+            Err(ReachRefusal::WitnessMismatch(5))
+        );
+    }
+
+    /// A frame the plane was not built under, a missing relation, a plane
+    /// whose axes differ and a buffer of the wrong length are each refused,
+    /// and a refusal writes nothing.
+    #[test]
+    fn refusals_write_nothing() {
+        let mut t = MapTable::new(1, 1);
+        let f = t.seal();
+        let o = owner(&f, &edges(0));
+        let seed = mask(&[0]);
+        let mut r = run();
+        assert_eq!(
+            relation_reach(&o, 1, &f, PairDir::Forward, &seed, None, &mut r.buf()),
+            Err(ReachRefusal::Relation(RelationRefusal::NoRelation(1)))
+        );
+        t.advance(1, 2, Vec::new());
+        let moved = t.seal();
+        assert_eq!(
+            relation_reach(&o, 0, &moved, PairDir::Forward, &seed, None, &mut r.buf()),
+            Err(ReachRefusal::Relation(RelationRefusal::Pair(
+                PairRefusal::ForeignFrame
+            )))
+        );
+        assert_eq!(
+            reach_path(&o, 0, &moved, PairDir::Forward, &[0; P], 0, &mut [0; 4]),
+            Err(ReachRefusal::Relation(RelationRefusal::Pair(
+                PairRefusal::ForeignFrame
+            )))
+        );
+        assert_eq!(
+            relation_reach(
+                &o,
+                0,
+                &f,
+                PairDir::Forward,
+                &seed[..W - 1],
+                None,
+                &mut r.buf()
+            ),
+            Err(ReachRefusal::Length {
+                part: ReachPart::Seed,
+                want: W,
+                got: W - 1
+            })
+        );
+        assert_eq!(
+            relation_reach(
+                &o,
+                0,
+                &f,
+                PairDir::Forward,
+                &seed,
+                Some(&seed[..1]),
+                &mut r.buf()
+            ),
+            Err(ReachRefusal::Length {
+                part: ReachPart::Target,
+                want: W,
+                got: 1
+            })
+        );
+        let mut short = run();
+        short.hop.pop();
+        assert_eq!(
+            relation_reach(&o, 0, &f, PairDir::Forward, &seed, None, &mut short.buf()),
+            Err(ReachRefusal::Length {
+                part: ReachPart::Hop,
+                want: P,
+                got: P - 1
+            })
+        );
+        let wide = Owner {
+            plane: PairPlane::new(&f, Axis::new(Width::W64, 2), Axis::new(Width::W256, 1)),
+        };
+        assert_eq!(
+            relation_reach(
+                &wide,
+                0,
+                &f,
+                PairDir::Forward,
+                &mask(&[0])[..4],
+                None,
+                &mut r.buf()
+            ),
+            Err(ReachRefusal::NotSquare { src: 128, dst: 256 })
+        );
+        assert_eq!(r.reached, vec![u64::MAX; W]);
+        assert_eq!(r.hop, vec![7; P]);
+        assert_eq!(r.scratch, vec![u64::MAX; 2 * W]);
+    }
+}
