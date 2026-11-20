@@ -46,7 +46,7 @@ The read side uses the existing DT64 socket, not a new one:
 2. `LaneBinding::selected` lends the positions of a selection that the source issued under the same frame, row order and scope, refusing `SelectionSpace` / `SelectionScope` before anything is borrowed.
 3. The fold runs over the lent lanes at the lent positions (mask-risc `execute_sel`); the wire encoder reads the same lanes at the same positions.
 
-Today `act_over` (`lance-graph-mailbox-lanes/src/act.rs`) takes its N operand lanes through `LaneBinding::lane`, one call per read field, and the positions through `LaneBinding::selected` when a selection is bound: N checks per call, N + 1 with a selection, each walking every bound lane. It also builds a row mask from the positions on every call. The probe measures both; a single call that lends lanes, presence and positions under one check is a candidate for DT64's owner, not part of this plan.
+Today `act_over` (`lance-graph-mailbox-lanes/src/act.rs`) takes its N operand lanes through `LaneBinding::lane`, one call per read field, and the positions through `LaneBinding::selected` when a selection is bound: N checks per call, N + 1 with a selection, each walking every bound lane. When a selection is bound and the guard kept rows, it also builds a row mask from the positions on that call. The probe measures both; a single call that lends lanes, presence and positions under one check is a candidate for DT64's owner, not part of this plan.
 
 ### Ownership stays where it is
 
