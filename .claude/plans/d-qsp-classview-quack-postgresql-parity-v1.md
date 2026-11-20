@@ -25,6 +25,47 @@ Choice among routes is allowed only if an equivalence fixture and law witness ad
 
 > **Note (2026-11-11, operator rulings, `dr-widefieldmask-dt-classview-v1.md` §1, §1c).** "Quack Binding resolves snapshot/version" reads: it resolves the version of the *mapping* (identities, properties, source positions, `MapTable` / D-DR-VMAP, #1923); contents stay with their source owner and are not versioned by the binding. A PostgreSQL tuple is a reading over one shared index (`Tuple(i) = (A[i], B[i], C[i])`), never a stored row; PostgreSQL is the compatibility surface and correctness oracle above the shared coordinate substrate, not an engine rebuilt beneath it (EXO-174 states the same for the workbook). D-QSP-2 joins follow D-DYNBAG's bag algebra (ℕ-compose for multiplicity, Boolean only for existence, chosen by demand). D-QSP-4 "snapshot invalidation" follows each artifact's real dependencies: a pure address binding stays valid across a content change while its mapping and interpretation stay valid; a stored recursion result, a precomputed WHERE mask, a join assignment from mutable keys or an order index depends on content and needs a matching change witness or a recomputation, never reuse because the coordinates are unchanged. Recursion itself is the semi-naive fold already in xlog (`Cube::closure`). None of this requires storing historical contents.
 
+## The virtual row: a PostgreSQL row as a register binding (2026-11-20)
+
+**Status:** WORKING-MODEL plus one queued probe (D-QSP-VROW). It grants no production read path and no PostgreSQL compatibility claim; serving reads to a PostgreSQL client still needs a `DECISION:` issue (P-EXO-11).
+
+A row that a PostgreSQL client sees is never built. It is a reading over source-owned lanes at one position, through one DR frame:
+
+- **The row's identity** is a position in the frame. `identity[index]` resolves through the DR map (`MapTable::{map, map_at, locate}` → `LocalMap`, `Frame`), inbound with `local(global)` and outbound with `global(local)`, in the same frame.
+- **A column** is a field of the class's ClassView. `identity[index].key` is the field's predicate identity, which `LaneBinding` records per bound field at bind. `identity[index].value` is the lane value at the position, read in place. Text is a code through `CodeTable` and is decoded only at the wire.
+- **NULL** is the field's presence plane, not a value in the lane.
+- **A result set** is a frame version plus a selection of positions. Duplicates in the selection are bag multiplicity, as in D-VAS R12 (#2069: selection `[1, 1, 3]` gives bag count 3 and distinct count 2).
+
+This is the Untersetzer form, not a glove. No cube terminal that builds rows (`Cube::materialize_rows`) is on this path. The only materialization is the wire encoding of the returned cells, after the fold.
+
+### One check, every lane: the `borrow_all` pattern
+
+The read side uses the existing DT64 socket, not a new one:
+
+1. `LaneBinding::borrow_all_present` runs `LaneBinding::check` once (frame, route, basis, mapping, scope, row order) and lends every bound lane with its presence plane, in field order, with no allocation. Reading N fields through `LaneBinding::lane` instead re-runs the check per field (N² source lookups); `borrow_all` does N. Precedents: `xlog-coverage-probe/tests/group_by.rs`, `quack-boundary-lab`, `vrl-recipe-probe`.
+2. `LaneBinding::selected` lends the positions of a selection that the source issued under the same frame, row order and scope, refusing `SelectionSpace` / `SelectionScope` before anything is borrowed.
+3. The fold runs over the lent lanes at the lent positions (mask-risc `execute_sel`); the wire encoder reads the same lanes at the same positions.
+
+Today `act_over` (`lance-graph-mailbox-lanes/src/act.rs`) takes its N operand lanes through `LaneBinding::lane`, one call per read field, and the positions through `LaneBinding::selected` when a selection is bound: N checks per call, N + 1 with a selection, each walking every bound lane. When a selection is bound and the guard produced a result (an empty one included), it also builds a row mask from the positions on that call. The probe measures both; a single call that lends lanes, presence and positions under one check is a candidate for DT64's owner, not part of this plan.
+
+### Ownership stays where it is
+
+The virtual row adds no owner. The lanes are lent by the source that owns them, under that owner's publication: for a mailbox that is `MailboxLanes` over one `Published` borrow of a `MailboxSoA` (D-VAS-A1..A3), whose frame ends with the borrow. The adapter is a reader under the owner's scope. It holds no `mailbox_owner`, no second mailbox or copy of one, no ownership field on any DTO, and no positions of its own: selections are issued by the socket (`issue_where`, `issue_order`, `issue_concat`), never handed in. A write, when one is ever admitted, goes the existing way: an `Intent` applied through the owner's `MailboxSoA::write_row` on behalf of `SoaEnvelope::mailbox_owner()`, after the publication has ended. A second delegation path beside that one is out of scope for this plan.
+
+### What #1943 already proves, and what is new
+
+D-GLOBAL-WHERE P0 (#1943) establishes the two-way contract this needs: DR routing is exact in both directions (F1–F5: joining by local index gives 32, the oracle and the DR-aligned path give 14); a stale, foreign or future frame is refused (F10, F11); a routed selection reused within its frame costs 5 µs where routing per call costs 650–970 µs (W7); folds allocate nothing (F14, F15); multi-tile 16 × DR256 agrees with DuckDB on 336/336 answers. The open owner points stand as #1943 lists them: `MapTable::locate` scans every listed tile per id (all of its cold losses), one selection for several methods under one scope (EXO-46), and scale ≥ 10M rows.
+
+New here is only the chunk size. A selection is read in chunks, as DuckDB reads a vector through its selection vector (2048 rows by default). A chunk's positions, the mask words it touches and the encoder's scratch must stay in L1; nothing else is sized per chunk, because the mapping and the binding are reused for the frame version. A content-dependent selection (a WHERE mask or an order index) is reused only with a matching change witness or after recomputation, as the 2026-11-11 note above requires.
+
+### D-QSP-VROW probe
+
+- **Fixture:** one Zammad table read by the zammad-rs shadow (`tickets`), its lanes and presence planes lent through `borrow_all_present`, one issued selection; PostgreSQL holds the same rows.
+- **Equality:** the wire cells equal PostgreSQL's for the same query, as a multiset without ORDER BY and as a sequence with it (D-QSP-H rules); NULL from the presence plane, never from a sentinel value.
+- **Disables, each red:** lanes read by local index instead of the DR route; a selection from another frame admitted; presence ignored; the round trip `global(local(g)) == g` broken by one swapped coordinate.
+- **Measured:** checks per request (one is the target), allocations per chunk, bytes copied from source lanes (zero is the target), and fold time per chunk at 256, 1024, 2048 and 4096 positions, against the L1 size of the machine. Per-operation results are in nanoseconds and batches in microseconds; a millisecond result is a failed gate.
+- **Not measured here:** client protocol, transactions, DDL and writes; they stay separate strata.
+
 ## D-QSP work items: staged PostgreSQL parity, always with counterexamples
 
 | Gate | Fixture | Oracle and refusal |
