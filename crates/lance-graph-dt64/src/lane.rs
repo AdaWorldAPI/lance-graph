@@ -19,7 +19,9 @@
 use lance_graph_contract::class_view::{ClassView, WideFieldMask};
 use lance_graph_contract::ontology::FieldRef;
 
-use crate::dr::{Frame, FrameRefusal, FrameStore, RouteVersion, Scope};
+use crate::dr::{
+    Frame, FrameRefusal, FrameStore, KeepRefusal, KeptId, MapTable, RouteVersion, Scope,
+};
 use crate::{BindStore, Refusal, SchemaRev};
 
 /// Whose row order a lane is in: a source population and the revision of
@@ -366,6 +368,15 @@ impl LaneBinding {
 
     pub fn route(&self) -> RouteAt {
         self.route
+    }
+
+    /// Keeps this binding in `table`'s log as a reusable mapping
+    /// (D-DRDT-SPLIT-S7), under the frame it was bound under. Refused unless
+    /// that frame is `table`'s current seal. Read it back with
+    /// `table.kept::<LaneBinding>(frame, id)`.
+    pub fn keep_in(self, table: &mut MapTable) -> Result<KeptId, KeepRefusal> {
+        let frame = self.frame.clone();
+        table.keep(&frame, self)
     }
 
     pub fn frame(&self) -> &Frame {

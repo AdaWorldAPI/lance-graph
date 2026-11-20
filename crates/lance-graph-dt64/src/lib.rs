@@ -99,8 +99,8 @@ use lance_graph_contract::set_rules::{Population, Truth};
 pub mod dr;
 
 pub use dr::{
-    Axis, Claim, CodeRead, CodeSpaceId, CodeTable, Extent, RouteVersion, ValueKey, Width,
-    MAX_RESERVED,
+    Axis, Claim, CodeRead, CodeSpaceId, CodeTable, Extent, KeepRefusal, KeptId, RouteVersion,
+    ValueKey, Width, MAX_RESERVED,
 };
 pub mod lane;
 pub mod relation;
