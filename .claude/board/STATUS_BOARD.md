@@ -347,7 +347,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-DRDT-SPLIT-S4B2 | Sealed reader scope: a scope only an issuer mints, binding only its own visible fields (plan `dr-widefieldmask-dt-classview-v1.md` §5 S4b-2) | Shipped (#2030, `0ba29f7`) | test-local sketch, 4 tests, 3 guards disable-verified; dt64 raw path open until W11 (`ISS-DT64-SCOPE-ID-IS-NOT-A-GRANT`) |
 | D-DRDT-SPLIT-S5 | bind-time admission for the four direct paths | Queued (needs council) | red on a planted call site |
 | D-DRDT-SPLIT-S6 | behaviour as classes across a restart | Queued (needs council) | replay falsifier red first |
-| D-DRDT-SPLIT-S7 | kept selections and class bindings keyed onto the `MapTable` log (D-DR-VMAP) | Queued (after D-NFR-1) | mapping replay; mismatch refuses |
+| D-DRDT-SPLIT-S7 | kept selections and class bindings keyed onto the `MapTable` log (D-DR-VMAP) | In PR: `MapTable::{keep, kept, kept_under}` (opaque, append-only, version-keyed; DR names no DT type) + `LaneBinding::keep_in`; cube × `ClassView` × `WideFieldMask` kept and replayed (`xlog/tests/kept_mapping.rs`, 5), values follow the source at unchanged positions (`dt64/tests/kept_mapping.rs`); 2 disables red. Built before D-NFR-1 at the operator's request | mapping replay; mismatch refuses |
 | D-DRDT-SPLIT-S8 | close the reorder gap on the hot check (L5d) | Queued | pinned test red to green |
 | D-DRCA-3 | DR #4 falsifier: two methods, same read/write sets, different effect order, stay distinct; dropped guard refuses | In PR (lab: `dr4.rs`, 12 tests, 7 disable runs; [entry](entries/2026-10-30-d-drca-3-dr4-method-routing.md)) | lab uses a test-minted method key; the real key and the DT resolver stay with D-CMH (MethodKey mint, D-CMH-1) |
 

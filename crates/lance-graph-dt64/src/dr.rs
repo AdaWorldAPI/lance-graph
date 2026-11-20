@@ -874,6 +874,42 @@ impl MapDiagnostic<'_> {
 pub struct MapTable {
     frames: FrameStore,
     tiles: BTreeMap<TileId, TileLog>,
+    /// Kept mappings (D-DRDT-SPLIT-S7), append-only: a mapping is kept under
+    /// the version it was bound at and is never replaced, moved or removed.
+    /// DR keys them and does not interpret them ("DR routes, DT interprets").
+    kept: Vec<Kept>,
+}
+
+/// One kept mapping, opaque to DR, and the version of this table it was
+/// bound under.
+#[derive(Debug)]
+struct Kept {
+    version: RouteVersion,
+    mapping: Box<dyn std::any::Any + Send + Sync>,
+}
+
+/// A mapping kept in a [`MapTable`]'s log, in keep order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeptId(u32);
+
+/// Why a mapping was not kept or not handed out.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeepRefusal {
+    /// The binding, or the frame asked under, is not this table's own, or
+    /// (at keep) not its current seal.
+    Frame(FrameRefusal),
+    /// No mapping was kept under this id.
+    Unknown(KeptId),
+    /// The mapping was kept under another version than the frame names. Not
+    /// "invalid": it is witnessed for `kept_at` only (DECISION EXO-256).
+    NotWitnessed {
+        kept_at: RouteVersion,
+        asked: RouteVersion,
+    },
+    /// The mapping kept as this id is of another kind than the one asked for.
+    OtherKind(KeptId),
+    /// More mappings than a `KeptId` can name.
+    Full,
 }
 
 impl MapTable {
@@ -898,6 +934,7 @@ impl MapTable {
                 clock,
             ),
             tiles,
+            kept: Vec::new(),
         }
     }
 
@@ -931,6 +968,7 @@ impl MapTable {
                 genesis,
             ),
             tiles,
+            kept: Vec::new(),
         })
     }
 
@@ -1061,6 +1099,71 @@ impl MapTable {
     /// through this reference.
     pub fn frames(&self) -> &FrameStore {
         &self.frames
+    }
+
+    /// Keeps a DR × DT mapping (D-DRDT-SPLIT-S7) in this table's log, under
+    /// the version `bound_under` was issued at, and returns its id.
+    ///
+    /// `bound_under` must be this table's current seal: a kept mapping is
+    /// always one of this DR log, bound under its present layout. DR keys the
+    /// mapping and does not read it; the binding side gives it meaning and
+    /// passes the frame it was bound under (DT64's `LaneBinding::keep_in`).
+    /// What is kept is the mapping, never the contents, which stay with their
+    /// source owner. The log is append-only: no mapping is replaced or
+    /// removed, so a mapping kept at version `v` stays the mapping of `v`
+    /// after any advance (DECISION EXO-256: versions are not compacted).
+    pub fn keep<T: std::any::Any + Send + Sync>(
+        &mut self,
+        bound_under: &Frame,
+        mapping: T,
+    ) -> Result<KeptId, KeepRefusal> {
+        self.frames.check(bound_under).map_err(KeepRefusal::Frame)?;
+        let id = u32::try_from(self.kept.len()).map_err(|_| KeepRefusal::Full)?;
+        self.kept.push(Kept {
+            version: bound_under.version(),
+            mapping: Box::new(mapping),
+        });
+        Ok(KeptId(id))
+    }
+
+    /// The mapping kept as `id`, by reference, if it was kept under the
+    /// version `frame` was issued at and is a `T`.
+    ///
+    /// `frame` must be one this table issued; it need not be current, so a
+    /// mapping is replayed under its own version. Handing it out proves only
+    /// that it is the mapping of that version; using it still goes through
+    /// the binding side's own checks, which admit the current frame and the
+    /// source's current row order only.
+    pub fn kept<T: std::any::Any>(&self, frame: &Frame, id: KeptId) -> Result<&T, KeepRefusal> {
+        let asked = self.frames.issued(frame).map_err(KeepRefusal::Frame)?;
+        let kept = self
+            .kept
+            .get(id.0 as usize)
+            .ok_or(KeepRefusal::Unknown(id))?;
+        if kept.version != asked {
+            return Err(KeepRefusal::NotWitnessed {
+                kept_at: kept.version,
+                asked,
+            });
+        }
+        kept.mapping
+            .downcast_ref::<T>()
+            .ok_or(KeepRefusal::OtherKind(id))
+    }
+
+    /// Every mapping of kind `T` kept under the version `frame` was issued
+    /// at, in keep order: the replay set of that version.
+    pub fn kept_under<'a, T: std::any::Any>(
+        &'a self,
+        frame: &Frame,
+    ) -> Result<impl Iterator<Item = (KeptId, &'a T)> + 'a, KeepRefusal> {
+        let asked = self.frames.issued(frame).map_err(KeepRefusal::Frame)?;
+        Ok(self
+            .kept
+            .iter()
+            .enumerate()
+            .filter(move |(_, k)| k.version == asked)
+            .filter_map(|(i, k)| Some((KeptId(i as u32), k.mapping.downcast_ref::<T>()?))))
     }
 
     /// Change codes under this table's own frame store: one advance of the
