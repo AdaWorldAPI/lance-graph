@@ -8,7 +8,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Frame, FrameRefusal, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneRefusal, LaneRequest, LaneSource,
-    PresenceSource, Refusal, RouteAt, SchemaRev,
+    PresenceSource, Refusal, RouteAt, SchemaRev, SelAddr, SelectionSource,
 };
 
 const HYBRID: u32 = 0x0C1A_0001;
@@ -68,6 +68,9 @@ struct Source {
     lookups: Cell<usize>,
     borrows: Cell<usize>,
     presence_borrows: Cell<usize>,
+    /// Selections by number: row order, reader scope, and the positions
+    /// (`None`: the source names the selection but no longer holds its list).
+    selections: Vec<(CoordSpace, Scope, Option<Vec<u32>>)>,
 }
 
 impl Source {
@@ -91,6 +94,8 @@ impl Source {
             lookups: Cell::new(0),
             borrows: Cell::new(0),
             presence_borrows: Cell::new(0),
+            // Repeats kept: a selection is a bag in list order.
+            selections: vec![(AD, READER, Some(vec![2, 0, 2]))],
         }
     }
 }
@@ -99,6 +104,20 @@ impl PresenceSource for Source {
     fn borrow_presence(&self, addr: &LaneAddr) -> Option<&[u64]> {
         self.presence_borrows.set(self.presence_borrows.get() + 1);
         self.presence.get(usize::from(addr.lane))?.as_deref()
+    }
+}
+
+impl SelectionSource for Source {
+    fn selection_of(&self, sel: u16, _frame: &Frame) -> Option<SelAddr> {
+        let (space, scope, _) = self.selections.get(usize::from(sel))?;
+        Some(SelAddr {
+            space: *space,
+            sel,
+            scope: *scope,
+        })
+    }
+    fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]> {
+        self.selections.get(usize::from(addr.sel))?.2.as_deref()
     }
 }
 
@@ -714,6 +733,111 @@ fn a_refused_borrow_all_present_borrows_nothing() {
         (w.source.borrows.get(), w.source.presence_borrows.get()),
         (0, 0)
     );
+}
+
+/// `borrow_all_selected_present`: after ONE check, every bound lane with its
+/// own presence plane and the selection's own positions, all in place. Per
+/// field, `selected` re-runs the whole check each time.
+#[test]
+fn borrow_all_selected_present_lends_lanes_planes_and_positions_after_one_check() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[1, 0])).unwrap();
+
+    w.source.lookups.set(0);
+    let (lanes, positions) = b
+        .borrow_all_selected_present(&w.store, &w.view, &w.source.frames, &w.source, 0)
+        .unwrap();
+    let got: Vec<_> = lanes.map(Result::unwrap).collect();
+    assert_eq!(
+        w.source.lookups.get(),
+        2,
+        "one check: one lookup per bound lane"
+    );
+    assert!(std::ptr::eq(
+        positions,
+        w.source.selections[0].2.as_deref().unwrap()
+    ));
+    assert_eq!(positions, [2, 0, 2], "a bag in list order, repeats kept");
+    assert_eq!(got.iter().map(|(f, _, _)| *f).collect::<Vec<_>>(), [0, 1]);
+    for (field, lane, plane) in &got {
+        let i = usize::from(*field);
+        assert!(std::ptr::eq(*lane, w.source.lanes[i].as_slice()));
+        assert!(std::ptr::eq(
+            *plane,
+            w.source.presence[i].as_deref().unwrap()
+        ));
+    }
+
+    // The same lanes and positions, one field at a time: two full checks.
+    w.source.lookups.set(0);
+    for (field, lane, _) in &got {
+        let (one, rows) = b
+            .selected(&w.store, &w.view, &w.source.frames, &w.source, *field, 0)
+            .unwrap();
+        assert!(std::ptr::eq(one, *lane));
+        assert!(std::ptr::eq(rows, positions));
+    }
+    assert_eq!(
+        w.source.lookups.get(),
+        4,
+        "selected per field re-checks every lane"
+    );
+
+    // Without presence: the same lanes and positions.
+    let (lanes, rows) = b
+        .borrow_all_selected(&w.store, &w.view, &w.source.frames, &w.source, 0)
+        .unwrap();
+    assert!(std::ptr::eq(rows, positions));
+    for ((f, lane), (g, want, _)) in lanes.map(Result::unwrap).zip(&got) {
+        assert_eq!(f, *g);
+        assert!(std::ptr::eq(lane, *want));
+    }
+}
+
+/// Every refusal of `selected` is the refusal of both new calls, and none of
+/// them borrows a lane or a plane first.
+#[test]
+fn borrow_all_selected_refuses_exactly_what_selected_refuses_and_borrows_nothing() {
+    type Setup = fn(&mut World);
+    let cases: [(&str, u16, Setup); 5] = [
+        ("unknown selection", 9, |_| {}),
+        ("another row order", 0, |w| w.source.selections[0].0 = ENTRA),
+        ("another reader scope", 0, |w| {
+            w.source.selections[0].1 = Scope { id: 8 }
+        }),
+        ("positions vanished", 0, |w| w.source.selections[0].2 = None),
+        ("stale frame", 0, |w| {
+            w.source.frames.advance(FrameRevisions {
+                source: 2,
+                relation_map: 1,
+                coordinates: 1,
+            });
+        }),
+    ];
+    for (case, sel, setup) in cases {
+        let mut w = world();
+        let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+        setup(&mut w);
+        w.source.borrows.set(0);
+        w.source.presence_borrows.set(0);
+        let plain = b
+            .borrow_all_selected(&w.store, &w.view, &w.source.frames, &w.source, sel)
+            .err();
+        let present = b
+            .borrow_all_selected_present(&w.store, &w.view, &w.source.frames, &w.source, sel)
+            .err();
+        assert_eq!(
+            (w.source.borrows.get(), w.source.presence_borrows.get()),
+            (0, 0),
+            "{case}: nothing borrowed"
+        );
+        let want = b
+            .selected(&w.store, &w.view, &w.source.frames, &w.source, 0, sel)
+            .err();
+        assert!(want.is_some(), "{case}: selected refuses");
+        assert_eq!(plain, want, "{case}");
+        assert_eq!(present, want, "{case}");
+    }
 }
 
 // ---------------------------------------------------------------------------
