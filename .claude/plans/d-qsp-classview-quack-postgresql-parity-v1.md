@@ -48,6 +48,10 @@ The read side uses the existing DT64 socket, not a new one:
 
 Today a caller that needs every operand lane and the positions calls both (`act_over` in `lance-graph-mailbox-lanes/src/act.rs` does), so the check runs twice per call, and `act_over` builds a row mask from the positions on every call. The probe measures both; a single call that lends lanes, presence and positions under one check is a candidate for DT64's owner, not part of this plan.
 
+### Ownership stays where it is
+
+The virtual row adds no owner. The lanes are lent by the source that owns them, under that owner's publication: for a mailbox that is `MailboxLanes` over one `Published` borrow of a `MailboxSoA` (D-VAS-A1..A3), whose frame ends with the borrow. The adapter is a reader under the owner's scope. It holds no `mailbox_owner`, no second mailbox or copy of one, no ownership field on any DTO, and no positions of its own: selections are issued by the socket (`issue_where`, `issue_order`, `issue_concat`), never handed in. A write, when one is ever admitted, goes the existing way: an `Intent` applied through the owner's `MailboxSoA::write_row` on behalf of `SoaEnvelope::mailbox_owner()`, after the publication has ended. A second delegation path beside that one is out of scope for this plan.
+
 ### What #1943 already proves, and what is new
 
 D-GLOBAL-WHERE P0 (#1943) establishes the two-way contract this needs: DR routing is exact in both directions (F1–F5: joining by local index gives 32, the oracle and the DR-aligned path give 14); a stale, foreign or future frame is refused (F10, F11); a routed selection reused within its frame costs 5 µs where routing per call costs 650–970 µs (W7); folds allocate nothing (F14, F15); multi-tile 16 × DR256 agrees with DuckDB on 336/336 answers. The open owner points stand as #1943 lists them: `MapTable::locate` scans every listed tile per id (all of its cold losses), one selection for several methods under one scope (EXO-46), and scale ≥ 10M rows.
