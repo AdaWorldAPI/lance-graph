@@ -403,6 +403,48 @@ fn a_binding_goes_stale_when_the_relation_is_refolded() {
     );
 }
 
+/// FAILS IF: a refold takes a cached fold that an edge logged after the read
+/// has made stale, so the new base misses the late edge.
+///
+/// `refold` takes the cached fold as the new base. That is only sound if every
+/// log append drops the cache; this pins the order read, log, refold.
+#[test]
+fn a_refold_after_a_late_edge_keeps_the_late_edge() {
+    let (t, e) = (table(&ids()), edges());
+    let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let w = world();
+
+    cube.add_edge(&t, 0, 101, 111).unwrap();
+    let early = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+        bag(x, y)
+    };
+
+    // The late edge, logged after the fold was cached and never read before
+    // the refold; a pair not yet held.
+    cube.add_edge(&t, 0, 129, 100).unwrap();
+    cube.refold(0).unwrap();
+
+    // The oracle: a cube whose base already holds both logged edges.
+    let mut all = e.clone();
+    all.extend([(101, 111), (129, 100)]);
+    let oracle = Cube::new(&t, &t.seal(), TILE, &[&all]).unwrap();
+    let late = {
+        let source = CubeLanes::new(&oracle, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+        bag(x, y)
+    };
+    assert_eq!(late.len(), early.len() + 1);
+
+    let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+    let binding = bind(&w, &source, &t).unwrap();
+    let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+    assert_eq!(bag(x, y), late, "the refolded base holds the late edge");
+}
+
 /// FAILS IF: another class, another scope or an unknown predicate is served.
 #[test]
 fn what_the_socket_does_not_hold_is_refused() {
