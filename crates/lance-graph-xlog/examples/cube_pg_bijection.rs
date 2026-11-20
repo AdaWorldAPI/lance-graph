@@ -53,7 +53,7 @@ use lance_graph_dt64::{BindStore, ClassSchema, Extent, LaneRequest, RouteAt, Sch
 use lance_graph_mask_risc::LaneRef;
 use lance_graph_xlog::cube::{Cube, CubeLanes};
 use pg_parity_harness::{
-    check, Answer, Case, Cell, Order, Outcome, Pg, Refusal, Report, Row, Rows, Skip,
+    check, Answer, Case, Cell, Diff, Order, Outcome, Pg, Refusal, Report, Row, Rows, Skip,
 };
 
 const TILE: u32 = 7;
@@ -200,12 +200,26 @@ fn with_lanes<R>(
         .borrow_all_present(store, view, t.frames(), &source)
         .expect("check")
     {
-        let (field, lane, _live) = item.expect("lane");
+        let (field, lane, live) = item.expect("lane");
         let LaneRef::U32(values) = lane else {
             panic!("a relation lane is u32")
         };
+        // Every cell of this fixture is present: a cleared bit would make the
+        // cell absent, and coordinate 0 must not then be read as a value.
+        assert!(live.len() * 64 >= values.len(), "the plane spans the lane");
+        assert!(
+            (0..values.len()).all(|i| live[i / 64] >> (i % 64) & 1 == 1),
+            "{}: every cell of a non-NULL relation is present",
+            rel.name
+        );
         cols[usize::from(field)] = values;
     }
+    assert_eq!(
+        cols[0].len(),
+        cols[1].len(),
+        "{}: the two lanes of a relation are aligned",
+        rel.name
+    );
     f(cols[0], cols[1])
 }
 
@@ -294,7 +308,32 @@ fn cells_to_pairs(rows: &[Row]) -> Vec<(u32, u32)> {
         .collect()
 }
 
+/// The duplicate pairs the bag-count disable relies on, checked before any
+/// server is needed, so a SKIP run still checks the fixture.
+fn check_fixture(keys: &[Vec<(u32, u32)>; 2]) {
+    let count = |rel: &[(u32, u32)], pair| rel.iter().filter(|&&p| p == pair).count();
+    assert_eq!(count(&keys[0], (1, 3)), 2, "roles_users holds (1, 3) twice");
+    assert_eq!(
+        count(&keys[1], (2, 3)),
+        2,
+        "permissions_roles holds (2, 3) twice"
+    );
+    assert_eq!(
+        count(&keys[1], (2, 6)),
+        2,
+        "permissions_roles holds (2, 6) twice"
+    );
+    assert_eq!((keys[0].len(), keys[1].len()), (37, 130));
+}
+
+/// A disable counts only when PostgreSQL's rows and ours differ; a harness
+/// error (a lost server, an unparsable answer) is not a detected mutation.
+fn detected(outcome: &Outcome) -> bool {
+    matches!(outcome, Outcome::Fail(Diff::Multiset { .. }))
+}
+
 fn main() {
+    check_fixture(&seeded());
     let pg = match Pg::connect() {
         Ok(pg) => pg,
         Err(Skip(why)) => {
@@ -574,17 +613,22 @@ fn main() {
         ids_round_trip && coords_round_trip,
         "the map is a bijection"
     );
-    assert!(
-        matches!(local_as_key, Outcome::Fail(_)),
-        "local as key not detected"
+    assert_eq!(
+        map.len(),
+        ids.len(),
+        "the tile holds exactly the fixture's ids"
     );
     assert!(
-        matches!(swapped, Outcome::Fail(_)),
-        "swapped coordinate not detected"
+        detected(&local_as_key),
+        "local as key not detected: {local_as_key:?}"
     );
     assert!(
-        matches!(as_set, Outcome::Fail(_)),
-        "relation as a set not detected"
+        detected(&swapped),
+        "swapped coordinate not detected: {swapped:?}"
+    );
+    assert!(
+        detected(&as_set),
+        "relation as a set not detected: {as_set:?}"
     );
     assert_eq!((pass, fail, unsupported), (3, 3, 1));
 }
