@@ -277,6 +277,74 @@ fn a_binding_goes_stale_with_the_relation_and_with_the_table() {
     ));
 }
 
+/// The relation's tuples as a sorted multiset of `(x, y)` local coordinates.
+fn bag(x: &[u32], y: &[u32]) -> Vec<(u32, u32)> {
+    let mut b: Vec<(u32, u32)> = x.iter().copied().zip(y.iter().copied()).collect();
+    b.sort_unstable();
+    b
+}
+
+/// FAILS IF: a binding made before a refold is still served after it, a
+/// refold changes the relation's bag of tuples (it may only reorder rows), or
+/// a refold with an empty log invalidates a binding although nothing changed.
+///
+/// `refold` is the one operation that replaces the lent lane memory (the old
+/// lanes are dropped), so it is the case a zero-copy reader outside Rust's
+/// borrow checker would be exposed to; the space check must refuse it here.
+#[test]
+fn a_binding_goes_stale_when_the_relation_is_refolded() {
+    let (t, e) = (table(&ids()), edges());
+    let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let w = world();
+
+    // A refold with an empty log changes nothing: a binding stays valid.
+    let unchanged = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        bind(&w, &source, &t).unwrap()
+    };
+    cube.refold(0).unwrap();
+    {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        assert!(
+            lent(&w, &unchanged, &source, &t).is_ok(),
+            "an empty-log refold must not invalidate a binding"
+        );
+    }
+
+    // Log one edge, then bind and read the effective bag.
+    cube.add_edge(&t, 0, 101, 111).unwrap();
+    let (before, bag_before) = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+        assert_eq!(x.len(), e.len() + 1);
+        (binding, bag(x, y))
+    };
+
+    cube.refold(0).unwrap();
+    assert_eq!(cube.delta_len(0), 0, "refold empties the log");
+
+    let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+    assert!(
+        lent(&w, &before, &source, &t).is_err(),
+        "a binding made before a refold must be refused after it"
+    );
+    // The binding from before any edge was logged had an empty log too: only
+    // the base generation tells it apart from the refolded relation, whose
+    // log is empty again.
+    assert!(
+        lent(&w, &unchanged, &source, &t).is_err(),
+        "an empty-log binding of the old base must be refused after a refold"
+    );
+    let fresh = bind(&w, &source, &t).unwrap();
+    let (x, y, _) = lent(&w, &fresh, &source, &t).unwrap();
+    assert_eq!(
+        bag(x, y),
+        bag_before,
+        "a refold may reorder rows but must keep the bag of tuples"
+    );
+}
+
 /// FAILS IF: another class, another scope or an unknown predicate is served.
 #[test]
 fn what_the_socket_does_not_hold_is_refused() {
