@@ -394,16 +394,26 @@ fn bind(w: &World, fields: &WideFieldMask, frame: &Frame) -> Result<LaneBinding,
 }
 
 /// The terminal: (alias, value) per selected position, built only here.
+///
+/// ONE `borrow_all_selected`: one check, every bound lane and the witnessed
+/// positions. Row `i` of alias `a` is `lane(a)[positions[i]]`, read in place.
 fn project(
     w: &World,
     b: &LaneBinding,
     sel: u16,
     aliases: &[&str],
 ) -> Result<Vec<Vec<Read>>, LaneRefusal> {
+    let (lanes, rows) =
+        b.borrow_all_selected(&w.store, &w.view, w.source.frames(), &w.source, sel)?;
+    let mut by_field: [Option<&Cells>; PROPS] = [None; PROPS];
+    for item in lanes {
+        let (field, lane) = item?;
+        by_field[usize::from(field)] = Some(lane);
+    }
     let mut out: Vec<Vec<Read>> = Vec::new();
     for alias in aliases {
         let f = field_of(&w.view, alias).expect("alias in recipe");
-        let (lane, rows) = b.selected(&w.store, &w.view, w.source.frames(), &w.source, f, sel)?;
+        let lane = by_field[usize::from(f)].ok_or(LaneRefusal::NotBound { field: f })?;
         out.push(rows.iter().map(|&r| read(lane, r)).collect());
     }
     Ok(out)
@@ -756,4 +766,61 @@ fn virtual_space_growth_does_not_grow_projection_work() {
     assert_eq!(costs[0], costs[1], "512 vs 2048 users: {costs:?}");
     assert_eq!(costs[0].3, 0, "no allocation");
     assert_eq!(costs[0].4, 10, "exactly the requested cells are read");
+}
+
+/// 11 (D-MAPPING-POLYFILL-1 consumer contract): a projection of three
+/// properties is ONE check, not one per property. It equals the oracle in
+/// all three value states, the read path allocates nothing, and a projection
+/// over a stale selection is refused before any lane is borrowed.
+#[test]
+fn a_projection_checks_once_not_once_per_property() {
+    let mut w = world(512);
+    // Users 3 and 4 hold a missing and a deleted mail.
+    let picked = [3usize, 4, 17, 300, 3];
+    w.source.selections = vec![picked.iter().map(|&u| u as u32).collect()];
+    let frame = w.source.frames().seal();
+    let fields = WideFieldMask::from_positions(&[F_OBJECT_ID, F_NAME, F_MAIL]);
+    let b = bind(&w, &fields, &frame).unwrap();
+
+    // Checks: `check` asks the source for each bound lane once.
+    w.source.lane_of_calls.set(0);
+    let got = project(&w, &b, 0, &["Identity", "Name", "PrimaryMail"]).unwrap();
+    assert_eq!(
+        w.source.lane_of_calls.get(),
+        3,
+        "one check over three bound lanes, not three checks"
+    );
+    for (i, &u) in picked.iter().enumerate() {
+        assert_eq!(got[0][i], oracle(F_OBJECT_ID, u), "identity, user {u}");
+        assert_eq!(got[1][i], oracle(F_NAME, u), "name, user {u}");
+        assert_eq!(got[2][i], oracle(F_MAIL, u), "mail, user {u}");
+    }
+    assert_eq!(got[2][0], Read::Missing);
+    assert_eq!(got[2][1], Read::Deleted);
+
+    // The read path, without the terminal's output vectors: no allocation.
+    let a0 = allocs();
+    let mut agree = 0u32;
+    let (lanes, rows) = b
+        .borrow_all_selected(&w.store, &w.view, w.source.frames(), &w.source, 0)
+        .unwrap();
+    for item in lanes {
+        let (field, lane) = item.unwrap();
+        for &r in rows {
+            if read(lane, r) == oracle(field, w.source.row_user[r as usize]) {
+                agree += 1;
+            }
+        }
+    }
+    assert_eq!(allocs() - a0, 0, "the read path allocates nothing");
+    assert_eq!(agree, 15, "5 positions x 3 fields agree with the oracle");
+
+    // A stale selection: the rows were reordered under a new frame.
+    w.source.reorder(&(0..512).rev().collect::<Vec<_>>());
+    let borrows = w.source.borrows.get();
+    assert!(matches!(
+        project(&w, &b, 0, &["Name"]),
+        Err(LaneRefusal::Frame(_))
+    ));
+    assert_eq!(w.source.borrows.get(), borrows, "refused before borrowing");
 }

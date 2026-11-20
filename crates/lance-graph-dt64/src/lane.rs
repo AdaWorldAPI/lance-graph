@@ -498,6 +498,22 @@ impl LaneBinding {
     ) -> Result<(S::Lane<'s>, &'s [u32]), LaneRefusal> {
         self.check(store, view, frames, source)?;
         let lane = self.addr(field).ok_or(LaneRefusal::NotBound { field })?;
+        let selection = self.admit_selection(source, sel)?;
+        let lane = source.borrow(lane).ok_or(LaneRefusal::Vanished { field })?;
+        let positions = source
+            .borrow_positions(&selection)
+            .ok_or(LaneRefusal::SelectionVanished { sel })?;
+        Ok((lane, positions))
+    }
+
+    /// The selection half of [`LaneBinding::selected`]'s witness, after the
+    /// check: the source holds `sel` under this binding's frame, in this
+    /// binding's row order and for its reader scope. Borrows nothing.
+    fn admit_selection<S: SelectionSource>(
+        &self,
+        source: &S,
+        sel: u16,
+    ) -> Result<SelAddr, LaneRefusal> {
         let selection = source
             .selection_of(sel, &self.frame)
             .ok_or(LaneRefusal::SelectionUnbound { sel })?;
@@ -515,11 +531,78 @@ impl LaneBinding {
                 selection: selection.scope,
             });
         }
-        let lane = source.borrow(lane).ok_or(LaneRefusal::Vanished { field })?;
+        Ok(selection)
+    }
+
+    /// [`LaneBinding::check`] once, then every bound lane AND selection
+    /// `sel`'s positions, all from the one `source`.
+    ///
+    /// The witness is [`LaneBinding::selected`]'s, taken once for all bound
+    /// fields instead of once per field: the same check, the same selection
+    /// refusals (`SelectionUnbound`, `SelectionSpace`, `SelectionScope`,
+    /// `SelectionVanished`), all returned before a lane or a position is
+    /// borrowed. A lane the source no longer holds yields
+    /// `Err(Vanished { field })` at its position, as in
+    /// [`LaneBinding::borrow_all`]. Nothing is allocated, copied, sorted or
+    /// deduplicated: row `i` of the projection is `lane[positions[i]]`, read
+    /// in place by the caller.
+    ///
+    /// What [`LaneBinding::selected`] does not establish, this does not
+    /// either: that each position is a row of each lane, authorization, and
+    /// any frame but the current one.
+    pub fn borrow_all_selected<'b, 's, V: ClassView + ?Sized, S: SelectionSource>(
+        &'b self,
+        store: &BindStore,
+        view: &V,
+        frames: &FrameStore,
+        source: &'s S,
+        sel: u16,
+    ) -> Result<(BoundLanes<'b, 's, S>, &'s [u32]), LaneRefusal> {
+        self.check(store, view, frames, source)?;
+        let selection = self.admit_selection(source, sel)?;
         let positions = source
             .borrow_positions(&selection)
             .ok_or(LaneRefusal::SelectionVanished { sel })?;
-        Ok((lane, positions))
+        Ok((
+            BoundLanes {
+                lanes: self.lanes.iter(),
+                source,
+            },
+            positions,
+        ))
+    }
+
+    /// [`LaneBinding::borrow_all_selected`] with each lane's presence plane,
+    /// as [`LaneBinding::borrow_all_present`] adds them to
+    /// [`LaneBinding::borrow_all`]: ONE check, the witnessed positions of
+    /// `sel`, then every bound lane with the plane the source holds for that
+    /// same lane. A lane without a plane yields `Err(PresenceUnbound
+    /// { field })` at its position. Nothing is allocated.
+    pub fn borrow_all_selected_present<
+        'b,
+        's,
+        V: ClassView + ?Sized,
+        S: SelectionSource + PresenceSource,
+    >(
+        &'b self,
+        store: &BindStore,
+        view: &V,
+        frames: &FrameStore,
+        source: &'s S,
+        sel: u16,
+    ) -> Result<(PresentLanes<'b, 's, S>, &'s [u32]), LaneRefusal> {
+        self.check(store, view, frames, source)?;
+        let selection = self.admit_selection(source, sel)?;
+        let positions = source
+            .borrow_positions(&selection)
+            .ok_or(LaneRefusal::SelectionVanished { sel })?;
+        Ok((
+            PresentLanes {
+                lanes: self.lanes.iter(),
+                source,
+            },
+            positions,
+        ))
     }
 
     /// [`LaneBinding::check`] once, then every bound lane, in ascending field
