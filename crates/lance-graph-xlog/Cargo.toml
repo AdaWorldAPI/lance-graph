@@ -22,3 +22,6 @@ lance-graph-onnx = { path = "../lance-graph-onnx" }
 # tests/method.rs and examples/method_cost.rs only: a method's DO as frozen
 # F000 words, run through r2il's prepare/run.
 lance-graph-r2il = { path = "../lance-graph-r2il" }
+# examples/cube_pg_bijection.rs only: PostgreSQL as the oracle (prints SKIP
+# without a server). Lab instrument, no runtime dependency.
+pg-parity-harness = { path = "../pg-parity-harness" }
