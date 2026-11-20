@@ -1306,20 +1306,34 @@ impl Cube {
     /// ([`CubeRefusal::StaleBase`]). With an empty log the base is unchanged
     /// and so is its generation.
     pub fn refold(&mut self, rel: RelId) -> Result<(), CubeRefusal> {
-        let log = self.log(rel)?;
-        if log.is_empty() {
+        if self.log(rel)?.is_empty() {
             return Ok(());
         }
-        let r = self
-            .rels
-            .get(rel as usize)
-            .ok_or(CubeRefusal::UnknownRel(rel))?;
-        let (src, dst) = wide::refold(&r.cols[0], &r.cols[1], log);
-        let n = src.len();
+        // A read since the last change already built this fold in `lanes`:
+        // the same `wide::refold(base, log)` with every row live. Take it as
+        // the new base instead of computing it again.
+        let cached = self
+            .effective
+            .get_mut(rel as usize)
+            .and_then(OnceCell::take);
+        let folded = match cached {
+            Some(folded) => folded,
+            None => {
+                let log = self.log(rel)?;
+                let r = self
+                    .rels
+                    .get(rel as usize)
+                    .ok_or(CubeRefusal::UnknownRel(rel))?;
+                let (src, dst) = wide::refold(&r.cols[0], &r.cols[1], log);
+                Rel {
+                    n: src.len(),
+                    live: all_live(src.len()),
+                    cols: [src, dst],
+                }
+            }
+        };
         if let Some(r) = self.rels.get_mut(rel as usize) {
-            r.n = n;
-            r.live = all_live(n);
-            r.cols = [src, dst];
+            *r = folded;
         }
         if let Some(l) = self.logs.get_mut(rel as usize) {
             *l = DeltaLog::new();

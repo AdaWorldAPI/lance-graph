@@ -214,14 +214,20 @@ fn with_a_logged_edge_borrow_all_lends_the_cached_fold_in_place() {
     let binding = bind(&w, &source, &t).unwrap();
     let (x, y, live) = lent(&w, &binding, &source, &t).unwrap();
     assert_eq!((x.len(), y.len()), (e.len() + 1, e.len() + 1));
-    assert!(live.len() * 64 >= x.len(), "the plane covers the fold's rows");
+    assert!(
+        live.len() * 64 >= x.len(),
+        "the plane covers the fold's rows"
+    );
     assert!(
         !std::ptr::eq(x.as_ptr(), base_x),
         "a logged edge is read through the fold, not the base"
     );
 
     let (x2, y2, live2) = lent(&w, &binding, &source, &t).unwrap();
-    assert!(std::ptr::eq(x.as_ptr(), x2.as_ptr()), "the fold is built once");
+    assert!(
+        std::ptr::eq(x.as_ptr(), x2.as_ptr()),
+        "the fold is built once"
+    );
     assert!(std::ptr::eq(y.as_ptr(), y2.as_ptr()));
     assert!(std::ptr::eq(live.as_ptr(), live2.as_ptr()));
 }
@@ -321,8 +327,9 @@ fn bag(x: &[u32], y: &[u32]) -> Vec<(u32, u32)> {
 }
 
 /// FAILS IF: a binding made before a refold is still served after it, a
-/// refold changes the relation's bag of tuples (it may only reorder rows), or
-/// a refold with an empty log invalidates a binding although nothing changed.
+/// refold changes the relation's bag of tuples (it may only reorder rows), a
+/// refold with an empty log invalidates a binding although nothing changed,
+/// or a refold computes again the fold a read already cached.
 ///
 /// `refold` is the one operation that replaces the lent lane memory (the old
 /// lanes are dropped), so it is the case a zero-copy reader outside Rust's
@@ -349,12 +356,18 @@ fn a_binding_goes_stale_when_the_relation_is_refolded() {
 
     // Log one edge, then bind and read the effective bag.
     cube.add_edge(&t, 0, 101, 111).unwrap();
-    let (before, bag_before) = {
+    let (before, bag_before, fold_at) = {
         let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
         let binding = bind(&w, &source, &t).unwrap();
-        let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+        let (x, y, live) = lent(&w, &binding, &source, &t).unwrap();
         assert_eq!(x.len(), e.len() + 1);
-        (binding, bag(x, y))
+        // Where the cached fold lives; compared as addresses only.
+        let at = [
+            x.as_ptr() as usize,
+            y.as_ptr() as usize,
+            live.as_ptr() as usize,
+        ];
+        (binding, bag(x, y), at)
     };
 
     cube.refold(0).unwrap();
@@ -373,11 +386,20 @@ fn a_binding_goes_stale_when_the_relation_is_refolded() {
         "an empty-log binding of the old base must be refused after a refold"
     );
     let fresh = bind(&w, &source, &t).unwrap();
-    let (x, y, _) = lent(&w, &fresh, &source, &t).unwrap();
+    let (x, y, live) = lent(&w, &fresh, &source, &t).unwrap();
     assert_eq!(
         bag(x, y),
         bag_before,
         "a refold may reorder rows but must keep the bag of tuples"
+    );
+    assert_eq!(
+        [
+            x.as_ptr() as usize,
+            y.as_ptr() as usize,
+            live.as_ptr() as usize
+        ],
+        fold_at,
+        "a refold takes the cached fold as the base instead of computing it again"
     );
 }
 
