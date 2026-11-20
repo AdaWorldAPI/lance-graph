@@ -46,7 +46,7 @@ The read side uses the existing DT64 socket, not a new one:
 2. `LaneBinding::selected` lends the positions of a selection that the source issued under the same frame, row order and scope, refusing `SelectionSpace` / `SelectionScope` before anything is borrowed.
 3. The fold runs over the lent lanes at the lent positions (mask-risc `execute_sel`); the wire encoder reads the same lanes at the same positions.
 
-Today a caller that needs every operand lane and the positions calls both (`act_over` in `lance-graph-mailbox-lanes/src/act.rs` does), so the check runs twice per call, and `act_over` builds a row mask from the positions on every call. The probe measures both; a single call that lends lanes, presence and positions under one check is a candidate for DT64's owner, not part of this plan.
+Today `act_over` (`lance-graph-mailbox-lanes/src/act.rs`) takes its N operand lanes through `LaneBinding::lane`, one call per read field, and the positions through `LaneBinding::selected` when a selection is bound: N checks per call, N + 1 with a selection, each walking every bound lane. It also builds a row mask from the positions on every call. The probe measures both; a single call that lends lanes, presence and positions under one check is a candidate for DT64's owner, not part of this plan.
 
 ### Ownership stays where it is
 
@@ -56,7 +56,7 @@ The virtual row adds no owner. The lanes are lent by the source that owns them, 
 
 D-GLOBAL-WHERE P0 (#1943) establishes the two-way contract this needs: DR routing is exact in both directions (F1–F5: joining by local index gives 32, the oracle and the DR-aligned path give 14); a stale, foreign or future frame is refused (F10, F11); a routed selection reused within its frame costs 5 µs where routing per call costs 650–970 µs (W7); folds allocate nothing (F14, F15); multi-tile 16 × DR256 agrees with DuckDB on 336/336 answers. The open owner points stand as #1943 lists them: `MapTable::locate` scans every listed tile per id (all of its cold losses), one selection for several methods under one scope (EXO-46), and scale ≥ 10M rows.
 
-New here is only the chunk size. A selection is read in chunks, as DuckDB reads a vector through its selection vector (2048 rows by default). A chunk's positions, the mask words it touches and the encoder's scratch must stay in L1; nothing else is sized per chunk, because the mapping, the routed selection and the binding are reused for the frame version.
+New here is only the chunk size. A selection is read in chunks, as DuckDB reads a vector through its selection vector (2048 rows by default). A chunk's positions, the mask words it touches and the encoder's scratch must stay in L1; nothing else is sized per chunk, because the mapping and the binding are reused for the frame version. A content-dependent selection (a WHERE mask or an order index) is reused only with a matching change witness or after recomputation, as the 2026-11-11 note above requires.
 
 ### D-QSP-VROW probe
 
