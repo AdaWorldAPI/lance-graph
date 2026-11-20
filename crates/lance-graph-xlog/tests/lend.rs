@@ -190,6 +190,42 @@ fn the_lent_lanes_are_the_cubes_own_tuples() {
     assert!(std::ptr::eq(live.as_ptr(), live2.as_ptr()));
 }
 
+/// FAILS IF: with a logged edge, `borrow_all` lends lanes that are rebuilt per
+/// borrow, still the base's, or lanes and a live plane of different states.
+///
+/// "In place" names two memories. With an empty log the lent lanes are the
+/// base lanes. With a logged edge they are the effective fold, built on the
+/// first read and then lent in place by every later `borrow_all` until the
+/// relation changes.
+#[test]
+fn with_a_logged_edge_borrow_all_lends_the_cached_fold_in_place() {
+    let (t, e) = (table(&ids()), edges());
+    let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let w = world();
+
+    let base_x = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        lent(&w, &binding, &source, &t).unwrap().0.as_ptr()
+    };
+
+    cube.add_edge(&t, 0, 101, 111).unwrap();
+    let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+    let binding = bind(&w, &source, &t).unwrap();
+    let (x, y, live) = lent(&w, &binding, &source, &t).unwrap();
+    assert_eq!((x.len(), y.len()), (e.len() + 1, e.len() + 1));
+    assert!(live.len() * 64 >= x.len(), "the plane covers the fold's rows");
+    assert!(
+        !std::ptr::eq(x.as_ptr(), base_x),
+        "a logged edge is read through the fold, not the base"
+    );
+
+    let (x2, y2, live2) = lent(&w, &binding, &source, &t).unwrap();
+    assert!(std::ptr::eq(x.as_ptr(), x2.as_ptr()), "the fold is built once");
+    assert!(std::ptr::eq(y.as_ptr(), y2.as_ptr()));
+    assert!(std::ptr::eq(live.as_ptr(), live2.as_ptr()));
+}
+
 /// FAILS IF: a fold over the lent lanes disagrees with the cube's own count
 /// of the same column.
 #[test]
