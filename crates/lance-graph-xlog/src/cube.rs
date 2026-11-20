@@ -1737,3 +1737,71 @@ mod dot_counts_tests {
         let _ = dot_counts(&[1, 2], &[3]);
     }
 }
+
+#[cfg(test)]
+mod refold_tests {
+    use super::{wide, Cube};
+    use lance_graph_dt64::dr::{LocalMap, MapTable, Width};
+
+    const TILE: u32 = 5;
+
+    fn table() -> MapTable {
+        let ids: Vec<u64> = (100..130).collect();
+        let mut t = MapTable::new(1, 1);
+        t.advance(
+            1,
+            1,
+            vec![(TILE, Some(LocalMap::prepare(Width::W256, &ids).unwrap()))],
+        );
+        t
+    }
+
+    fn edges() -> Vec<(u32, u32)> {
+        (0..20u32)
+            .map(|i| (100 + (i * 7) % 13, 110 + (i * 5) % 19))
+            .collect()
+    }
+
+    /// A read cached the fold, so `refold` takes it as the new base: the
+    /// base lanes are the cached buffers, the cache, log and old generation
+    /// are gone.
+    #[test]
+    fn a_cached_fold_becomes_the_base_without_a_second_fold() {
+        let t = table();
+        let mut cube = Cube::new(&t, &t.seal(), TILE, &[&edges()]).unwrap();
+        cube.add_edge(&t, 0, 101, 111).unwrap();
+        let cached = cube.lanes(0).unwrap();
+        let at = [cached.cols[0].as_ptr(), cached.cols[1].as_ptr()];
+        let (n, live) = (cached.n, cached.live.clone());
+
+        cube.refold(0).unwrap();
+        let base = &cube.rels[0];
+        assert_eq!([base.cols[0].as_ptr(), base.cols[1].as_ptr()], at);
+        assert_eq!((base.n, &base.live), (n, &live));
+        assert!(cube.effective[0].get().is_none(), "the cache was taken");
+        assert_eq!((cube.delta_len(0), cube.base_generation(0)), (0, Some(1)));
+    }
+
+    /// Nothing cached: `refold` computes the fold, equal to
+    /// `wide::refold(base, log)` with every row live.
+    #[test]
+    fn without_a_cached_fold_refold_computes_it() {
+        let t = table();
+        let mut cube = Cube::new(&t, &t.seal(), TILE, &[&edges()]).unwrap();
+        cube.add_edge(&t, 0, 101, 111).unwrap();
+        cube.retire_edge(&t, 0, 100, 110).unwrap();
+        assert!(cube.effective[0].get().is_none(), "no read, no cache");
+        let (src, dst) = wide::refold(
+            &cube.rels[0].cols[0],
+            &cube.rels[0].cols[1],
+            cube.delta_log(0).unwrap(),
+        );
+
+        cube.refold(0).unwrap();
+        let base = &cube.rels[0];
+        assert_eq!(base.cols, [src.clone(), dst]);
+        assert_eq!(base.n, src.len());
+        assert_eq!(base.live, super::all_live(src.len()));
+        assert_eq!((cube.delta_len(0), cube.base_generation(0)), (0, Some(1)));
+    }
+}
