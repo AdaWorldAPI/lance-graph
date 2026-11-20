@@ -190,6 +190,48 @@ fn the_lent_lanes_are_the_cubes_own_tuples() {
     assert!(std::ptr::eq(live.as_ptr(), live2.as_ptr()));
 }
 
+/// FAILS IF: with a logged edge, `borrow_all` lends lanes that are rebuilt per
+/// borrow, still the base's, or lanes and a live plane of different states.
+///
+/// "In place" names two memories. With an empty log the lent lanes are the
+/// base lanes. With a logged edge they are the effective fold, built on the
+/// first read and then lent in place by every later `borrow_all` until the
+/// relation changes.
+#[test]
+fn with_a_logged_edge_borrow_all_lends_the_cached_fold_in_place() {
+    let (t, e) = (table(&ids()), edges());
+    let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let w = world();
+
+    let base_x = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        lent(&w, &binding, &source, &t).unwrap().0.as_ptr()
+    };
+
+    cube.add_edge(&t, 0, 101, 111).unwrap();
+    let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+    let binding = bind(&w, &source, &t).unwrap();
+    let (x, y, live) = lent(&w, &binding, &source, &t).unwrap();
+    assert_eq!((x.len(), y.len()), (e.len() + 1, e.len() + 1));
+    assert!(
+        live.len() * 64 >= x.len(),
+        "the plane covers the fold's rows"
+    );
+    assert!(
+        !std::ptr::eq(x.as_ptr(), base_x),
+        "a logged edge is read through the fold, not the base"
+    );
+
+    let (x2, y2, live2) = lent(&w, &binding, &source, &t).unwrap();
+    assert!(
+        std::ptr::eq(x.as_ptr(), x2.as_ptr()),
+        "the fold is built once"
+    );
+    assert!(std::ptr::eq(y.as_ptr(), y2.as_ptr()));
+    assert!(std::ptr::eq(live.as_ptr(), live2.as_ptr()));
+}
+
 /// FAILS IF: a fold over the lent lanes disagrees with the cube's own count
 /// of the same column.
 #[test]
@@ -275,6 +317,132 @@ fn a_binding_goes_stale_with_the_relation_and_with_the_table() {
         lent(&w, &fresh, &source, &t),
         Err(LaneRefusal::Frame(_))
     ));
+}
+
+/// The relation's tuples as a sorted multiset of `(x, y)` local coordinates.
+fn bag(x: &[u32], y: &[u32]) -> Vec<(u32, u32)> {
+    let mut b: Vec<(u32, u32)> = x.iter().copied().zip(y.iter().copied()).collect();
+    b.sort_unstable();
+    b
+}
+
+/// FAILS IF: a binding made before a refold is still served after it, a
+/// refold changes the relation's bag of tuples (it may only reorder rows), a
+/// refold with an empty log invalidates a binding although nothing changed,
+/// or a refold computes again the fold a read already cached.
+///
+/// `refold` is the one operation that replaces the lent lane memory (the old
+/// lanes are dropped), so it is the case a zero-copy reader outside Rust's
+/// borrow checker would be exposed to; the space check must refuse it here.
+#[test]
+fn a_binding_goes_stale_when_the_relation_is_refolded() {
+    let (t, e) = (table(&ids()), edges());
+    let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let w = world();
+
+    // A refold with an empty log changes nothing: a binding stays valid.
+    let unchanged = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        bind(&w, &source, &t).unwrap()
+    };
+    cube.refold(0).unwrap();
+    {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        assert!(
+            lent(&w, &unchanged, &source, &t).is_ok(),
+            "an empty-log refold must not invalidate a binding"
+        );
+    }
+
+    // Log one edge, then bind and read the effective bag.
+    cube.add_edge(&t, 0, 101, 111).unwrap();
+    let (before, bag_before, fold_at) = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        let (x, y, live) = lent(&w, &binding, &source, &t).unwrap();
+        assert_eq!(x.len(), e.len() + 1);
+        // Where the cached fold lives; compared as addresses only.
+        let at = [
+            x.as_ptr() as usize,
+            y.as_ptr() as usize,
+            live.as_ptr() as usize,
+        ];
+        (binding, bag(x, y), at)
+    };
+
+    cube.refold(0).unwrap();
+    assert_eq!(cube.delta_len(0), 0, "refold empties the log");
+
+    let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+    assert!(
+        lent(&w, &before, &source, &t).is_err(),
+        "a binding made before a refold must be refused after it"
+    );
+    // The binding from before any edge was logged had an empty log too: only
+    // the base generation tells it apart from the refolded relation, whose
+    // log is empty again.
+    assert!(
+        lent(&w, &unchanged, &source, &t).is_err(),
+        "an empty-log binding of the old base must be refused after a refold"
+    );
+    let fresh = bind(&w, &source, &t).unwrap();
+    let (x, y, live) = lent(&w, &fresh, &source, &t).unwrap();
+    assert_eq!(
+        bag(x, y),
+        bag_before,
+        "a refold may reorder rows but must keep the bag of tuples"
+    );
+    assert_eq!(
+        [
+            x.as_ptr() as usize,
+            y.as_ptr() as usize,
+            live.as_ptr() as usize
+        ],
+        fold_at,
+        "a refold takes the cached fold as the base instead of computing it again"
+    );
+}
+
+/// FAILS IF: a refold takes a cached fold that an edge logged after the read
+/// has made stale, so the new base misses the late edge.
+///
+/// `refold` takes the cached fold as the new base. That is only sound if every
+/// log append drops the cache; this pins the order read, log, refold.
+#[test]
+fn a_refold_after_a_late_edge_keeps_the_late_edge() {
+    let (t, e) = (table(&ids()), edges());
+    let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let w = world();
+
+    cube.add_edge(&t, 0, 101, 111).unwrap();
+    let early = {
+        let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+        bag(x, y)
+    };
+
+    // The late edge, logged after the fold was cached and never read before
+    // the refold; a pair not yet held.
+    cube.add_edge(&t, 0, 129, 100).unwrap();
+    cube.refold(0).unwrap();
+
+    // The oracle: a cube whose base already holds both logged edges.
+    let mut all = e.clone();
+    all.extend([(101, 111), (129, 100)]);
+    let oracle = Cube::new(&t, &t.seal(), TILE, &[&all]).unwrap();
+    let late = {
+        let source = CubeLanes::new(&oracle, &t, 0, CLASS, [X, Y], READER);
+        let binding = bind(&w, &source, &t).unwrap();
+        let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+        bag(x, y)
+    };
+    assert_eq!(late.len(), early.len() + 1);
+
+    let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
+    let binding = bind(&w, &source, &t).unwrap();
+    let (x, y, _) = lent(&w, &binding, &source, &t).unwrap();
+    assert_eq!(bag(x, y), late, "the refolded base holds the late edge");
 }
 
 /// FAILS IF: another class, another scope or an unknown predicate is served.
