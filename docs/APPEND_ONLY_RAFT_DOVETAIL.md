@@ -270,6 +270,14 @@ peer-replication roughly 1x.
   entities in low single-digit GB compressed; OLD stack would
   require multi-TB cluster)
 
+## Addressing side
+
+This doc covers the storage write shape. The addressing side, how Raft's
+`(term, index)`, snapshots and TiKV's region epochs line up with DR's
+frames, coordinate spaces, `refold` and kept mappings, and where the parallel
+breaks (Raft truncates uncommitted entries; DR never renumbers), is in
+`.claude/knowledge/bindstore-raft-tikv-dr-addressing.md`.
+
 ## Related work upstream
 
 - `cognitive-shader-driver`'s canonical API discipline
