@@ -57,6 +57,7 @@ use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
     LaneSource, PresenceSource, RouteAt, SchemaRev, SelAddr, SelectionSource,
 };
+pub use lance_graph_pg_row::sink::{CellSink, CollectRows, CopyText};
 use lance_graph_pg_row::{read_bag, BagSide, ColumnSpec, LiveSource, PgRowRefusal, PgRows, Reader};
 
 pub use config::{merge, ColumnConfig, ColumnShape, Shape, ShapeConfig, Verdict};
@@ -658,6 +659,21 @@ impl Table {
         self.code_key_at(&self.owner.frame, column, code)
     }
 
+    /// The code `text` has in `column` under the current frame, for building
+    /// a filter: `Filter::cmp(Col(k), Cmp::EqU32(code))`. The string is
+    /// looked up here, once, so the fold compares codes only.
+    ///
+    /// `None` when the column is not text or holds no such string; an
+    /// equality on it matches no row. Code order is first-seen order, never
+    /// SQL order, so only `EqU32` and `NeU32` are meaningful on a code.
+    pub fn code_of(&self, column: &str, text: &str) -> Option<u32> {
+        let k = self.shape.iter().position(|c| c.name == column)?;
+        let space = self.spaces.get(k)?.as_ref()?;
+        self.codes
+            .code(&self.owner.frame, space, &ValueKey(text.to_owned()))
+            .ok()
+    }
+
     fn texts(&self) -> Vec<Option<SpaceText<'_>>> {
         self.spaces
             .iter()
@@ -891,6 +907,33 @@ impl Table {
         self.kept_of(r)?;
         self.owner.lend = Some(r.id);
         let result = self.read_selection(KEPT_SEL);
+        self.owner.lend = None;
+        result
+    }
+
+    /// Stream the rows of a kept selection into `sink`, in its order, with
+    /// one reused cell buffer and no row materialized. Same currency check
+    /// as [`Table::rows_of`]; returns the rows written.
+    pub fn write_of(
+        &mut self,
+        r: &SelectionRef,
+        sink: &mut impl CellSink,
+    ) -> Result<usize, IntakeRefusal> {
+        self.kept_of(r)?;
+        self.owner.lend = Some(r.id);
+        let result = (|| {
+            let texts = self.texts();
+            let specs = self.specs(&texts);
+            let (reader, positions) = Reader::open_selected(
+                &self.binding,
+                &self.store,
+                self.owner.table.frames(),
+                &self.owner,
+                KEPT_SEL,
+                &specs,
+            )?;
+            Ok(reader.write_rows(positions, sink)?)
+        })();
         self.owner.lend = None;
         result
     }

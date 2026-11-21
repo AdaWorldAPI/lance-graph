@@ -11,7 +11,8 @@ use std::collections::BTreeMap;
 
 use lance_graph_contract::pg_row::{write_cell, AbsentAs, LaneEncoding, PgColumn, PgType};
 use lance_graph_intake::{
-    detect_column, detect_key, ColumnConfig, IntakeRefusal, ShapeConfig, Table, Verdict,
+    detect_column, detect_key, CollectRows, ColumnConfig, CopyText, IntakeRefusal, ShapeConfig,
+    Table, Verdict,
 };
 use lance_graph_pg_row::{PgRowRefusal, PgRows};
 use lance_graph_quack::{Cmp, Col, Filter};
@@ -1249,4 +1250,99 @@ fn kept_validity_does_not_change_answers() {
     let kept = table.select_ref(&filter).expect("keep");
     assert_eq!(table.validity_folds(), folds);
     assert_eq!(table.rows_of(&kept).expect("rows"), cold);
+}
+
+/// FAILS IF: a text equality built from `code_of` keeps a different multiset
+/// of rows than PostgreSQL's `WHERE title = …`, if `''` and NULL are not kept
+/// apart (`title = ''` must keep the empty titles and no NULL title), or if
+/// an unknown string matches anything.
+#[test]
+fn a_text_filter_by_code_equals_postgresql() {
+    let (ticket_rows, ticket_deleted) = tickets();
+    let mut ticket = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .expect("ticket table");
+    for (r, &gone) in ticket_deleted.iter().enumerate() {
+        if gone {
+            ticket.delete_key(r as u64 + 1).expect("delete");
+        }
+    }
+    assert_eq!(ticket.code_of("priority", "1"), None, "not a text column");
+    assert_eq!(ticket.code_of("title", "no such title"), None);
+
+    let mut cases = Vec::new();
+    for title in ["vpn", "", "printer"] {
+        let code = ticket.code_of("title", title).expect("a known title");
+        let filter = Filter::cmp(Col(1), Cmp::EqU32(code));
+        let ours = ticket.select_where(&filter).expect("where");
+        let model: Vec<Row> = (0..ticket_rows.len())
+            .filter(|&r| !ticket_deleted[r] && ticket_rows[r][1].as_deref() == Some(title))
+            .map(|r| ticket_rows[r].clone())
+            .collect();
+        assert!(!model.is_empty(), "{title:?} occurs in the fixture");
+        same(&format!("title = {title:?}"), &model, &ours);
+        assert!(ours.rows.iter().all(|r| r[1].as_deref() == Some(title)));
+        cases.push((title, ours));
+    }
+
+    let pg = match Pg::connect() {
+        Ok(pg) => pg,
+        Err(Skip(why)) => {
+            assert!(
+                std::env::var_os("PG_ROW_REQUIRE_PG").is_none(),
+                "PG_ROW_REQUIRE_PG is set and PostgreSQL is unavailable: {why}"
+            );
+            println!("SKIP (PostgreSQL half): {why}");
+            return;
+        }
+    };
+    pg.script(&create(&ticket, &ticket_rows, &ticket_deleted))
+        .expect("create");
+    for (title, ours) in cases {
+        let sql = format!("SELECT * FROM ticket WHERE title = '{title}'");
+        let theirs = pg.query(&sql).unwrap_or_else(|e| panic!("{sql}: {e}"));
+        assert_eq!(theirs.types, ours.types);
+        if let Some(diff) = multiset_diff(&theirs.rows, &ours.rows) {
+            panic!("{sql}: PostgreSQL differs: {diff}");
+        }
+        println!("PASS {sql}: {} rows", ours.rows.len());
+    }
+}
+
+/// FAILS IF: streaming a kept selection into a sink gives different rows or
+/// order than `rows_of`, or if `write_of` reads a stale selection.
+#[test]
+fn write_of_equals_rows_of() {
+    let (ticket_rows, _) = tickets();
+    let mut table = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .expect("table");
+    let kept = table.select_ref(&owner_or_not_negative()).expect("keep");
+    let rows = table.rows_of(&kept).expect("rows_of");
+    let mut sink = CollectRows::new();
+    assert_eq!(
+        table.write_of(&kept, &mut sink).expect("write_of"),
+        kept.len()
+    );
+    assert_eq!(sink.rows, rows.rows);
+
+    let mut copy = CopyText::new();
+    table.write_of(&kept, &mut copy).expect("copy");
+    assert_eq!(copy.out.iter().filter(|&&b| b == b'\n').count(), kept.len());
+
+    table.delete_key(1).expect("delete");
+    assert!(matches!(
+        table.write_of(&kept, &mut CollectRows::new()),
+        Err(IntakeRefusal::Stale)
+    ));
 }
