@@ -738,19 +738,29 @@ impl Table {
         ])?)
     }
 
-    /// Re-detect on new rows with the same config. `Ok(())` when every merged
-    /// column is unchanged; `ShapeChanged` for the first column whose merged
-    /// shape would differ. A new shape is a new class: the caller supplies a
-    /// new classid through `from_rows`.
+    /// Check new rows against the shape this table was built with. `Ok(())`
+    /// when every cell of every new row fits its column's merged shape (an
+    /// all-NULL batch, or small values in an `int8` column, fit);
+    /// `ShapeChanged` for the first column with a cell that does not, with
+    /// the shape detected for that column over the new batch. A new shape is
+    /// a new class: the caller supplies a new classid through `from_rows`.
     pub fn observe(&self, rows: &[Vec<Option<&str>>]) -> Result<(), IntakeRefusal> {
-        let names: Vec<&str> = self.shape.iter().map(|c| c.name.as_str()).collect();
-        let fresh = Shape::build(&names, rows, &self.config)?;
-        for (was, now) in self.shape.iter().zip(&fresh.columns) {
-            if was.col != now.col {
+        for (k, was) in self.shape.iter().enumerate() {
+            let mut scratch = Codes::new();
+            let fits = rows.iter().all(|row| match row.get(k).copied().flatten() {
+                None => true,
+                Some("") if was.col.absent == AbsentAs::EmptyText => true,
+                Some(text) => lane_value(&was.col, text, &mut scratch).is_some(),
+            });
+            if !fits {
+                let cells: Vec<Option<&str>> = rows
+                    .iter()
+                    .map(|row| row.get(k).copied().flatten())
+                    .collect();
                 return Err(IntakeRefusal::ShapeChanged {
                     column: was.name.clone(),
                     was: was.col,
-                    now: now.col,
+                    now: detect::detect_column(&cells).col,
                 });
             }
         }

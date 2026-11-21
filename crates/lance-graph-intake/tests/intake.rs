@@ -375,6 +375,34 @@ fn observe_reports_a_changed_shape() {
     );
 }
 
+/// FAILS IF: a batch that fits the shape is reported as a change because it
+/// is judged on its own: an all-NULL batch, or only small values in a column
+/// built as int8.
+#[test]
+fn observe_judges_new_rows_against_the_built_shape() {
+    let table = small_table(&ShapeConfig::default()).expect("table");
+    let nulls: Grid = vec![vec![Some("6"), None], vec![Some("7"), None]];
+    assert_eq!(table.observe(&nulls), Ok(()), "all-NULL batch fits");
+
+    let wide: Grid = vec![
+        vec![Some("1"), Some("3000000000")],
+        vec![Some("2"), Some("4")],
+    ];
+    let refs = ["id", "n"];
+    let big = Table::from_rows("w", 0x2B03_0009, &refs, &wide, &ShapeConfig::default())
+        .expect("int8 table");
+    assert_eq!(
+        big.shape()[1].col.ty,
+        lance_graph_contract::pg_row::PgType::Int8
+    );
+    let small: Grid = vec![vec![Some("3"), Some("5")]];
+    assert_eq!(
+        big.observe(&small),
+        Ok(()),
+        "small values fit an int8 column"
+    );
+}
+
 /// FAILS IF: a deleted key is read, kept by a scan, or counted; an unknown
 /// key is not refused; or a bag of keys loses its repeats or its order.
 #[test]
