@@ -25,6 +25,12 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(all(
+    not(debug_assertions),
+    any(feature = "disable-intake-signed", feature = "disable-intake-live")
+))]
+compile_error!("disable-intake-* features are for disable runs in debug builds only");
+
 pub mod config;
 pub mod detect;
 
@@ -197,7 +203,9 @@ enum OwnedLane {
 impl OwnedLane {
     fn new(encoding: LaneEncoding, raw: Vec<u32>) -> OwnedLane {
         match encoding {
-            LaneEncoding::Signed => OwnedLane::I32(raw.into_iter().map(|v| v as i32).collect()),
+            LaneEncoding::Signed if !cfg!(feature = "disable-intake-signed") => {
+                OwnedLane::I32(raw.into_iter().map(|v| v as i32).collect())
+            }
             _ => OwnedLane::U32(raw),
         }
     }
@@ -650,7 +658,9 @@ impl Table {
     /// reads refuse or skip it.
     pub fn delete_key(&mut self, key: u64) -> Result<(), IntakeRefusal> {
         let at = self.position_of(key)? as usize;
-        self.owner.live[at / 64] &= !(1u64 << (at % 64));
+        if !cfg!(feature = "disable-intake-live") {
+            self.owner.live[at / 64] &= !(1u64 << (at % 64));
+        }
         Ok(())
     }
 

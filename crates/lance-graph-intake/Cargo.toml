@@ -14,3 +14,9 @@ lance-graph-pg-row = { path = "../lance-graph-pg-row" }
 
 [dev-dependencies]
 pg-parity-harness = { path = "../pg-parity-harness" }
+
+[features]
+# Disable runs for tests/intake.rs; each turns the PostgreSQL gate red and is a
+# compile error outside a debug build.
+disable-intake-signed = []
+disable-intake-live = []
