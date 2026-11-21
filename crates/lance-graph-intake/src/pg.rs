@@ -75,6 +75,30 @@ mod tests {
         fn end_row(&mut self) {}
     }
 
+    /// FAILS IF: a write that the reader refuses after the lend is taken
+    /// (here a kept position whose row was deleted) leaves the selection lent,
+    /// or a later write through the same table fails or differs.
+    #[test]
+    fn a_refused_write_leaves_nothing_lent() {
+        let mut t = table();
+        t.delete_key(2).expect("delete");
+        let dead = t.positions_for_keys(&[1]).expect("live")[0] + 1;
+        let bad = t
+            .keep_positions(vec![0, dead])
+            .expect("keep under current frame");
+        let mut sink = CollectRows::new();
+        let refused = write_selection(&t, &bad, &mut sink);
+        assert!(refused.is_err(), "{refused:?}");
+        assert!(sink.rows.len() <= 1);
+        assert_eq!(t.owner.lend.get(), None);
+
+        let good = t.select_keys_ref(&[1, 3]).expect("keep");
+        let mut sink = CollectRows::new();
+        assert_eq!(write_selection(&t, &good, &mut sink).expect("write"), 2);
+        assert_eq!(sink.rows, t.rows_of(&good).expect("rows").rows);
+        assert_eq!(t.owner.lend.get(), None);
+    }
+
     /// FAILS IF: a sink that panics mid-write leaves the kept selection lent,
     /// or a later write through the same table fails or differs.
     #[test]
