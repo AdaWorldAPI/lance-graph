@@ -1,0 +1,375 @@
+# The register contract: its contradictions, how each is resolved, and what follows
+
+> **READ BY:**
+> - any session that reads lanes through DT64 (`LaneBinding`, `borrow_all*`,
+>   a `LaneSource` / `PresenceSource` / `SelectionSource`);
+> - any session that writes a schema, revision or basis check;
+> - any session that answers a missing value, a deleted row or an outer-join side;
+> - any session that joins over a cube or over a consumer's tables;
+> - any session that ports a consumer store onto the 512-byte SoA rows;
+> - `layer-boundary-warden`, `premise-auditor`, `prior-art-savant`,
+>   `v3-envelope-auditor`, `cypher-lowering-warden`.
+>
+> **Status:** CURRENT-CONTRACT where a row says DECIDED and cites the decision.
+> PROPOSED where a row names a resolution that waits on an owner decision.
+> OPEN where neither exists. Every claim carries its grade: MEASURED (with its
+> receipt), VERIFIED-IN-CODE (with its path), QUOTED (a plan's or knowledge
+> doc's words, with path:line), or the owner's words with date (provenance, not
+> validation, per `FIRST-HAND-SOURCE-LAW.md`).
+>
+> **Written:** 2026-11-21, from the zammad-rs session's measurements
+> (zammad-rs #95, #96, #97) and lance-graph #2146–#2151, read at origin/main
+> `87d7b41`. Plan with the D-ids: `.claude/plans/d-regc-register-contract-reconciliation-v1.md`.
+
+## 0. The contract in five lines (what nothing below changes)
+
+1. A row is `identity[index].key : identity[index].value`: aligned lanes read
+   at one ordinal, each with its presence bit. It is never a stored pair
+   (EXO-332; `classid-on-do-call-shape.md` §0).
+2. Before the last step there is one ordinal register: the lanes lent by one
+   `borrow_all*` call, read at the same position. The join is the last step
+   (EXO-332, owner 2026-11-18).
+3. A read is lent in place and encoded only at the wire. The only
+   materialization is the returned cells (QUOTED
+   `plans/d-qsp-classview-quack-postgresql-parity-v1.md:30-39`).
+4. The substrate is the 512-byte SoA row with an owner (`canonical_node.rs`,
+   `SoaEnvelope::mailbox_owner`). A consumer's own `Vec` lanes are an interim
+   store, not a second substrate (owner 2026-11-20: "SoA 512 with ownership
+   guarantee and potential borrow_all is the only Substrat").
+5. Absent is one code: presence bit 0 and value 0, i.e. −0, at 8 and 9 bits
+   alike. At 9 bits the presence bit is the sign, so presence 0 with a nonzero
+   magnitude is a negative value, never absent (VERIFIED-IN-CODE
+   `lance-graph-contract/src/lane_codec.rs:55-63`; `lance-graph-dt64/src/lane.rs:119`).
+
+## 1. The contradictions
+
+Each entry is written the same way: the sources that disagree, quoted; the
+resolution this document proposes or records; its implications; the falsifier;
+and who decides.
+
+### C1. Schema store: Decision J against immutable classids — PROPOSED, owner decision needed
+
+**Sources that disagree:**
+- QUOTED `plans/d-dt64-7-behaviour-addressing-registration-v1.md:158-163`,
+  Decision J (owner, 2026-11-07): "A class's ordered `predicate_iri` basis is
+  immutable within one class `SchemaRev`. Reordering, replacing, removing or
+  appending a field takes a new revision."
+- QUOTED `plans/d-dt64-6-routing-bindstore-behavior-v1.md:31`: "A classid's
+  behaviour is permanently immutable. It is versioned under a fixed concept
+  through a derived DTO classid."
+- QUOTED `d-dt64-6:397`: EXO-199, "the classid stays the class; no class
+  versioning".
+- QUOTED `d-dt64-6:158`, OPEN: is the immutable unit a `(classid, binding
+  version)` entry, or one classid per revision?
+- Owner, 2026-11-20: "classid per se are immutable / I don't want any Schema
+  store because we enforce classview".
+
+**Code today (VERIFIED-IN-CODE, `lance-graph-dt64`):**
+- `SchemaRev` (`lib.rs:128`) and `ClassSchema.schema_rev` (`:267-268`).
+- `BindStore::register` binds "at `schema.schema_rev` (Decision J)" and keeps a
+  basis digest (`:829-843`).
+- `LaneBinding::check` re-checks that digest and every bound predicate on every
+  read (`lane.rs` around `:400-440`, `StoreBasisMismatch`).
+- `SchemaRev` is named in 10 crates' source (`lance-graph-mailbox-lanes` 14
+  files, `-r2il` 8, `-dt64` 8, `-xlog` 7, `-report` 5, and lab crates).
+
+**Measured weight:** schema and basis sub-checks are about a third of each
+`LaneBinding::check`, 49,140 of 146,453 over zammad-rs's 512-call wide workload.
+This is derived from `check` at `87d7b41`; only the source callbacks are counted
+from zammad-rs (MEASURED, zammad-rs#96 `tests/register_census.rs`).
+
+**Proposed resolution:**
+- One classid has one field basis forever. A new shape is a new classid, the
+  "derived DTO classid" of d-dt64-6:31. That answers d-dt64-6:158 with "one
+  classid per shape".
+- The `ClassView` is the schema and its only enforcement. `SchemaRev` becomes a
+  constant of the classid, not a store.
+- The basis digest is checked once, at registration, never per read.
+
+**Implications:**
+- **D-REGC-2:** retire the per-read basis re-check. The registration check stays
+  as the falsifier that a `ClassView` returns the same fields for the same
+  classid.
+- A `ClassView` that changes a classid's fields becomes a contract violation
+  caught at registration.
+- What becomes of Decision J's "append-only across revisions" (`class_view.rs:1058-1059`)
+  is part of the owner decision. Across classids, it becomes "a derived classid
+  extends its parent's prefix".
+
+**Falsifier:** a `ClassView` that returns a different basis for an
+already-registered classid must be refused at `register`, and no read may
+succeed through it.
+
+**Decides:** the owner (DECISION NEEDED, lance-graph · Decisions).
+
+### C2. Is a binding needed for a read through one class lens? — PROPOSED
+
+**Sources:**
+- Owner, 2026-11-20: "a class doesn't need binding if the caller has one class
+  as a reading lens".
+- QUOTED `plans/d-lanesock-dr-dt64-lane-socket-v1.md:179`: "Validation stays per
+  call. There is no check-once or lease."
+- The 2026-11-21 survey found no plan that defines or refuses a lens-only read.
+  The search space was the DT64, lane-socket, class-governance v2/v3, quack-seam
+  and xlog plans read for it, so this is not a global negative. The only "lens"
+  in those plans is the behaviour lens `0xF###`.
+
+**What `bind_lanes` does (VERIFIED-IN-CODE, `lance-graph-dt64/src/lane.rs:261-300`):**
+1. route: which class is at a DR position;
+2. basis: resolve and check the class's fields;
+3. mapping: each field's `FieldRef` → the source's lane via `lane_of` by predicate;
+4. witness: the frame is the source's current seal, the scope matches, and the
+   row order matches.
+
+**Proposed resolution:**
+- With one class held as the lens, 1–3 are fixed by the lens itself. Route is
+  not consulted; basis per C1; mapping is the source's own lookup by the lens's
+  predicates.
+- Per read, only 4 remains: frame, scope and row order.
+- A read API of the form "lens + frame + scope + order → lanes (+ presence,
+  + selection)" does not add a registry. It is `borrow_all*` without steps 1–3.
+
+**Implications:** D-REGC-1, a dt64 read with no `LaneBinding`, gated on C1.
+Consumers with one class per table (zammad-rs: `ClassMap` holds one class per
+table) drop per-bind route and basis work. #2150's kept mappings remain the form
+for routed reads (a DR position that can hold several classes).
+
+**Falsifier:** the lens read refuses exactly what `borrow_all_present` refuses
+for frame, scope and order (foreign frame, stale frame, another row order,
+another scope). It is equal on every lane, and it counts no route or basis
+sub-check.
+
+**Decides:** the lance-graph DT64 owner, after C1.
+
+### C3. Missing, empty, deleted: one absent code, or several? — RECORDED (owner) + PROPOSED (delete)
+
+**Sources:**
+- VERIFIED-IN-CODE `lane_codec.rs:55-63`: absent = presence 0 and value 0, named
+  as NaN, `$null` and UNKNOWN.
+- Owner, 2026-11-20/21: "In our Substrat NULL = NaN"; "0 presence 0 value= -0 =
+  NaN"; "we follow the Powershell logic: 0 = number, $null = NaN = '' = NULL
+  (SQL/SAP)"; "The only thing that is usually is ''=$Null and it says no value or
+  missing or deleted"; "We never use float"; another presence bit is "useless
+  until we really need it".
+- MEASURED zammad-rs#95: a deleted row keeps presence 1 and its old values.
+  Reading it returned 547 stale rows where PostgreSQL returned NULL (deleted
+  parent, left join).
+- OPEN: EXO-337 (may a selection name a non-live position) and EXO-294
+  (decision B, absent = −0).
+
+**Resolution, recorded:** one absent code, −0, for `$null`, NaN, UNKNOWN, `''`,
+missing and deleted. `0` is a number (presence 1, value 0). One presence bit, no
+second one until a measured case needs it.
+
+**Resolution, proposed for deletes:**
+- A delete writes −0 on every lane of the row (clear presence AND value) and
+  clears the live bit. A dead row then reads as absent, like an untouched slot.
+- Clearing presence alone is wrong. Under a 9-bit reading, a nonzero magnitude
+  with presence 0 is a negative value.
+- Until this lands, reads fail closed: a selection that names a non-live
+  position is refused. VERIFIED-IN-CODE zammad-rs `Refusal::DeadPosition`, which
+  is checked on the live plane, not on presence, because a live row may hold −0
+  cells.
+
+**Implications:**
+- **D-REGC-3:** a delete writes −0; the live bit stays authoritative.
+- **D-REGC-10, egress to PostgreSQL:** an absent text cell renders as `''` where
+  the column's default is `''`, and as NULL otherwise. MEASURED in zammad-rs's
+  wide capture: 1958 `''` cells in PostgreSQL answers, from 16 nullable text
+  columns that never also hold NULL.
+- The PostgreSQL harness keeps `''` and NULL distinct. That is what makes the
+  egress rule falsifiable.
+
+**Falsifiers:**
+- A delete followed by a read returns −0, never an old value.
+- A column holding both `''` and NULL in PostgreSQL breaks the egress rule, and
+  the harness reports it.
+
+**Decides:** the owner. The deletion half is EXO-337 / EXO-294; the absent code
+is recorded from the owner's words.
+
+### C4. A key with no live row: no position, or a dead position? — DECIDED in a consumer, PROPOSED for DR
+
+**Sources:**
+- MEASURED zammad-rs#95: a missing parent (key 0) was answered by reading
+  Identity's dead position 0. It was right only by layout coincidence.
+- report-rs#175 pins the same rule as `Unresolved`
+  (`a_known_identity_without_a_binding_is_unresolved`).
+- VERIFIED-IN-CODE `MapTable::locate` refuses `Ambiguous` / `Unmapped`. DR maps
+  identities and does not know liveness; liveness is the owner's live plane.
+
+**Resolution:**
+- A key with no live row resolves to no position.
+- The missing side of an outer join is −0, read at no position.
+- DECIDED and test-pinned in zammad-rs (`position_of` returns `None` for a
+  non-live key or one past the last row).
+- PROPOSED for every DR consumer: locate answers "unresolved" and the read
+  refuses a dead position.
+
+**Implications:** D-REGC-4, the selection carries its own presence plane, so
+that an outer-join side with no position renders −0. A selection today is
+`&[u32]` positions only, and a reserved −0 position is the alternative. This
+needs a decision.
+
+**Falsifier:** zammad-rs#95's deleted-parent arm. It was red on the old code (547
+stale rows) and is green with the rule, in both layouts.
+
+### C5. Coordinates are bijective; relations are bags — CURRENT-CONTRACT
+
+**Evidence:**
+- MEASURED lance-graph#2149 (cube, one tile): `global(local(g)) == g` for all 38
+  ids, and the reverse for every coordinate. Outbound costs 0 map lookups;
+  inbound costs 1 per cell.
+- MEASURED zammad-rs#96 `tests/cube_bijectivity.rs` (consumer DR placement):
+  - the round trip, no shared positions, and no position for dead or absent keys;
+  - after every one of 51 feeds, in both layouts;
+  - on the size-1025 capture across 5–6 tiles, with feeds that reach a new tile,
+    delete across tiles and revive a key.
+- MEASURED report-rs#175 `a_repeated_binding_is_a_bag_not_a_set`; zammad-rs and
+  #2149 `join_size` equal PostgreSQL's `count(*)` with duplicates.
+
+**Contract:**
+- The coordinate maps are bijective onto live rows.
+- A relation is a bag and must never be made a set: PostgreSQL join semantics.
+- The coordinate space includes row order, not only the frame. A logged edge or a
+  refold moves rows without moving the frame (#2136, #2146).
+
+**Still unmeasured** (D-REGC-8):
+- the cube across several tiles (`MapTable::locate`);
+- the cube's bijection after `add_edge` and `refold`;
+- the cost of `locate` per key in a multi-tile join.
+
+### C6. Joins: per-row key reads in a consumer against the aligned pass — CURRENT-CONTRACT (direction) + OPEN (admission)
+
+**Sources:**
+- QUOTED `knowledge/classid-on-do-call-shape.md:35-38`: "A join is an aligned
+  pass over lanes that share coordinates… Key sets, translated positions and
+  reads through a key are what a consumer falls back to".
+- QUOTED `:149-155`: zammad-rs's form is "parity evidence for the answers, not
+  the join form to copy".
+- QUOTED `:313`: the fix is at intake.
+- MEASURED zammad-rs#96:
+  - joins place one key per kept tuple per dimension from an edge-lane value
+    (546 resolutions over 57 wide calls), all after the last fold;
+  - the join's tables have no class binding;
+  - the placed positions are built into `JoinStats::tuples` and not used for the
+    rendered cells.
+- OPEN: EXO-140 (`EqU32Via` / `Semijoin` / `Gather` admission) and EXO-327
+  (filter on a join side).
+
+**Resolution:**
+- The join is an aligned pass over classes placed on shared coordinates at intake.
+- Its count is a fold (`Σ left·right`, `Cube::join_size`).
+- Its rows are a virtual tuple bag: one selection per side, aligned by index,
+  row `i = (laneA[selA[i]], laneB[selB[i]])`, read through one pointer table and
+  never built.
+- A value-driven per-row key read is a fallback, gated by ADMISSION=B (QUOTED
+  `plans/ascent-byods-dr-fold-polyfill-v1.md:66`).
+
+**Implications:**
+- **D-REGC-9:** consumer intake places related classes on shared coordinates.
+- D-REGC-4 supplies the outer-join side.
+- D-REGC-5 issues the selections.
+- Off the execution path (QUOTED):
+  - egglog / DialEgg certify rewrites offline (`plans/d-nam-native-algebra-dto-capstone-v1.md:29`);
+  - "No runtime Ascent, MORK or datafrog fallback" (`ascent-byods:113`);
+  - datafrog is "a Datalog fixpoint comparator, not the production substrate"
+    (`plans/xlog-knowledge-spine-v1.md:50`).
+
+### C7. Who issues a selection? — OPEN (EXO-329), PROPOSED
+
+**Sources:**
+- EXO-329: DR owns positions, DT owns labels, and consumers hold neither.
+- VERIFIED-IN-CODE `SelectionSource` (`dt64/src/lane.rs:110`): the source is the
+  only issuer of a position list.
+- `CubeLanes` has no `SelectionSource` (`xlog/src/cube/lend.rs`, per #2149 and
+  #2147's notes).
+- MEASURED #2149: inbound costs one `locate` per cell, not per distinct id.
+
+**Proposed resolution:**
+- DR issues selections, under its frame and the relation's row order.
+- Keys are resolved once per distinct key per frame, at binding, never per cell
+  or per row.
+
+**Implications:** D-REGC-5 (`CubeLanes: SelectionSource`, issued by DR) and
+D-REGC-7 (resolve once per distinct key).
+
+### C8. The read shape over 512-byte rows: `LaneRef::Strided` — VERIFIED-IN-CODE (exists), OPEN (coverage)
+
+**Sources:**
+- QUOTED `plans/waben-fold-execution-loop-v1.md:1266`, at `lg@25988f3c`:
+  "`LaneRef::{I32,U32,U64}` — no strided variant". That was true at that commit.
+- VERIFIED-IN-CODE at `87d7b41` `lance-graph-mask-risc/src/ir.rs:27-50`:
+  `LaneRef::Strided(StridedRef { bytes, first_offset, stride, records })`, "a
+  `NodeRow` column stays inside its 512-byte rows". Quack reads it in place
+  (`lance-graph-quack/src/lib.rs:256-268`, `:964-975`).
+- Owner, 2026-11-20: "Quack is supposed to use SoA 512, as long as the Data can
+  be mapped which is enforced by DT".
+
+**Which predicates read a strided lane** (VERIFIED-IN-CODE, `mask-risc/src/ir.rs`
+`Pred` / `Terminal`, `exec.rs:671-730`):
+
+| Reads `Strided` | Lane-only (`I32` / `U32` / `U64`), no strided form |
+|---|---|
+| `EqU32Strided`, `NeU32Strided`, `MatchFacetStrided`, `MatchFacet16Strided`; terminal `MaskedStridedGroupSum` | `Gt/Lt/Ge/LeI32`, `Eq/NeI32`, `Eq/NeU32`, `MatchU32/U64`, `Range`, `EqU32Via`, `Gather`; terminals `MaskedSum/Min/Max/ArgMin/ArgMaxI32`, `GroupSum*`, `GroupReduce`, the scatter terminals |
+
+`Count`, `Any`, `All` and `Keep` work on masks, so they are layout-free.
+
+**Resolution:**
+- DT's `ClassView` names each field's offset and carving.
+- The source lends `LaneRef::Strided` views over the owner's 512-byte rows.
+- The lane-only predicates a consumer's workload uses get strided forms, or that
+  workload stays on lent `u32` lanes. Either way the gap is counted, not assumed.
+
+**Implications:**
+- **D-REGC-6:** strided forms for the comparisons, `Range`, code-set membership
+  and the masked aggregates a recorded workload uses.
+- The first count: zammad-rs's 512 calls, by predicate.
+- Where the presence bit lives for a strided lane is also open: a plane per
+  owner, or bits in the value region.
+
+### C9. A consumer's own store against the one substrate — OPEN
+
+**Sources:**
+- Owner, 2026-11-20 (C8, §0 item 4).
+- VERIFIED-IN-CODE zammad-rs `quack-shadow/src/lib.rs:74-300`: `Vec<u32>` lanes
+  and `Vec<u64>` validity per column, owned by `Catalog`, with no mailbox owner.
+- Everything zammad-rs measured (the census, #95's PostgreSQL gate) is therefore
+  measured on an interim store.
+
+**Resolution:**
+- The census and the PostgreSQL gate are the oracle for moving the store onto
+  owner-held 512-byte rows lent as `Strided`.
+- The same counts and the same PostgreSQL answers must hold before and after.
+
+**Implications:** D-REGC-11, in the consumer. It is blocked on D-REGC-6 for the
+predicates the workload uses.
+
+## 2. What is settled, at a glance
+
+| | State | Where |
+|---|---|---|
+| Row as `identity[index].key : .value`, join last | CURRENT-CONTRACT | EXO-332 |
+| Absent = −0 for `$null` / NaN / `''` / missing / deleted | RECORDED (owner words) | C3 |
+| Missing key → no position; dead position refused at read | TEST-PINNED in zammad-rs; PROPOSED for DR | C4 |
+| Coordinates bijective, relations bags | MEASURED | C5 |
+| Join = aligned pass over shared coordinates; per-row key reads are a fallback | CURRENT-CONTRACT (direction) | C6 |
+| egglog / DialEgg / datafrog / Ascent off the execution path | QUOTED, consistent | C6 |
+| `LaneRef::Strided` exists; most predicates lack a strided form | VERIFIED-IN-CODE | C8 |
+| Schema store / Decision J | **owner decision needed** | C1 |
+| Lens-only read | PROPOSED, gated on C1 | C2 |
+| Delete writes −0 | PROPOSED (EXO-337 / EXO-294) | C3 |
+| Selection issuer, outer-join side in a selection | OPEN (EXO-329), PROPOSED | C4, C7 |
+
+## 3. How a future session uses this document
+
+1. Before adding a check, a revision, a binding step or a store, find its row
+   here. If it is PROPOSED or OPEN, do not build against the proposed side
+   without the decision.
+2. Before answering a missing, empty or deleted value, follow C3 and C4.
+3. Before writing a join, follow C6. If the classes do not share coordinates, the
+   fix is at intake, not a new join form.
+4. Before porting a store onto 512-byte rows, count the predicates the workload
+   uses against the C8 table.
+5. When a decision lands, change the row's state here in the same PR. Do not add
+   a second document.

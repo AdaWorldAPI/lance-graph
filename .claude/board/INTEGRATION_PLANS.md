@@ -1,3 +1,8 @@
+## 2026-11-21 — D-REGC-0: the register contract's contradictions, with a resolution and falsifier each → `.claude/plans/d-regc-register-contract-reconciliation-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. Nine contradictions (C1–C9) between plans, code and the owner's statements, found by measuring zammad-rs against PostgreSQL 16.15: the schema store (Decision J vs EXO-199), the one-lens read, absent vs deleted (−0), the dead position, bijective coordinates vs bag relations, joins at intake, the selection issuer, `LaneRef::Strided` coverage, and the consumer's own store. Four decisions are listed; code rows D-REGC-1..11 are queued behind them.
+**Confidence:** code paths read at `87d7b41`; numbers measured in zammad-rs #95/#96/#97 (census, PostgreSQL gate) and #2149; owner statements quoted with date as provenance.
+
 ## 2026-11-19 — D-GPW-0: global pattern words, one word with a hole, its two dimensions and its absent-case policy as parameters → `.claude/plans/global-pattern-words-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. A pattern (`LIKE 'a.%'`, a spaCy token pattern, a MeTTa `match`) is one global word; within-a-value and across-values are its two dimensions and the absent case is a declared policy, by analogy with `Codec8<T, S, R, N>`'s `Rounding` and `NanPolicy`. Builds on metta-polyfill-v1 for the across dimension. Four owner decisions listed (lens, absent-case variants, relation to `Logic`, call parameters). The reading is this session's and unconfirmed.

@@ -1,3 +1,22 @@
+## D-REGC: register contract reconciliation (2026-11-21)
+
+Plan: `.claude/plans/d-regc-register-contract-reconciliation-v1.md`. Knowledge: `.claude/knowledge/register-contract-reconciliation.md`. Documentation only; evidence from zammad-rs #95–#97 and #2146–#2151.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-REGC-0 | Knowledge doc, plan, ⊘ notes on d-dt64-7 §1f and waben:1266 | In PR, docs only |
+| D-REGC-1 | DT64 read through one class lens (frame, scope and order checks only) | Queued (needs C1 decision) |
+| D-REGC-2 | Basis checked once at `register`; per-read basis re-check retired | Queued (needs C1 decision) |
+| D-REGC-3 | A delete writes −0 on every lane and clears the live bit | Queued (EXO-337 / EXO-294) |
+| D-REGC-4 | Presence plane on a selection for an outer-join side with no row | Queued (needs decision on the form) |
+| D-REGC-5 | `CubeLanes: SelectionSource`, selections issued by DR | Queued (EXO-329) |
+| D-REGC-6 | Strided forms of the lane-only predicates a recorded workload uses | Queued (count first) |
+| D-REGC-7 | Keys resolved once per distinct key per frame | Queued (after D-REGC-5) |
+| D-REGC-8 | Cube across several tiles; bijection after `add_edge` / `refold` | Queued |
+| D-REGC-9 | Consumer intake on shared coordinates; join as an aligned pass | Queued (EXO-140) |
+| D-REGC-10 | PostgreSQL egress: absent text cell → `''` or NULL by column default | Queued |
+| D-REGC-11 | zammad-rs store onto owner-held 512-byte rows lent as `Strided` | Queued (zammad-rs side, after D-REGC-6) |
+
 ## D-GPW: global pattern words (2026-11-19)
 
 Plan: `.claude/plans/global-pattern-words-v1.md`. Documentation only.

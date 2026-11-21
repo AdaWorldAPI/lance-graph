@@ -157,6 +157,8 @@ Each falsifier gets a disable run: drop the frame check in `map`, and drop the `
 
 ### 1f. Decision J: the basis is EXACT within a class SchemaRev (operator, 2026-11-07)
 
+> ⊘ **CONTESTED 2026-11-21 (D-REGC-0).** This decision conflicts with EXO-199 ("no class versioning", d-dt64-6:397), with d-dt64-6:31 (a new shape is a derived DTO classid) and with the owner's 2026-11-20 statement "classid per se are immutable / I don't want any Schema store because we enforce classview". It stays in force in code until the owner decides. The proposed resolution is one classid per shape, with the basis checked at `register` only: `.claude/knowledge/register-contract-reconciliation.md` C1.
+
 **DECISION** (operator, 2026-11-07, after the DT64 convergence audit, ratified /5plus3 v3). It refines O10 and fixes the comparison rule of L5's basis witness. It adds no registry and no new type of authority.
 
 1. **Exact within a revision.** A class's ordered `predicate_iri` basis is immutable within one class `SchemaRev`. Reordering, replacing, removing or appending a field takes a new revision.
