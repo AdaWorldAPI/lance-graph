@@ -99,20 +99,28 @@ What a read must still refuse, and how. Review on #2152 pointed out that
   re-resolves through the view first. The proposal keeps an O(1) compare of
   the store's registered digest for the classid against the binding's, and
   drops the re-resolution.
-- **A view mutated after bind.** A `ClassView` is a trait object and can
-  return other fields later, without passing through `register`. Under the
-  proposal no read consults the view, so a mutation changes nothing a read
-  returns. It is refused at the next `register` or bind. If reads have to
-  keep consulting the view (for example, `lane_of` takes the view's
-  `FieldRef` rather than the binding's recorded one), the per-read
-  whole-basis compare stays.
+- **A view mutated after bind.** Owner, 2026-11-21: a `ClassView` changes
+  only while ruff's class proposer stages classes that do not exist yet. That
+  staging is Explore, outside the store (`classid-on-do-call-shape.md` §113:
+  "There is no lifecycle state besides versioned, replayable immutability").
+  Once registered, a class is read through the BindStore as `xlog::Cube ×
+  DT[ClassView] × DR[WideFieldMask]`. In the normal scenario a change is a
+  new versioned reference, never a mutation in place. A read compares the
+  reference it was bound under (O(1)) and is replayed by that reference: the
+  kept binding (`MapTable::keep / kept / kept_under`,
+  `LaneBinding::keep_in`, #2150) and the route log (`RouteVersion`).
+  So in-place mutation is not a read-path case. If it ever happens, solving
+  it belongs to the replayability table, not to a per-read basis check.
+  Until that table owns it, the cheap rule stands: no read consults the
+  view, so a mutation changes no answer.
 
 **Implications:**
 - **D-REGC-2:** retire the per-read re-resolution of the basis through the
   view. Keep the per-read digest compare against the store, and
   `register`'s refusal of a changed basis.
-- A `ClassView` that changes a classid's fields becomes a contract violation.
-  It is caught at the next registration or bind, and is invisible to reads.
+- A registered class changes only by a new versioned reference. An in-place
+  change of a classid's fields is a contract violation. The replayability
+  table owns it, and reads never see it.
 - What becomes of Decision J's "append-only across revisions" (`class_view.rs:1058-1059`)
   is part of the owner decision. Across classids, it becomes "a derived classid
   extends its parent's prefix".
