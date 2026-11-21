@@ -420,7 +420,7 @@ predicates the workload uses.
 | egglog / DialEgg / datafrog / Ascent off the execution path | QUOTED, consistent | C6 |
 | `LaneRef::Strided` exists; most predicates lack a strided form | VERIFIED-IN-CODE | C8 |
 | Schema store / Decision J | **owner decision needed** | C1 |
-| Lens-only read | PROPOSED, gated on C1 | C2 |
+| Lens-only read (read by reference, no view after bind) | VERIFIED-IN-CODE, in PR: `LaneBinding::check_bound` + `*_bound` borrows, `tests/bound_read.rs`; additive, `check(view)` unchanged | C1, C2 |
 | Delete writes −0 | PROPOSED (EXO-337 / EXO-294) | C3 |
 | Selection issuer, outer-join side in a selection | OPEN (EXO-329), PROPOSED | C4, C7 |
 

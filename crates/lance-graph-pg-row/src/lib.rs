@@ -6,9 +6,11 @@
 //! needs, each over lanes lent by ONE DT64 check per table:
 //!
 //! - [`Reader::open`] / [`Reader::open_selected`]: one
-//!   `LaneBinding::borrow_all_present` (or `borrow_all_selected_present`),
-//!   then every bound lane with its presence plane, plus the table's live
-//!   plane ([`LiveSource`]).
+//!   `LaneBinding::borrow_all_present_bound` (or
+//!   `borrow_all_selected_present_bound`), then every bound lane with its
+//!   presence plane, plus the table's live plane ([`LiveSource`]). No
+//!   `ClassView` is consulted after bind: a registered class changes only by
+//!   a new versioned reference (register-contract-reconciliation C1, C2).
 //! - [`Reader::keep_where`] / [`Reader::count_where`]: a Quack [`Filter`]
 //!   over the lent lanes, made SQL three-valued by [`Filter::sql_where`],
 //!   lowered by `lance-graph-quack` and executed by `lance-graph-mask-risc`.
@@ -54,7 +56,6 @@
 ))]
 compile_error!("disable-pg-row-* features are for disable runs in debug builds only");
 
-use lance_graph_contract::class_view::ClassView;
 use lance_graph_contract::pg_row::{
     write_cell, CellRefusal, CodeText, PgColumn, PgTypeRefusal, Written,
 };
@@ -170,22 +171,21 @@ pub struct Reader<'s, 'c> {
 }
 
 impl<'s, 'c> Reader<'s, 'c> {
-    /// One `borrow_all_present` over `binding`, then the live plane.
-    pub fn open<V, S>(
+    /// One `borrow_all_present_bound` over `binding` (no `ClassView`: the
+    /// read goes through the basis recorded at bind), then the live plane.
+    pub fn open<S>(
         binding: &LaneBinding,
         store: &BindStore,
-        view: &V,
         frames: &FrameStore,
         source: &'s S,
         cols: &'c [ColumnSpec<'c>],
     ) -> Result<Self, PgRowRefusal>
     where
-        V: ClassView + ?Sized,
         S: PresenceSource + LiveSource,
         S::Lane<'s>: IntoLaneRef<'s>,
     {
         let lanes = binding
-            .borrow_all_present(store, view, frames, source)
+            .borrow_all_present_bound(store, frames, source)
             .map_err(PgRowRefusal::Lane)?;
         let mut lent = Vec::with_capacity(lanes.len());
         for item in lanes {
@@ -195,25 +195,23 @@ impl<'s, 'c> Reader<'s, 'c> {
         Self::new(binding, source, cols, lent)
     }
 
-    /// One `borrow_all_selected_present` over `binding` and the source's
-    /// selection `sel`, then the live plane. Returns the positions the source
-    /// issued, a bag in list order.
-    pub fn open_selected<V, S>(
+    /// One `borrow_all_selected_present_bound` over `binding` and the
+    /// source's selection `sel`, then the live plane. Returns the positions
+    /// the source issued, a bag in list order.
+    pub fn open_selected<S>(
         binding: &LaneBinding,
         store: &BindStore,
-        view: &V,
         frames: &FrameStore,
         source: &'s S,
         sel: u16,
         cols: &'c [ColumnSpec<'c>],
     ) -> Result<(Self, &'s [u32]), PgRowRefusal>
     where
-        V: ClassView + ?Sized,
         S: lance_graph_dt64::SelectionSource + PresenceSource + LiveSource,
         S::Lane<'s>: IntoLaneRef<'s>,
     {
         let (lanes, positions) = binding
-            .borrow_all_selected_present(store, view, frames, source, sel)
+            .borrow_all_selected_present_bound(store, frames, source, sel)
             .map_err(PgRowRefusal::Lane)?;
         let mut lent = Vec::with_capacity(lanes.len());
         for item in lanes {

@@ -247,10 +247,11 @@ pub struct LaneBinding {
     selection: CoordSpace,
     fields: WideFieldMask,
     lanes: Vec<(u8, LaneAddr)>,
-    /// Parallel to `lanes`: the `predicate_iri` each bound field had in the
-    /// witnessed basis at bind. An identity, never a value. The hot check
-    /// compares the view's field at each bound position against it.
-    predicates: Vec<Box<str>>,
+    /// Parallel to `lanes`: the field each bound position had in the
+    /// witnessed basis at bind. An identity, never a value. [`Self::check`]
+    /// compares the view's field at each bound position against it;
+    /// [`Self::check_bound`] reads through it and consults no view.
+    refs: Vec<FieldRef>,
     /// The witness of the basis the class was bound with when this binding
     /// was made: one `u128`, compared on the hot path without hashing.
     basis: crate::BasisDigest,
@@ -281,7 +282,7 @@ impl BindStore {
             .bound_basis(class)
             .ok_or(Refusal::UnknownClass(class))?;
         let mut lanes = Vec::with_capacity(req.fields.count() as usize);
-        let mut predicates = Vec::with_capacity(req.fields.count() as usize);
+        let mut refs = Vec::with_capacity(req.fields.count() as usize);
         for field in 0..=u8::MAX {
             if !req.fields.has(field) {
                 continue;
@@ -294,7 +295,7 @@ impl BindStore {
                 .ok_or(LaneRefusal::Unbound { class, field })?;
             admit_lane(field, &addr, req.scope, req.selection)?;
             lanes.push((field, addr));
-            predicates.push(Box::<str>::from(field_ref.predicate_iri.as_str()));
+            refs.push(field_ref.clone());
         }
         Ok(LaneBinding {
             class,
@@ -305,7 +306,7 @@ impl BindStore {
             selection: req.selection,
             fields: req.fields.clone(),
             lanes,
-            predicates,
+            refs,
             basis,
         })
     }
@@ -429,7 +430,7 @@ impl LaneBinding {
         if bound != self.basis {
             return Err(LaneRefusal::StoreBasisMismatch { class: self.class });
         }
-        for ((field, addr), bound_iri) in self.lanes.iter().zip(&self.predicates) {
+        for ((field, addr), bound) in self.lanes.iter().zip(&self.refs) {
             let field = *field;
             let field_ref = fields
                 .get(usize::from(field))
@@ -447,7 +448,7 @@ impl LaneBinding {
                     })
                 }
             }
-            if field_ref.predicate_iri.as_str() != &**bound_iri {
+            if field_ref.predicate_iri != bound.predicate_iri {
                 return Err(LaneRefusal::PredicateChanged {
                     class: self.class,
                     field,
@@ -668,6 +669,101 @@ impl LaneBinding {
             lanes: self.lanes.iter(),
             source,
         })
+    }
+}
+
+/// The read by reference (D-REGC-1, D-REGC-2,
+/// `.claude/knowledge/register-contract-reconciliation.md` C1, C2).
+///
+/// A registered class changes only by a new versioned reference: a new
+/// classid or revision, registered and bound again. Its `ClassView` changes
+/// only while a proposer stages classes that do not exist yet, which is
+/// outside the store. So after bind a read needs no view. It reads through
+/// the fields recorded at bind and checks what can change under a binding:
+///
+/// - the frame, against the source's own store (data version);
+/// - the route, against this store's route log (DR reference);
+/// - the class's revision and basis digest in this store against the
+///   binding's, an O(1) compare (BindStore version). A store that holds
+///   another basis for the class refuses with `StoreBasisMismatch`;
+/// - every lane against what the source maps now for the recorded field,
+///   and its scope and row order.
+///
+/// [`LaneBinding::check`] stays the read for a caller that holds a view and
+/// wants its fields re-checked; it refuses what this check refuses, plus a
+/// view whose fields moved.
+impl LaneBinding {
+    /// [`LaneBinding::check`] by reference: no `ClassView`.
+    pub fn check_bound<S: LaneSource>(
+        &self,
+        store: &BindStore,
+        frames: &FrameStore,
+        source: &S,
+    ) -> Result<(), LaneRefusal> {
+        source_owns(frames, source)?;
+        frames.check(&self.frame).map_err(LaneRefusal::Frame)?;
+        current_route(store, self.route.position, self.class)?;
+        if store.bound_rev(self.class) != Some(self.rev)
+            || (store.bound_basis(self.class) != Some(self.basis)
+                && !cfg!(feature = "disable-bound-digest"))
+        {
+            return Err(LaneRefusal::StoreBasisMismatch { class: self.class });
+        }
+        for ((field, addr), bound) in self.lanes.iter().zip(&self.refs) {
+            let field = *field;
+            match source.lane_of(self.class, self.rev, field, bound, &self.frame) {
+                Some(current) if current == *addr => {}
+                Some(_) => return Err(LaneRefusal::MappingChanged { field }),
+                None => {
+                    return Err(LaneRefusal::Unbound {
+                        class: self.class,
+                        field,
+                    })
+                }
+            }
+            admit_lane(field, addr, self.scope, self.selection)?;
+        }
+        Ok(())
+    }
+
+    /// [`LaneBinding::borrow_all_present`] by reference: one
+    /// [`LaneBinding::check_bound`], then every bound lane with its presence
+    /// plane. Nothing is allocated.
+    pub fn borrow_all_present_bound<'b, 's, S: PresenceSource>(
+        &'b self,
+        store: &BindStore,
+        frames: &FrameStore,
+        source: &'s S,
+    ) -> Result<PresentLanes<'b, 's, S>, LaneRefusal> {
+        self.check_bound(store, frames, source)?;
+        Ok(PresentLanes {
+            lanes: self.lanes.iter(),
+            source,
+        })
+    }
+
+    /// [`LaneBinding::borrow_all_selected_present`] by reference: one
+    /// [`LaneBinding::check_bound`], the witnessed positions of `sel`, then
+    /// every bound lane with its presence plane. Nothing is allocated.
+    pub fn borrow_all_selected_present_bound<'b, 's, S: SelectionSource + PresenceSource>(
+        &'b self,
+        store: &BindStore,
+        frames: &FrameStore,
+        source: &'s S,
+        sel: u16,
+    ) -> Result<(PresentLanes<'b, 's, S>, &'s [u32]), LaneRefusal> {
+        self.check_bound(store, frames, source)?;
+        let selection = self.admit_selection(source, sel)?;
+        let positions = source
+            .borrow_positions(&selection)
+            .ok_or(LaneRefusal::SelectionVanished { sel })?;
+        Ok((
+            PresentLanes {
+                lanes: self.lanes.iter(),
+                source,
+            },
+            positions,
+        ))
     }
 }
 

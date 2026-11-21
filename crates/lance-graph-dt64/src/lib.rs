@@ -96,6 +96,9 @@ use lance_graph_contract::property::{PropertySchema, PropertySpec};
 use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, Res, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 
+#[cfg(all(not(debug_assertions), feature = "disable-bound-digest"))]
+compile_error!("disable-bound-digest is for disable runs in debug builds only");
+
 pub mod dr;
 
 pub use dr::{
@@ -1142,6 +1145,11 @@ impl BindStore {
     /// The basis witness `class` is bound with, if it is bound.
     pub(crate) fn bound_basis(&self, class: u32) -> Option<BasisDigest> {
         self.classes.get(&class).map(|e| e.basis)
+    }
+
+    /// The schema revision `class` is registered at, if it is registered.
+    pub(crate) fn bound_rev(&self, class: u32) -> Option<SchemaRev> {
+        self.classes.get(&class).map(|e| e.schema.schema_rev)
     }
 
     /// The lookup by DR position: the classid routed there at `version`, then
