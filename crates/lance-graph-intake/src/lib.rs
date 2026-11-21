@@ -158,7 +158,16 @@ fn lane_value(col: &PgColumn, text: &str, codes: &mut Codes) -> Option<u32> {
         LaneEncoding::Unsigned => u32::try_from(detect::parse_int(text)?).ok(),
         LaneEncoding::EpochSeconds => parse_epoch_seconds(text),
         LaneEncoding::EpochDays => parse_epoch_days(text),
-        LaneEncoding::TextCode => Some(codes.code(text)),
+        LaneEncoding::TextCode => {
+            // A declared `varchar(n)` holds at most `n` characters, as
+            // PostgreSQL counts them; a longer cell does not fit the column.
+            if let PgType::Varchar(Some(n)) = col.ty {
+                if text.chars().count() > n as usize {
+                    return None;
+                }
+            }
+            Some(codes.code(text))
+        }
     }
 }
 
@@ -743,6 +752,16 @@ impl Table {
     /// the shape detected for that column over the new batch. A new shape is
     /// a new class: the caller supplies a new classid through `from_rows`.
     pub fn observe(&self, rows: &[Vec<Option<&str>>]) -> Result<(), IntakeRefusal> {
+        if let Some((row, cells)) = rows
+            .iter()
+            .enumerate()
+            .find(|(_, cells)| cells.len() != self.shape.len())
+        {
+            return Err(IntakeRefusal::Ragged {
+                row,
+                cells: cells.len(),
+            });
+        }
         for (k, was) in self.shape.iter().enumerate() {
             let mut scratch = Codes::new();
             let fits = rows.iter().all(|row| match row.get(k).copied().flatten() {

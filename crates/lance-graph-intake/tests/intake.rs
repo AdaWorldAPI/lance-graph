@@ -403,6 +403,53 @@ fn observe_judges_new_rows_against_the_built_shape() {
     );
 }
 
+/// FAILS IF: a new batch with more or fewer cells per row than the table's
+/// columns passes `observe`.
+#[test]
+fn observe_refuses_ragged_rows() {
+    let table = small_table(&ShapeConfig::default()).expect("table");
+    let short: Grid = vec![vec![Some("4")]];
+    assert_eq!(
+        table.observe(&short),
+        Err(IntakeRefusal::Ragged { row: 0, cells: 1 })
+    );
+    let long: Grid = vec![
+        vec![Some("4"), Some("30")],
+        vec![Some("5"), Some("6"), Some("x")],
+    ];
+    assert_eq!(
+        table.observe(&long),
+        Err(IntakeRefusal::Ragged { row: 1, cells: 3 })
+    );
+}
+
+/// FAILS IF: a configured `varchar(n)` admits a longer cell at intake or in
+/// `observe`, or refuses one of exactly `n` characters.
+#[test]
+fn a_configured_varchar_bound_is_enforced() {
+    let mut config = ShapeConfig::default();
+    config.columns.insert(
+        "n".to_owned(),
+        ColumnConfig {
+            ty: Some(lance_graph_contract::pg_row::PgType::Varchar(Some(3))),
+            encoding: Some(lance_graph_contract::pg_row::LaneEncoding::TextCode),
+            absent: None,
+        },
+    );
+    let fits: Grid = vec![vec![Some("1"), Some("abc")], vec![Some("2"), Some("äöü")]];
+    let table = Table::from_rows("v", 0x2B03_000A, &["id", "n"], &fits, &config).expect("fits");
+    assert_eq!(table.observe(&[vec![Some("3"), Some("xyz")]]), Ok(()));
+    assert!(matches!(
+        table.observe(&[vec![Some("3"), Some("abcd")]]),
+        Err(IntakeRefusal::ShapeChanged { .. })
+    ));
+    let long: Grid = vec![vec![Some("1"), Some("abcd")]];
+    assert!(matches!(
+        Table::from_rows("v", 0x2B03_000B, &["id", "n"], &long, &config),
+        Err(IntakeRefusal::Cell { row: 0, .. })
+    ));
+}
+
 /// FAILS IF: a deleted key is read, kept by a scan, or counted; an unknown
 /// key is not refused; or a bag of keys loses its repeats or its order.
 #[test]
