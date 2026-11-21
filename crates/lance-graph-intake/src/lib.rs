@@ -37,8 +37,10 @@
 ))]
 compile_error!("disable-intake-* features are for disable runs in debug builds only");
 
+mod bind;
 pub mod config;
 pub mod detect;
+pub mod pg;
 
 use lance_graph_mask_risc::LaneRef;
 use std::cell::{Cell, RefCell};
@@ -57,7 +59,6 @@ use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
     LaneSource, PresenceSource, RouteAt, SchemaRev, SelAddr, SelectionSource,
 };
-pub use lance_graph_pg_row::sink::{CellSink, CollectRows, CopyText};
 use lance_graph_pg_row::{read_bag, BagSide, ColumnSpec, LiveSource, PgRowRefusal, PgRows, Reader};
 
 pub use config::{merge, ColumnConfig, ColumnShape, Shape, ShapeConfig, Verdict};
@@ -114,6 +115,9 @@ pub enum IntakeRefusal {
     /// A [`SelectionRef`] was kept under an older data version than the
     /// table's current one.
     Stale,
+    /// A query bound through `lance_graph_quack::bind` was not admitted (its
+    /// code spaces are no longer witnessed); bind it again.
+    Bind(String),
 }
 
 impl From<LaneRefusal> for IntakeRefusal {
@@ -234,7 +238,24 @@ struct Owner {
     selections: Vec<Vec<u32>>,
     /// A kept selection lent as selection [`KEPT_SEL`] while one read is
     /// open: its positions are read from DR's keep log in place, never copied.
-    lend: Option<KeptId>,
+    lend: Cell<Option<KeptId>>,
+}
+
+/// Clears [`Owner::lend`] when dropped, so a read that fails, or a sink that
+/// panics, leaves no kept selection lent.
+struct Lend<'a>(&'a Cell<Option<KeptId>>);
+
+impl<'a> Lend<'a> {
+    fn new(cell: &'a Cell<Option<KeptId>>, id: KeptId) -> Self {
+        cell.set(Some(id));
+        Lend(cell)
+    }
+}
+
+impl Drop for Lend<'_> {
+    fn drop(&mut self) {
+        self.0.set(None);
+    }
 }
 
 /// A column's lane as the owner holds it. A signed column is an `i32` lane,
@@ -323,7 +344,7 @@ impl PresenceSource for Owner {
 impl SelectionSource for Owner {
     fn selection_of(&self, sel: u16, _frame: &Frame) -> Option<SelAddr> {
         let issued = if sel == KEPT_SEL {
-            self.lend.is_some()
+            self.lend.get().is_some()
         } else {
             usize::from(sel) < self.selections.len()
         };
@@ -336,7 +357,7 @@ impl SelectionSource for Owner {
 
     fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]> {
         if addr.sel == KEPT_SEL {
-            let id = self.lend?;
+            let id = self.lend.get()?;
             return self
                 .table
                 .kept::<Vec<u32>>(&self.frame, id)
@@ -525,7 +546,7 @@ impl Table {
             frame,
             tiles: Vec::new(),
             selections: Vec::new(),
-            lend: None,
+            lend: Cell::new(None),
         };
 
         let view = IntakeView {
@@ -657,21 +678,6 @@ impl Table {
     #[doc(hidden)]
     pub fn code_key(&self, column: &str, code: u32) -> Option<String> {
         self.code_key_at(&self.owner.frame, column, code)
-    }
-
-    /// The code `text` has in `column` under the current frame, for building
-    /// a filter: `Filter::cmp(Col(k), Cmp::EqU32(code))`. The string is
-    /// looked up here, once, so the fold compares codes only.
-    ///
-    /// `None` when the column is not text or holds no such string; an
-    /// equality on it matches no row. Code order is first-seen order, never
-    /// SQL order, so only `EqU32` and `NeU32` are meaningful on a code.
-    pub fn code_of(&self, column: &str, text: &str) -> Option<u32> {
-        let k = self.shape.iter().position(|c| c.name == column)?;
-        let space = self.spaces.get(k)?.as_ref()?;
-        self.codes
-            .code(&self.owner.frame, space, &ValueKey(text.to_owned()))
-            .ok()
     }
 
     fn texts(&self) -> Vec<Option<SpaceText<'_>>> {
@@ -905,37 +911,8 @@ impl Table {
     /// been kept under the current data version; no predicate runs.
     pub fn rows_of(&mut self, r: &SelectionRef) -> Result<PgRows, IntakeRefusal> {
         self.kept_of(r)?;
-        self.owner.lend = Some(r.id);
-        let result = self.read_selection(KEPT_SEL);
-        self.owner.lend = None;
-        result
-    }
-
-    /// Stream the rows of a kept selection into `sink`, in its order, with
-    /// one reused cell buffer and no row materialized. Same currency check
-    /// as [`Table::rows_of`]; returns the rows written.
-    pub fn write_of(
-        &mut self,
-        r: &SelectionRef,
-        sink: &mut impl CellSink,
-    ) -> Result<usize, IntakeRefusal> {
-        self.kept_of(r)?;
-        self.owner.lend = Some(r.id);
-        let result = (|| {
-            let texts = self.texts();
-            let specs = self.specs(&texts);
-            let (reader, positions) = Reader::open_selected(
-                &self.binding,
-                &self.store,
-                self.owner.table.frames(),
-                &self.owner,
-                KEPT_SEL,
-                &specs,
-            )?;
-            Ok(reader.write_rows(positions, sink)?)
-        })();
-        self.owner.lend = None;
-        result
+        let _lend = Lend::new(&self.owner.lend, r.id);
+        self.read_selection(KEPT_SEL)
     }
 
     /// How many positions a kept selection holds, under the same currency

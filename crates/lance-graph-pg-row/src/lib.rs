@@ -415,6 +415,47 @@ impl<'s, 'c> Reader<'s, 'c> {
         }
     }
 
+    /// The rows a query already bound by `lance_graph_quack::bind` keeps, as
+    /// a mask over this reader's positions. No name, literal or codebook is
+    /// touched here: the query is numeric, and its filter is already three
+    /// valued.
+    ///
+    /// The query's planes follow [`BOUND_LIVE`] and [`bound_validity`]: plane
+    /// 0 is the live plane, plane `1 + k` is column `k`'s validity, supplied
+    /// in column order as for [`Reader::keep_where_valid`]. The live plane is
+    /// conjoined again here, so a query that forgot it still keeps no deleted
+    /// row. Only `Agg::Rows` is admitted.
+    pub fn keep_bound(&self, query: &Query, validity: &[&[u64]]) -> Result<Vec<u64>, PgRowRefusal> {
+        if query.agg != Agg::Rows {
+            return Err(PgRowRefusal::FilterNotAdmitted("bound query is not Rows"));
+        }
+        admit_bound(&query.filter, self.cols.len())?;
+        let words = words_for(self.rows);
+        if validity.len() != self.cols.len() || validity.iter().any(|p| p.len() < words) {
+            return Err(PgRowRefusal::Span {
+                name: "validity".to_owned(),
+            });
+        }
+        let lanes: Vec<LaneRef<'s>> = self.lanes.iter().map(|(l, _)| *l).collect();
+        let mut masks: Vec<&[u64]> = Vec::with_capacity(1 + validity.len());
+        masks.push(self.live);
+        masks.extend(validity.iter().copied());
+        let q = Query {
+            filter: Filter::and([Filter::plane(BOUND_LIVE), query.filter.clone()]),
+            agg: Agg::Rows,
+        };
+        let planes = Planes {
+            n_rows: self.rows,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut keep = vec![0u64; words];
+        match run(&q, &planes, Out::Mask(&mut keep))? {
+            Value::Mask(_) => Ok(keep),
+            _ => Err(PgRowRefusal::Bag("Keep returned no mask")),
+        }
+    }
+
     /// Every column's validity plane (presence OR value != 0), one mask-risc
     /// fold per column. A plane depends only on the lanes and their presence,
     /// so a caller that keeps them for a data version reuses them in
@@ -556,6 +597,32 @@ fn run(q: &Query, planes: &Planes<'_>, out: Out<'_>) -> Result<Value, PgRowRefus
     let program = lower(q).map_err(PgRowRefusal::Lower)?;
     let mut scratch = Scratch::new(words_for(planes.n_rows), program.scratch_slots as usize);
     execute_into(&program, planes, &Foreign::NONE, &mut scratch, out).map_err(PgRowRefusal::Exec)
+}
+
+/// The live plane of a query bound for [`Reader::keep_bound`].
+pub const BOUND_LIVE: Mask = Mask(0);
+
+/// The validity plane of column `k` in a query bound for
+/// [`Reader::keep_bound`].
+pub const fn bound_validity(k: u16) -> Mask {
+    Mask(1 + k)
+}
+
+/// A bound filter may read this reader's columns and its planes `0..=columns`
+/// only; a foreign lane or a semijoin has no operand here.
+fn admit_bound(f: &Filter, columns: usize) -> Result<(), PgRowRefusal> {
+    match f {
+        Filter::Cmp(Col(c), _) if usize::from(*c) < columns => Ok(()),
+        Filter::Cmp(..) => Err(PgRowRefusal::FilterNotAdmitted("column out of range")),
+        Filter::Plane(Mask(m)) if usize::from(*m) <= columns => Ok(()),
+        Filter::Plane(_) => Err(PgRowRefusal::FilterNotAdmitted("plane out of range")),
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().try_for_each(|p| admit_bound(p, columns))
+        }
+        Filter::Not(inner) => admit_bound(inner, columns),
+        Filter::EqU32Via { .. } => Err(PgRowRefusal::FilterNotAdmitted("foreign lane")),
+        Filter::Semijoin { .. } => Err(PgRowRefusal::FilterNotAdmitted("semijoin")),
+    }
 }
 
 fn admit_filter(f: &Filter, columns: usize) -> Result<(), PgRowRefusal> {

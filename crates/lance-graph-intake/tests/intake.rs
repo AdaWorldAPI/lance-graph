@@ -10,11 +10,12 @@
 use std::collections::BTreeMap;
 
 use lance_graph_contract::pg_row::{write_cell, AbsentAs, LaneEncoding, PgColumn, PgType};
+use lance_graph_intake::pg::{write_selection, CollectRows, CopyText};
 use lance_graph_intake::{
-    detect_column, detect_key, CollectRows, ColumnConfig, CopyText, IntakeRefusal, ShapeConfig,
-    Table, Verdict,
+    detect_column, detect_key, ColumnConfig, IntakeRefusal, ShapeConfig, Table, Verdict,
 };
 use lance_graph_pg_row::{PgRowRefusal, PgRows};
+use lance_graph_quack::bind::{table as draft, BindError};
 use lance_graph_quack::{Cmp, Col, Filter};
 use pg_parity_harness::{multiset_diff, Pg, Row, Skip};
 
@@ -1252,97 +1253,224 @@ fn kept_validity_does_not_change_answers() {
     assert_eq!(table.rows_of(&kept).expect("rows"), cold);
 }
 
-/// FAILS IF: a text equality built from `code_of` keeps a different multiset
-/// of rows than PostgreSQL's `WHERE title = …`, if `''` and NULL are not kept
-/// apart (`title = ''` must keep the empty titles and no NULL title), or if
-/// an unknown string matches anything.
-#[test]
-fn a_text_filter_by_code_equals_postgresql() {
-    let (ticket_rows, ticket_deleted) = tickets();
+fn live_tickets() -> (Table, Vec<Vec<Option<String>>>, Vec<bool>) {
+    let (rows, deleted) = tickets();
     let mut ticket = Table::from_rows(
         "ticket",
         0x2B01_0001,
         &TICKET_COLUMNS,
-        &cells(&ticket_rows),
+        &cells(&rows),
         &ShapeConfig::default(),
     )
     .expect("ticket table");
-    for (r, &gone) in ticket_deleted.iter().enumerate() {
+    for (r, &gone) in deleted.iter().enumerate() {
         if gone {
             ticket.delete_key(r as u64 + 1).expect("delete");
         }
     }
-    assert_eq!(ticket.code_of("priority", "1"), None, "not a text column");
-    assert_eq!(ticket.code_of("title", "no such title"), None);
+    (ticket, rows, deleted)
+}
 
-    let mut cases = Vec::new();
-    for title in ["vpn", "", "printer"] {
-        let code = ticket.code_of("title", title).expect("a known title");
-        let filter = Filter::cmp(Col(1), Cmp::EqU32(code));
-        let ours = ticket.select_where(&filter).expect("where");
-        let model: Vec<Row> = (0..ticket_rows.len())
-            .filter(|&r| !ticket_deleted[r] && ticket_rows[r][1].as_deref() == Some(title))
-            .map(|r| ticket_rows[r].clone())
-            .collect();
-        assert!(!model.is_empty(), "{title:?} occurs in the fixture");
-        same(&format!("title = {title:?}"), &model, &ours);
-        assert!(ours.rows.iter().all(|r| r[1].as_deref() == Some(title)));
-        cases.push((title, ours));
-    }
-
-    let pg = match Pg::connect() {
-        Ok(pg) => pg,
+fn pg_or_skip() -> Option<Pg> {
+    match Pg::connect() {
+        Ok(pg) => Some(pg),
         Err(Skip(why)) => {
             assert!(
                 std::env::var_os("PG_ROW_REQUIRE_PG").is_none(),
                 "PG_ROW_REQUIRE_PG is set and PostgreSQL is unavailable: {why}"
             );
             println!("SKIP (PostgreSQL half): {why}");
-            return;
+            None
         }
-    };
-    pg.script(&create(&ticket, &ticket_rows, &ticket_deleted))
-        .expect("create");
-    for (title, ours) in cases {
-        let sql = format!("SELECT * FROM ticket WHERE title = '{title}'");
-        let theirs = pg.query(&sql).unwrap_or_else(|e| panic!("{sql}: {e}"));
-        assert_eq!(theirs.types, ours.types);
-        if let Some(diff) = multiset_diff(&theirs.rows, &ours.rows) {
-            panic!("{sql}: PostgreSQL differs: {diff}");
-        }
-        println!("PASS {sql}: {} rows", ours.rows.len());
     }
 }
 
-/// FAILS IF: streaming a kept selection into a sink gives different rows or
-/// order than `rows_of`, or if `write_of` reads a stale selection.
+/// FAILS IF: a literal bound through Quack's membrane keeps a different
+/// multiset of rows than PostgreSQL's `WHERE`, if `title = ''` (a present
+/// empty string in a NULL-absent column) keeps a NULL title, or if a field
+/// with no literal kind in the membrane is offered.
 #[test]
-fn write_of_equals_rows_of() {
-    let (ticket_rows, _) = tickets();
-    let mut table = Table::from_rows(
-        "ticket",
-        0x2B01_0001,
-        &TICKET_COLUMNS,
-        &cells(&ticket_rows),
-        &ShapeConfig::default(),
-    )
-    .expect("table");
-    let kept = table.select_ref(&owner_or_not_negative()).expect("keep");
-    let rows = table.rows_of(&kept).expect("rows_of");
+fn a_bound_literal_equals_postgresql() {
+    let (mut ticket, rows, deleted) = live_tickets();
+    let live = |r: usize| !deleted[r];
+    type Keep = fn(&[Option<String>]) -> bool;
+    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 5] = [
+        (
+            "title = 'vpn'",
+            draft("ticket").where_eq("title", "vpn"),
+            |r| r[1].as_deref() == Some("vpn"),
+        ),
+        ("title = ''", draft("ticket").where_eq("title", ""), |r| {
+            r[1].as_deref() == Some("")
+        }),
+        (
+            "title <> 'printer'",
+            draft("ticket").where_cmp("title", lance_graph_quack::bind::Op::Ne, "printer"),
+            |r| r[1].as_deref().is_some_and(|t| t != "printer"),
+        ),
+        (
+            "title LIKE 'l%'",
+            draft("ticket").where_like("title", "l%"),
+            |r| r[1].as_deref().is_some_and(|t| t.starts_with('l')),
+        ),
+        (
+            "priority < 0",
+            draft("ticket").where_cmp("priority", lance_graph_quack::bind::Op::Lt, 0i32),
+            |r| int(r, 5).is_some_and(|p| p < 0),
+        ),
+    ];
+    let mut ours = Vec::new();
+    for (sql, d, keep) in cases {
+        let q = d.bind_typed(&ticket).expect("binds");
+        let kept = ticket.select_bound(&q).expect("select");
+        let got = ticket.rows_of(&kept).expect("rows");
+        let model: Vec<Row> = (0..rows.len())
+            .filter(|&r| live(r) && keep(&rows[r]))
+            .map(|r| rows[r].clone())
+            .collect();
+        assert!(
+            !model.is_empty() && model.len() < ticket.len(),
+            "{sql}: a real subset"
+        );
+        same(sql, &model, &got);
+        ours.push((sql, got));
+    }
+    assert!(matches!(
+        draft("ticket").where_eq("open", 1i32).bind_typed(&ticket),
+        Err(BindError::UnknownField { .. })
+    ));
+
+    let Some(pg) = pg_or_skip() else { return };
+    pg.script(&create(&ticket, &rows, &deleted))
+        .expect("create");
+    for (sql, got) in ours {
+        let theirs = pg
+            .query(&format!("SELECT * FROM ticket WHERE {sql}"))
+            .unwrap_or_else(|e| panic!("{sql}: {e}"));
+        assert_eq!(theirs.types, got.types);
+        if let Some(diff) = multiset_diff(&theirs.rows, &got.rows) {
+            panic!("{sql}: PostgreSQL differs: {diff}");
+        }
+        println!("PASS {sql}: {} rows", got.rows.len());
+    }
+}
+
+/// FAILS IF: `note = ''` on a column whose absent spelling is `''` binds to
+/// a filter (any code, or an empty answer) instead of being refused. Those
+/// cells are absent, and PostgreSQL keeps them, so no silent empty answer is
+/// acceptable.
+#[test]
+fn an_empty_text_literal_on_an_empty_absent_column_is_refused() {
+    let (ticket, rows, deleted) = live_tickets();
+    assert_eq!(ticket.shape()[2].col.absent, AbsentAs::EmptyText);
+    let refused = draft("ticket").where_eq("note", "").bind_typed(&ticket);
+    assert!(
+        matches!(refused, Err(BindError::UnknownValue { .. })),
+        "{refused:?}"
+    );
+    let empties = (0..rows.len())
+        .filter(|&r| !deleted[r] && rows[r][2].as_deref() == Some(""))
+        .count();
+    assert!(empties > 0, "the fixture holds empty notes");
+    assert!(draft("ticket")
+        .where_eq("note", "waiting")
+        .bind_typed(&ticket)
+        .is_ok());
+
+    let Some(pg) = pg_or_skip() else { return };
+    pg.script(&create(&ticket, &rows, &deleted))
+        .expect("create");
+    let theirs = pg
+        .query("SELECT * FROM ticket WHERE note = ''")
+        .expect("query");
+    assert_eq!(
+        theirs.rows.len(),
+        empties,
+        "PostgreSQL keeps the empty notes"
+    );
+}
+
+/// FAILS IF: a query bound before an append is still executed after it, or
+/// a query bound again after the append is refused.
+#[test]
+fn a_bound_query_is_refused_after_the_data_version_moves() {
+    let (mut ticket, _, _) = live_tickets();
+    let q = draft("ticket")
+        .where_eq("title", "vpn")
+        .bind_typed(&ticket)
+        .expect("binds");
+    ticket.select_bound(&q).expect("current");
+    ticket
+        .append(&[vec![
+            Some("1001"),
+            Some("vpn"),
+            Some("call back"),
+            Some("t"),
+            Some("1"),
+            Some("0"),
+            Some("2021-01-01 00:00:00"),
+            None,
+        ]])
+        .expect("append");
+    assert!(matches!(
+        ticket.select_bound(&q),
+        Err(IntakeRefusal::Bind(_))
+    ));
+    let again = draft("ticket")
+        .where_eq("title", "vpn")
+        .bind_typed(&ticket)
+        .expect("rebinds");
+    let kept = ticket.select_bound(&again).expect("rebound");
+    let got = ticket.rows_of(&kept).expect("rows");
+    assert!(got.rows.iter().any(|r| r[0].as_deref() == Some("1001")));
+}
+
+/// FAILS IF: the PostgreSQL egress adapter writes other cells, order or
+/// repeats than `rows_of`, spells an absent cell differently, or writes a
+/// stale or foreign selection.
+#[test]
+fn write_selection_equals_rows_of() {
+    let (mut ticket, rows, deleted) = live_tickets();
+    let keys: Vec<u64> = (0..rows.len())
+        .filter(|&r| !deleted[r])
+        .map(|r| r as u64 + 1)
+        .step_by(7)
+        .collect();
+    let mut bag = keys.clone();
+    bag.extend(keys.iter().rev().step_by(2));
+    let kept = ticket.select_keys_ref(&bag).expect("keep");
+    let expect = ticket.rows_of(&kept).expect("rows_of");
+    assert!(
+        expect.rows.iter().any(|r| r[1].is_none()),
+        "a NULL title is written"
+    );
+    assert!(
+        expect.rows.iter().any(|r| r[2].as_deref() == Some("")),
+        "an absent note is ''"
+    );
+
     let mut sink = CollectRows::new();
     assert_eq!(
-        table.write_of(&kept, &mut sink).expect("write_of"),
-        kept.len()
+        write_selection(&ticket, &kept, &mut sink).expect("write"),
+        bag.len()
     );
-    assert_eq!(sink.rows, rows.rows);
-
+    assert_eq!(sink.rows, expect.rows);
     let mut copy = CopyText::new();
-    table.write_of(&kept, &mut copy).expect("copy");
-    assert_eq!(copy.out.iter().filter(|&&b| b == b'\n').count(), kept.len());
+    write_selection(&ticket, &kept, &mut copy).expect("copy");
+    assert_eq!(copy.out.iter().filter(|&&b| b == b'\n').count(), bag.len());
 
-    table.delete_key(1).expect("delete");
+    let (other, _, _) = live_tickets();
+    let foreign = {
+        let mut other = other;
+        other.select_keys_ref(&keys).expect("other keep")
+    };
     assert!(matches!(
-        table.write_of(&kept, &mut CollectRows::new()),
+        write_selection(&ticket, &foreign, &mut CollectRows::new()),
+        Err(IntakeRefusal::Stale)
+    ));
+    ticket.delete_key(keys[0]).expect("delete");
+    assert!(matches!(
+        write_selection(&ticket, &kept, &mut CollectRows::new()),
         Err(IntakeRefusal::Stale)
     ));
 }
