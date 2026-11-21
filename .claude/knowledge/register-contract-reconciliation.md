@@ -160,7 +160,7 @@ sub-check.
 - OPEN: EXO-337 (may a selection name a non-live position) and EXO-294
   (decision B, absent = −0).
 
-**Resolution, recorded:** one absent code, −0, for `$null`, NaN, UNKNOWN, `''`,
+**Resolution, recorded** (DECISION EXO-372): one absent code, −0, for `$null`, NaN, UNKNOWN, `''`,
 missing and deleted. `0` is a number (presence 1, value 0). One presence bit, no
 second one until a measured case needs it.
 
@@ -446,3 +446,5 @@ negative integers. Disable runs, each red:
 - Who issues join positions (C7) and where the outer side's plane comes from
   (C4). The gate's test stands in for both.
 
+Row order (ordinal records against Morton cells of a DR tile), and why a
+reader refuses a mixed order instead of converting it: `morton-vs-ordinal-rows.md`.

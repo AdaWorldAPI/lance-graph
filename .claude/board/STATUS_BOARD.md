@@ -16,6 +16,7 @@ Plan: `.claude/plans/d-regc-register-contract-reconciliation-v1.md`. Knowledge: 
 | D-REGC-9 | Consumer intake on shared coordinates; join as an aligned pass | Queued (EXO-140) |
 | D-REGC-10 | PostgreSQL egress: absent text cell → `''` or NULL by column default | In PR: `pg_row::AbsentAs` (contract); zammad-rs adoption queued |
 | D-REGC-12 | PostgreSQL row polyfill for consumers: `lance_graph_contract::pg_row` + `crates/lance-graph-pg-row` | In PR: `tests/pg_gate.rs` = model oracle = PostgreSQL 16.15 on 4 cases (276 / 139 / 82 / 276 rows); 3 disables red |
+| D-REGC-13 | DR projection descriptor names its row order (Ordinal / Morton); readers refuse a mixed order | Queued (needs DT64 / DR decision) |
 | D-REGC-11 | zammad-rs store onto owner-held 512-byte rows lent as `Strided` | Queued (zammad-rs side, after D-REGC-6) |
 
 ## D-GPW: global pattern words (2026-11-19)
