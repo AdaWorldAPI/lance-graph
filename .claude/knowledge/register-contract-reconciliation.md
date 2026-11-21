@@ -17,6 +17,9 @@
 > doc's words, with path:line), or the owner's words with date (provenance, not
 > validation, per `FIRST-HAND-SOURCE-LAW.md`).
 >
+> **Code (2026-11-21):** the polyfill these rows constrain is
+> `lance_graph_contract::pg_row` plus `crates/lance-graph-pg-row`, §4.
+>
 > **Written:** 2026-11-21, from the zammad-rs session's measurements
 > (zammad-rs #95, #96, #97) and lance-graph #2146–#2151, read at origin/main
 > `87d7b41`. Plan with the D-ids: `.claude/plans/d-regc-register-contract-reconciliation-v1.md`.
@@ -172,8 +175,10 @@ second one until a measured case needs it.
   cells.
 
 **Implications:**
-- **D-REGC-3:** a delete writes −0; the live bit stays authoritative.
-- **D-REGC-10, egress to PostgreSQL:** an absent text cell renders as `''` where
+- **D-REGC-3:** a delete writes −0; the live bit stays authoritative. Until it
+  lands, `lance-graph-pg-row` reads liveness through its own `LiveSource`
+  socket, intersects every `WHERE` with it and refuses a dead position (§4).
+- **D-REGC-10, egress to PostgreSQL** (in PR: `pg_row::AbsentAs`): an absent text cell renders as `''` where
   the column's default is `''`, and as NULL otherwise. MEASURED in zammad-rs's
   wide capture: 1958 `''` cells in PostgreSQL answers, from 16 nullable text
   columns that never also hold NULL.
@@ -209,7 +214,8 @@ is recorded from the owner's words.
 **Implications:** D-REGC-4, the selection carries its own presence plane, so
 that an outer-join side with no position renders −0. A selection today is
 `&[u32]` positions only, and a reserved −0 position is the alternative. This
-needs a decision.
+needs a decision. Until then `lance-graph-pg-row::read_bag` takes the plane
+per side from the caller and does not read the position at a 0 bit (§4).
 
 **Falsifier:** zammad-rs#95's deleted-parent arm. It was red on the old code (547
 stale rows) and is green with the rule, in both layouts.
@@ -373,3 +379,70 @@ predicates the workload uses.
    uses against the C8 table.
 5. When a decision lands, change the row's state here in the same PR. Do not add
    a second document.
+
+## 4. The polyfill API (code, 2026-11-21)
+
+**Contract, zero-dep:** `lance_graph_contract::pg_row`.
+- `PgType` holds the admitted types: boolean, smallint, integer, bigint, text,
+  varchar(n), timestamp(p) without time zone, date. `PgType::parse` refuses
+  every other type: numeric, float, time zones, arrays, json. `gdesc` prints
+  the `\gdesc` name.
+- `LaneEncoding` is how a `u32` lane holds a value: `Bool`, `Unsigned`,
+  `Signed`, `EpochSeconds`, `EpochDays`, `TextCode`.
+- `AbsentAs` spells −0 as either `Null` or `EmptyText` (C3, D-REGC-10).
+- `PgColumn::admit` is checked once per column. It refuses an encoding that
+  cannot hold the type, and `''` for a non-text column.
+- `is_absent` is presence 0 and value 0 (C3).
+- `write_cell` is the one spelling function. Its unit tests pin −0, `''`,
+  leap years and centuries.
+
+**Reader, for consumers:** `crates/lance-graph-pg-row`. Each read uses one
+DT64 check per table.
+- `Reader::open` and `Reader::open_selected` wrap `borrow_all_present` and
+  `borrow_all_selected_present`, then take the live plane through
+  `LiveSource`. They admit U32 and I32 lanes. Strided and 64-bit lanes are
+  refused (C8).
+- `Reader::keep_where` and `count_where` take a Quack `Filter` over the
+  reader's columns (`Col(k)`):
+  1. Each column's validity (presence ∨ value≠0) is computed as a mask-risc
+     fold.
+  2. `Filter::sql_where` makes the filter three-valued.
+  3. The filter is ANDed with the live plane, lowered by Quack and executed
+     by mask-risc.
+
+  A plane, a foreign lane or a semijoin in the filter is refused.
+- `Reader::rows_at` reads an issued selection: a bag, in list order.
+  `Reader::rows_in` reads a kept mask, ascending. Both refuse a dead or
+  out-of-range position.
+- `read_bag` is the virtual tuple bag (C6). It takes one position list per
+  side, aligned by index, and an optional present plane per side. At a 0 bit
+  that side reads −0 without reading a position.
+
+**Gate:** `tests/pg_gate.rs` runs every case against a model oracle built
+from logical rows, and against PostgreSQL 16.15 when a server answers. It
+fails under `PG_ROW_REQUIRE_PG=1` if no server answers. MEASURED 2026-11-21,
+4 of 4 cases equal:
+
+| Case | Rows | What it covers |
+|---|---|---|
+| `SELECT *` | 276 live of 300 | 24 deleted rows keep their values |
+| K3 `WHERE` | 139 | includes rows where the filter is UNKNOWN |
+| issued bag | 82 | with repeats |
+| `LEFT JOIN` | 276 | 130 missing sides |
+
+The fixture holds 145 `''` notes, 29 NULL titles, 64 present `''` titles, and
+negative integers. Disable runs, each red:
+- `disable-pg-row-presence`: 408 rows differ;
+- `disable-pg-row-live`: WHERE keeps 15 deleted rows;
+- `disable-pg-row-bag-present`: 260 join rows differ.
+
+**Not covered:**
+- The validity fold's "presence 0, value ≠ 0" arm has no fixture row. The
+  fixture writes canonical −0 only.
+- `ORDER BY`.
+- Aggregates other than `COUNT(*)`. They stay Quack's `lower_sum` /
+  `lower_group_by`.
+- The wire protocol.
+- Who issues join positions (C7) and where the outer side's plane comes from
+  (C4). The gate's test stands in for both.
+

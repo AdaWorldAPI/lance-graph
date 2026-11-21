@@ -1,3 +1,10 @@
+## 2026-11-21 — D-REGC-12, PostgreSQL row polyfill (in PR #2152, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance_graph_contract::pg_row` (new module): `PgType` (`parse`, `gdesc`), `PgTypeRefusal`, `LaneEncoding`, `AbsentAs`, `PgColumn::admit`, `CodeText`, `is_absent`, `write_cell`, `Written`, `CellRefusal`.
+- New crate `lance-graph-pg-row` (workspace member): `Reader::{open, open_selected, keep_where, count_where, rows_at, rows_in, rows, types}`, `read_bag`, `BagSide`, `ColumnSpec`, `PgRows`, `PgRowRefusal`, socket `LiveSource`, `IntoLaneRef`. Depends on contract, dt64, mask-risc, quack. [entry](entries/2026-11-21-d-regc-12-pg-row-polyfill.md)
+
 ## 2026-11-10 — main after #1991 (merged `637d638`) and #1995 (merged `15d4b4c`) — D-FOUNDRY-PARITY-1
 
 - `crates/foundry-parity-lab` (excluded, own workspace): a 64-store × 64-category operating network over DT64 `LaneBinding` + mask-RISC. Arms A (materialized objects), B (`CanCook` / `CanFulfill` / `NetworkCapacity` / network cost, 0 bytes copied) and C (per-store cost as one INT8 GEMM via `ndarray::simd::int8_gemm_packed_strided`), against an independent scalar oracle; 24 tests.

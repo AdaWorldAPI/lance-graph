@@ -35,6 +35,7 @@ the owner has not chosen.
 | D-REGC-9 | Consumer intake places related classes on shared coordinates; the join is an aligned pass | zammad-rs join calls show 0 per-row key resolutions and equal PostgreSQL | EXO-140; D-REGC-4 |
 | D-REGC-10 | PostgreSQL egress renders an absent text cell as `''` where the column defaults to `''`, else NULL | zammad-rs wide capture: 1958 `''` cells equal; a column mixing `''` and NULL is reported, not merged | C3 recorded |
 | D-REGC-11 | zammad-rs's store moved onto owner-held 512-byte rows lent as `Strided` | census counts and PostgreSQL answers identical before and after | D-REGC-6 |
+| D-REGC-12 | `lance_graph_contract::pg_row` + `crates/lance-graph-pg-row`: the PostgreSQL row polyfill for consumers (knowledge doc §4) | `tests/pg_gate.rs` = model oracle = PostgreSQL 16.15 on 4 cases; 3 disables red | — (In PR) |
 
 ## Decisions this plan needs
 
