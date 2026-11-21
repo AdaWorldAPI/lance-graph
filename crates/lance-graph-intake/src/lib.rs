@@ -41,7 +41,7 @@ pub mod config;
 pub mod detect;
 
 use lance_graph_mask_risc::LaneRef;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
@@ -457,6 +457,11 @@ pub struct Table {
     source: u64,
     rows_written: Cell<u64>,
     predicate_runs: Cell<u64>,
+    /// The validity planes of every column, with the frame they were folded
+    /// under. They depend only on the lanes and their presence, which change
+    /// only with the data version, so they are folded once per version.
+    validity: RefCell<Option<(Frame, Vec<Vec<u64>>)>>,
+    validity_folds: Cell<u64>,
     owner: Owner,
     view: IntakeView,
     store: BindStore,
@@ -574,6 +579,8 @@ impl Table {
             source: 1,
             rows_written: Cell::new(0),
             predicate_runs: Cell::new(0),
+            validity: RefCell::new(None),
+            validity_folds: Cell::new(0),
             owner,
             view,
             store,
@@ -617,6 +624,14 @@ impl Table {
     #[doc(hidden)]
     pub fn predicate_runs(&self) -> u64 {
         self.predicate_runs.get()
+    }
+
+    /// Validity planes folded so far: one per column each time the data
+    /// version moved and a WHERE ran. A WHERE under an unchanged version adds
+    /// none.
+    #[doc(hidden)]
+    pub fn validity_folds(&self) -> u64 {
+        self.validity_folds.get()
     }
 
     /// The frame the table's lanes and codes are currently sealed under.
@@ -681,6 +696,34 @@ impl Table {
         )?)
     }
 
+    /// Run `f` with the validity plane of every column for the current data
+    /// version. The planes are folded on the first call under a frame and
+    /// reused until an append or a delete moves it.
+    fn with_validity<R>(
+        &self,
+        reader: &Reader<'_, '_>,
+        f: impl FnOnce(&[&[u64]]) -> Result<R, PgRowRefusal>,
+    ) -> Result<R, IntakeRefusal> {
+        let current = self
+            .validity
+            .borrow()
+            .as_ref()
+            .is_some_and(|(frame, _)| self.owner.table.frames().check(frame).is_ok());
+        if !current {
+            let planes = reader.validity_planes()?;
+            self.validity_folds
+                .set(self.validity_folds.get() + planes.len() as u64);
+            *self.validity.borrow_mut() = Some((self.owner.frame.clone(), planes));
+        }
+        let kept = self.validity.borrow();
+        let planes = kept
+            .as_ref()
+            .map(|(_, planes)| planes.as_slice())
+            .ok_or_else(|| IntakeRefusal::Keep("validity planes missing".to_owned()))?;
+        let views: Vec<&[u64]> = planes.iter().map(Vec::as_slice).collect();
+        Ok(f(&views)?)
+    }
+
     /// SELECT * : every live row, ascending position.
     pub fn select_all(&self) -> Result<PgRows, IntakeRefusal> {
         let texts = self.texts();
@@ -699,7 +742,7 @@ impl Table {
         let specs = self.specs(&texts);
         let reader = self.reader(&specs)?;
         self.predicate_runs.set(self.predicate_runs.get() + 1);
-        let kept = reader.keep_where(filter)?;
+        let kept = self.with_validity(&reader, |v| reader.keep_where_valid(filter, v))?;
         Ok(reader.rows_in(&kept)?)
     }
 
@@ -709,7 +752,7 @@ impl Table {
         let specs = self.specs(&texts);
         let reader = self.reader(&specs)?;
         self.predicate_runs.set(self.predicate_runs.get() + 1);
-        Ok(reader.count_where(filter)?)
+        self.with_validity(&reader, |v| reader.count_where_valid(filter, v))
     }
 
     /// The position of the row holding `key`, or `None` when no row does.
@@ -815,7 +858,7 @@ impl Table {
             let specs = self.specs(&texts);
             let reader = self.reader(&specs)?;
             self.predicate_runs.set(self.predicate_runs.get() + 1);
-            let kept = reader.keep_where(filter)?;
+            let kept = self.with_validity(&reader, |v| reader.keep_where_valid(filter, v))?;
             positions_of(&kept)
         };
         self.keep_positions(positions)

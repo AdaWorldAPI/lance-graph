@@ -46,6 +46,10 @@
 //!   comes from: open (EXO-329, D-REGC-4). [`read_bag`] takes both from the
 //!   caller and checks them.
 
+/// The streaming cell writer (D-INTAKE-2G). A child module, so it reads the
+/// reader's lanes in place.
+pub mod sink;
+
 #[cfg(all(
     not(debug_assertions),
     any(
@@ -383,9 +387,51 @@ impl<'s, 'c> Reader<'s, 'c> {
     /// `AND`, `OR` and `NOT` only; a plane, a foreign lane or a semijoin is
     /// refused, because their operands are not this reader's.
     pub fn keep_where(&self, filter: &Filter) -> Result<Vec<u64>, PgRowRefusal> {
+        self.keep_where_inner(filter, None)
+    }
+
+    /// [`Reader::keep_where`] with each column's validity plane supplied by
+    /// the caller (from [`Reader::validity_planes`], kept for the data version
+    /// they were computed under). No validity fold runs. `validity` holds one
+    /// plane per column, in column order.
+    pub fn keep_where_valid(
+        &self,
+        filter: &Filter,
+        validity: &[&[u64]],
+    ) -> Result<Vec<u64>, PgRowRefusal> {
+        self.keep_where_inner(filter, Some(validity))
+    }
+
+    /// [`Reader::count_where`] with supplied validity planes, as
+    /// [`Reader::keep_where_valid`].
+    pub fn count_where_valid(
+        &self,
+        filter: &Filter,
+        validity: &[&[u64]],
+    ) -> Result<usize, PgRowRefusal> {
+        match self.run_where(filter, Agg::Count, Out::None, Some(validity))? {
+            Value::Count(n) => Ok(n),
+            _ => Err(PgRowRefusal::Bag("Count returned no count")),
+        }
+    }
+
+    /// Every column's validity plane (presence OR value != 0), one mask-risc
+    /// fold per column. A plane depends only on the lanes and their presence,
+    /// so a caller that keeps them for a data version reuses them in
+    /// [`Reader::keep_where_valid`].
+    pub fn validity_planes(&self) -> Result<Vec<Vec<u64>>, PgRowRefusal> {
+        let all: Vec<usize> = (0..self.cols.len()).collect();
+        self.validity(&all)
+    }
+
+    fn keep_where_inner(
+        &self,
+        filter: &Filter,
+        given: Option<&[&[u64]]>,
+    ) -> Result<Vec<u64>, PgRowRefusal> {
         let words = words_for(self.rows);
         let mut keep = vec![0u64; words];
-        match self.run_where(filter, Agg::Rows, Out::Mask(&mut keep))? {
+        match self.run_where(filter, Agg::Rows, Out::Mask(&mut keep), given)? {
             Value::Mask(_) => Ok(keep),
             _ => Err(PgRowRefusal::Bag("Keep returned no mask")),
         }
@@ -393,21 +439,48 @@ impl<'s, 'c> Reader<'s, 'c> {
 
     /// `COUNT(*)` of the live rows `filter` holds for.
     pub fn count_where(&self, filter: &Filter) -> Result<usize, PgRowRefusal> {
-        match self.run_where(filter, Agg::Count, Out::None)? {
+        match self.run_where(filter, Agg::Count, Out::None, None)? {
             Value::Count(n) => Ok(n),
             _ => Err(PgRowRefusal::Bag("Count returned no count")),
         }
     }
 
-    fn run_where(&self, filter: &Filter, agg: Agg, out: Out<'_>) -> Result<Value, PgRowRefusal> {
+    /// Only the columns `filter` reads need a validity plane: `sql_where`
+    /// rewrites only the comparisons on them, so the other columns' planes
+    /// are never read. They are taken from `given` or computed here.
+    fn run_where(
+        &self,
+        filter: &Filter,
+        agg: Agg,
+        out: Out<'_>,
+        given: Option<&[&[u64]]>,
+    ) -> Result<Value, PgRowRefusal> {
         admit_filter(filter, self.cols.len())?;
         let lanes: Vec<LaneRef<'s>> = self.lanes.iter().map(|(l, _)| *l).collect();
-        let validity = self.validity(&lanes)?;
-        let mut masks: Vec<&[u64]> = Vec::with_capacity(1 + validity.len());
+        let read = filter_columns(filter);
+        let words = words_for(self.rows);
+        let computed;
+        let planes_of: Vec<&[u64]> = match given {
+            Some(planes) => {
+                if planes.len() != self.cols.len() || planes.iter().any(|p| p.len() < words) {
+                    return Err(PgRowRefusal::Span {
+                        name: "validity".to_owned(),
+                    });
+                }
+                read.iter().map(|&k| planes[k]).collect()
+            }
+            None => {
+                computed = self.validity(&read)?;
+                computed.iter().map(Vec::as_slice).collect()
+            }
+        };
+        let mut masks: Vec<&[u64]> = Vec::with_capacity(1 + planes_of.len());
         masks.push(self.live);
-        masks.extend(validity.iter().map(Vec::as_slice));
-        let nullable: Vec<(Col, Mask)> = (0..self.cols.len())
-            .map(|k| (Col(k as u16), Mask(k as u16 + 1)))
+        masks.extend(planes_of.iter().copied());
+        let nullable: Vec<(Col, Mask)> = read
+            .iter()
+            .enumerate()
+            .map(|(i, &k)| (Col(k as u16), Mask(i as u16 + 1)))
             .collect();
         let sql = filter.sql_where(&nullable);
         let filter = if cfg!(feature = "disable-pg-row-live") {
@@ -425,10 +498,11 @@ impl<'s, 'c> Reader<'s, 'c> {
 
     /// Per column, the rows whose cell is not absent: presence OR value ≠ 0,
     /// as a mask-risc fold over the column's lane and its presence plane.
-    fn validity(&self, lanes: &[LaneRef<'s>]) -> Result<Vec<Vec<u64>>, PgRowRefusal> {
+    fn validity(&self, columns: &[usize]) -> Result<Vec<Vec<u64>>, PgRowRefusal> {
         let words = words_for(self.rows);
-        let mut out = Vec::with_capacity(lanes.len());
-        for (lane, (_, plane)) in lanes.iter().zip(&self.lanes) {
+        let mut out = Vec::with_capacity(columns.len());
+        for &k in columns {
+            let (lane, plane) = (&self.lanes[k].0, self.lanes[k].1);
             let mut keep = vec![0u64; words];
             if cfg!(feature = "disable-pg-row-presence") {
                 keep.iter_mut().for_each(|w| *w = u64::MAX);
@@ -459,6 +533,23 @@ impl<'s, 'c> Reader<'s, 'c> {
         }
         Ok(out)
     }
+}
+
+/// The columns a filter compares, ascending, each once.
+fn filter_columns(f: &Filter) -> Vec<usize> {
+    fn walk(f: &Filter, out: &mut Vec<usize>) {
+        match f {
+            Filter::Cmp(Col(c), _) => out.push(usize::from(*c)),
+            Filter::And(parts) | Filter::Or(parts) => parts.iter().for_each(|p| walk(p, out)),
+            Filter::Not(inner) => walk(inner, out),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    walk(f, &mut out);
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 fn run(q: &Query, planes: &Planes<'_>, out: Out<'_>) -> Result<Value, PgRowRefusal> {
