@@ -377,7 +377,6 @@ fn key_values(
 /// binding.
 pub struct Table {
     name: String,
-    config: ShapeConfig,
     shape: Vec<ColumnShape>,
     key: usize,
     codes: Vec<Vec<String>>,
@@ -504,7 +503,6 @@ impl Table {
 
         Ok(Table {
             name: name.to_owned(),
-            config: config.clone(),
             shape,
             key,
             codes: cells.codes,
