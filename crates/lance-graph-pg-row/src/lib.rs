@@ -516,7 +516,7 @@ pub fn read_bag(sides: &[BagSide<'_, '_, '_>]) -> Result<PgRows, PgRowRefusal> {
         let mut row = Vec::with_capacity(width);
         for side in sides {
             let here = cfg!(feature = "disable-pg-row-bag-present")
-                || side.present.map_or(true, |p| bit(p, i));
+                || side.present.is_none_or(|p| bit(p, i));
             if here {
                 let p = side.reader.check_position(side.positions[i])?;
                 side.reader.push_row(p, &mut row)?;

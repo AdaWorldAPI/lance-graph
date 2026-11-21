@@ -121,15 +121,18 @@ fn tickets(agents: usize) -> Logical {
     let mut deleted = Vec::new();
     for id in 1..=300i32 {
         let r = xorshift(&mut x);
-        let title = (r % 7 != 0).then(|| V::Text(titles[(r >> 3) as usize % titles.len()].into()));
+        let title = (!r.is_multiple_of(7))
+            .then(|| V::Text(titles[(r >> 3) as usize % titles.len()].into()));
         // `note` is NOT NULL DEFAULT '': no value is the empty string.
-        let note = (r % 3 != 0).then(|| V::Text(notes[(r >> 5) as usize % notes.len()].into()));
+        let note =
+            (!r.is_multiple_of(3)).then(|| V::Text(notes[(r >> 5) as usize % notes.len()].into()));
         let open = Some(V::Bool(r >> 7 & 1 == 1));
         // Owners 1..=agents+3: some past the agents table (no parent).
-        let owner = (r % 5 != 0).then(|| V::Int(1 + ((r >> 9) % (agents as u64 + 3)) as i32));
-        let priority = (r % 11 != 0).then(|| V::Int(((r >> 11) % 9) as i32 - 4));
+        let owner =
+            (!r.is_multiple_of(5)).then(|| V::Int(1 + ((r >> 9) % (agents as u64 + 3)) as i32));
+        let priority = (!r.is_multiple_of(11)).then(|| V::Int(((r >> 11) % 9) as i32 - 4));
         let created = Some(V::Secs(1_600_000_000 + (r >> 13) as u32 % 100_000_000));
-        let due = (r % 4 != 0).then(|| V::Days(18_000 + (r >> 17) as u32 % 4_000));
+        let due = (!r.is_multiple_of(4)).then(|| V::Days(18_000 + (r >> 17) as u32 % 4_000));
         rows.push(vec![
             Some(V::Int(id)),
             title,
@@ -140,7 +143,7 @@ fn tickets(agents: usize) -> Logical {
             created,
             due,
         ]);
-        deleted.push(r % 13 == 0);
+        deleted.push(r.is_multiple_of(13));
     }
     let mut defs = TICKET.to_vec();
     defs.push(DUE);
