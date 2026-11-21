@@ -48,6 +48,32 @@ pub struct ColumnShape {
     pub detected: Detected,
 }
 
+/// The lane encoding of a declared type: the detected one when the contract
+/// admits it for that type (`PgColumn::admit`), otherwise the one encoding the
+/// type has. A declared type therefore never pairs with the encoding of a
+/// shape the data merely suggested.
+fn encoding_for(ty: PgType, detected: LaneEncoding) -> LaneEncoding {
+    let admits = |encoding| {
+        PgColumn {
+            ty,
+            encoding,
+            absent: AbsentAs::Null,
+        }
+        .admit()
+        .is_ok()
+    };
+    if admits(detected) {
+        return detected;
+    }
+    match ty {
+        PgType::Bool => LaneEncoding::Bool,
+        PgType::Text | PgType::Varchar(_) => LaneEncoding::TextCode,
+        PgType::Timestamp(_) => LaneEncoding::EpochSeconds,
+        PgType::Date => LaneEncoding::EpochDays,
+        _ => LaneEncoding::Signed,
+    }
+}
+
 /// Merge hand config over a detected column.
 pub fn merge(
     detected: &Detected,
@@ -60,6 +86,7 @@ pub fn merge(
     };
     if let Some(ty) = config.ty {
         col.ty = ty;
+        col.encoding = encoding_for(ty, detected.col.encoding);
     }
     if let Some(encoding) = config.encoding {
         col.encoding = encoding;

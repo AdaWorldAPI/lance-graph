@@ -37,8 +37,11 @@
 ))]
 compile_error!("disable-intake-* features are for disable runs in debug builds only");
 
+mod bind;
 pub mod config;
 pub mod detect;
+pub mod pg;
+pub use bind::BoundQuery;
 
 use lance_graph_mask_risc::LaneRef;
 use std::cell::{Cell, RefCell};
@@ -113,6 +116,9 @@ pub enum IntakeRefusal {
     /// A [`SelectionRef`] was kept under an older data version than the
     /// table's current one.
     Stale,
+    /// A query could not be bound through `lance_graph_quack::bind`, or a
+    /// bound query was not admitted; bind it again.
+    Bind(lance_graph_quack::bind::BindError),
 }
 
 impl From<LaneRefusal> for IntakeRefusal {
@@ -133,8 +139,10 @@ impl From<PgRowRefusal> for IntakeRefusal {
 fn lane_value(col: &PgColumn, text: &str, code_of: &mut dyn FnMut(&str) -> u32) -> Option<u32> {
     match col.encoding {
         LaneEncoding::Bool => match text {
-            "t" => Some(1),
-            "f" => Some(0),
+            // PostgreSQL's output spelling, and its input spelling of the
+            // same values: a declared boolean reads both.
+            "t" | "true" => Some(1),
+            "f" | "false" => Some(0),
             _ => None,
         },
         LaneEncoding::Signed => {
@@ -233,7 +241,24 @@ struct Owner {
     selections: Vec<Vec<u32>>,
     /// A kept selection lent as selection [`KEPT_SEL`] while one read is
     /// open: its positions are read from DR's keep log in place, never copied.
-    lend: Option<KeptId>,
+    lend: Cell<Option<KeptId>>,
+}
+
+/// Clears [`Owner::lend`] when dropped, so a read that fails, or a sink that
+/// panics, leaves no kept selection lent.
+struct Lend<'a>(&'a Cell<Option<KeptId>>);
+
+impl<'a> Lend<'a> {
+    fn new(cell: &'a Cell<Option<KeptId>>, id: KeptId) -> Self {
+        cell.set(Some(id));
+        Lend(cell)
+    }
+}
+
+impl Drop for Lend<'_> {
+    fn drop(&mut self) {
+        self.0.set(None);
+    }
 }
 
 /// A column's lane as the owner holds it. A signed column is an `i32` lane,
@@ -322,7 +347,7 @@ impl PresenceSource for Owner {
 impl SelectionSource for Owner {
     fn selection_of(&self, sel: u16, _frame: &Frame) -> Option<SelAddr> {
         let issued = if sel == KEPT_SEL {
-            self.lend.is_some()
+            self.lend.get().is_some()
         } else {
             usize::from(sel) < self.selections.len()
         };
@@ -335,7 +360,7 @@ impl SelectionSource for Owner {
 
     fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]> {
         if addr.sel == KEPT_SEL {
-            let id = self.lend?;
+            let id = self.lend.get()?;
             return self
                 .table
                 .kept::<Vec<u32>>(&self.frame, id)
@@ -524,7 +549,7 @@ impl Table {
             frame,
             tiles: Vec::new(),
             selections: Vec::new(),
-            lend: None,
+            lend: Cell::new(None),
         };
 
         let view = IntakeView {
@@ -889,10 +914,8 @@ impl Table {
     /// been kept under the current data version; no predicate runs.
     pub fn rows_of(&mut self, r: &SelectionRef) -> Result<PgRows, IntakeRefusal> {
         self.kept_of(r)?;
-        self.owner.lend = Some(r.id);
-        let result = self.read_selection(KEPT_SEL);
-        self.owner.lend = None;
-        result
+        let _lend = Lend::new(&self.owner.lend, r.id);
+        self.read_selection(KEPT_SEL)
     }
 
     /// How many positions a kept selection holds, under the same currency

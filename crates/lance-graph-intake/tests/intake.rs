@@ -10,10 +10,12 @@
 use std::collections::BTreeMap;
 
 use lance_graph_contract::pg_row::{write_cell, AbsentAs, LaneEncoding, PgColumn, PgType};
+use lance_graph_intake::pg::{write_selection, CollectRows, CopyText};
 use lance_graph_intake::{
     detect_column, detect_key, ColumnConfig, IntakeRefusal, ShapeConfig, Table, Verdict,
 };
 use lance_graph_pg_row::{PgRowRefusal, PgRows};
+use lance_graph_quack::bind::{table as draft, BindError};
 use lance_graph_quack::{Cmp, Col, Filter};
 use pg_parity_harness::{multiset_diff, Pg, Row, Skip};
 
@@ -144,14 +146,11 @@ fn detects_text() {
     assert_eq!((d.support, d.total, d.witness), (3, 3, None));
 }
 
-/// FAILS IF: `''` with no NULL cell is not absent-as-empty, or `''` beside a
-/// NULL cell is, or a non-text column takes the empty spelling.
+/// FAILS IF: an observed `''` makes detection read `''` as absent. Only a
+/// declaration may (`ColumnConfig::absent`); detection keeps `''` as a value.
 #[test]
-fn empty_strings_decide_the_absent_spelling() {
-    assert_eq!(
-        detect_column(&[Some("a"), Some(""), Some("b")]).col,
-        TEXT_EMPTY
-    );
+fn an_observed_empty_string_is_present_text() {
+    assert_eq!(detect_column(&[Some("a"), Some(""), Some("b")]).col, TEXT);
     let mixed = detect_column(&[Some("a"), Some(""), None]);
     assert_eq!(mixed.col, TEXT);
     assert_eq!((mixed.support, mixed.total), (2, 2));
@@ -292,12 +291,31 @@ fn config_that_cannot_parse_a_cell_is_refused() {
         })
     );
 
+    // A declared type brings an encoding the contract admits for it, so
+    // digits declared as text are text values, not integers.
     let mut config = ShapeConfig::default();
     config.columns.insert(
         "n".to_owned(),
         ColumnConfig {
             ty: Some(PgType::Text),
             ..ColumnConfig::default()
+        },
+    );
+    let declared = small_table(&config).expect("digits declared as text");
+    assert_eq!(declared.shape()[1].col, TEXT);
+    assert_eq!(
+        declared.select_all().expect("rows").rows[0][1].as_deref(),
+        Some("10")
+    );
+
+    // A hand-given pair the lane cannot hold is refused.
+    let mut config = ShapeConfig::default();
+    config.columns.insert(
+        "n".to_owned(),
+        ColumnConfig {
+            ty: Some(PgType::Text),
+            encoding: Some(LaneEncoding::Signed),
+            absent: None,
         },
     );
     assert!(matches!(
@@ -671,7 +689,7 @@ fn gate(
     let shapes: Vec<PgColumn> = ticket.shape().iter().map(|c| c.col).collect();
     assert_eq!(
         shapes,
-        [INT4, TEXT, TEXT_EMPTY, BOOL, INT4, INT4, TIMESTAMP, DATE]
+        [INT4, TEXT, TEXT, BOOL, INT4, INT4, TIMESTAMP, DATE]
     );
     assert_eq!(ticket.key_name(), "id");
     assert_eq!(agent.shape()[0].col, INT4);
@@ -1249,4 +1267,457 @@ fn kept_validity_does_not_change_answers() {
     let kept = table.select_ref(&filter).expect("keep");
     assert_eq!(table.validity_folds(), folds);
     assert_eq!(table.rows_of(&kept).expect("rows"), cold);
+}
+
+fn live_tickets() -> (Table, Vec<Vec<Option<String>>>, Vec<bool>) {
+    let (rows, deleted) = tickets();
+    let mut ticket = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&rows),
+        &ShapeConfig::default(),
+    )
+    .expect("ticket table");
+    for (r, &gone) in deleted.iter().enumerate() {
+        if gone {
+            ticket.delete_key(r as u64 + 1).expect("delete");
+        }
+    }
+    (ticket, rows, deleted)
+}
+
+fn pg_or_skip() -> Option<Pg> {
+    match Pg::connect() {
+        Ok(pg) => Some(pg),
+        Err(Skip(why)) => {
+            assert!(
+                std::env::var_os("PG_ROW_REQUIRE_PG").is_none(),
+                "PG_ROW_REQUIRE_PG is set and PostgreSQL is unavailable: {why}"
+            );
+            println!("SKIP (PostgreSQL half): {why}");
+            None
+        }
+    }
+}
+
+/// FAILS IF: a literal bound through Quack's membrane keeps a different
+/// multiset of rows than PostgreSQL's `WHERE`, if `title = ''` (a present
+/// empty string in a NULL-absent column) keeps a NULL title, or if a field
+/// with no literal kind in the membrane is offered.
+#[test]
+fn a_bound_literal_equals_postgresql() {
+    let (mut ticket, rows, deleted) = live_tickets();
+    let live = |r: usize| !deleted[r];
+    type Keep = fn(&[Option<String>]) -> bool;
+    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 5] = [
+        (
+            "title = 'vpn'",
+            draft("ticket").where_eq("title", "vpn"),
+            |r| r[1].as_deref() == Some("vpn"),
+        ),
+        ("title = ''", draft("ticket").where_eq("title", ""), |r| {
+            r[1].as_deref() == Some("")
+        }),
+        (
+            "title <> 'printer'",
+            draft("ticket").where_cmp("title", lance_graph_quack::bind::Op::Ne, "printer"),
+            |r| r[1].as_deref().is_some_and(|t| t != "printer"),
+        ),
+        (
+            "title LIKE 'l%'",
+            draft("ticket").where_like("title", "l%"),
+            |r| r[1].as_deref().is_some_and(|t| t.starts_with('l')),
+        ),
+        (
+            "priority < 0",
+            draft("ticket").where_cmp("priority", lance_graph_quack::bind::Op::Lt, 0i32),
+            |r| int(r, 5).is_some_and(|p| p < 0),
+        ),
+    ];
+    let mut ours = Vec::new();
+    for (sql, d, keep) in cases {
+        let q = ticket.bind(&d).expect("binds");
+        let kept = ticket.select_bound(&q).expect("select");
+        let got = ticket.rows_of(&kept).expect("rows");
+        let model: Vec<Row> = (0..rows.len())
+            .filter(|&r| live(r) && keep(&rows[r]))
+            .map(|r| rows[r].clone())
+            .collect();
+        assert!(
+            !model.is_empty() && model.len() < ticket.len(),
+            "{sql}: a real subset"
+        );
+        same(sql, &model, &got);
+        ours.push((sql, got));
+    }
+    assert!(matches!(
+        ticket.bind(&draft("ticket").where_eq("open", 1i32)),
+        Err(IntakeRefusal::Bind(BindError::UnknownField { .. }))
+    ));
+
+    let Some(pg) = pg_or_skip() else { return };
+    pg.script(&create(&ticket, &rows, &deleted))
+        .expect("create");
+    for (sql, got) in ours {
+        let theirs = pg
+            .query(&format!("SELECT * FROM ticket WHERE {sql}"))
+            .unwrap_or_else(|e| panic!("{sql}: {e}"));
+        assert_eq!(theirs.types, got.types);
+        if let Some(diff) = multiset_diff(&theirs.rows, &got.rows) {
+            panic!("{sql}: PostgreSQL differs: {diff}");
+        }
+        println!("PASS {sql}: {} rows", got.rows.len());
+    }
+}
+
+/// FAILS IF: on a text column holding present `''` and no NULL, `= ''`,
+/// `<> x` or a `LIKE` pattern that matches `''` keeps other rows than
+/// PostgreSQL, which keeps `''` as a value.
+#[test]
+fn present_empty_text_compares_as_postgresql() {
+    let (mut ticket, rows, deleted) = live_tickets();
+    assert_eq!(ticket.shape()[2].col.absent, AbsentAs::Null);
+    type Keep = fn(&str) -> bool;
+    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 4] = [
+        ("note = ''", draft("ticket").where_eq("note", ""), |n| {
+            n.is_empty()
+        }),
+        (
+            "note <> 'waiting'",
+            draft("ticket").where_cmp("note", lance_graph_quack::bind::Op::Ne, "waiting"),
+            |n| n != "waiting",
+        ),
+        (
+            "note LIKE '%'",
+            draft("ticket").where_like("note", "%"),
+            |_| true,
+        ),
+        (
+            "note LIKE 'w%'",
+            draft("ticket").where_like("note", "w%"),
+            |n| n.starts_with('w'),
+        ),
+    ];
+    let mut ours = Vec::new();
+    for (sql, d, keep) in cases {
+        let q = ticket.bind(&d).expect("binds");
+        let kept = ticket.select_bound(&q).expect("select");
+        let got = ticket.rows_of(&kept).expect("rows");
+        let model: Vec<Row> = (0..rows.len())
+            .filter(|&r| !deleted[r] && rows[r][2].as_deref().is_some_and(keep))
+            .map(|r| rows[r].clone())
+            .collect();
+        assert!(!model.is_empty(), "{sql}: the fixture has rows");
+        same(sql, &model, &got);
+        ours.push((sql, got));
+    }
+    assert!(
+        ours.iter()
+            .any(|(_, g)| g.rows.iter().any(|r| r[2].as_deref() == Some(""))),
+        "empty notes are kept"
+    );
+
+    let Some(pg) = pg_or_skip() else { return };
+    pg.script(&create(&ticket, &rows, &deleted))
+        .expect("create");
+    for (sql, got) in ours {
+        let theirs = pg
+            .query(&format!("SELECT * FROM ticket WHERE {sql}"))
+            .unwrap_or_else(|e| panic!("{sql}: {e}"));
+        if let Some(diff) = multiset_diff(&theirs.rows, &got.rows) {
+            panic!("{sql}: PostgreSQL differs: {diff}");
+        }
+        println!("PASS {sql}: {} rows", got.rows.len());
+    }
+}
+
+/// FAILS IF: a query bound before an append is still executed after it, or
+/// a query bound again after the append is refused.
+#[test]
+fn a_bound_query_is_refused_after_the_data_version_moves() {
+    let (mut ticket, _, _) = live_tickets();
+    let q = ticket
+        .bind(&draft("ticket").where_eq("title", "vpn"))
+        .expect("binds");
+    ticket.select_bound(&q).expect("current");
+    ticket
+        .append(&[vec![
+            Some("1001"),
+            Some("vpn"),
+            Some("call back"),
+            Some("t"),
+            Some("1"),
+            Some("0"),
+            Some("2021-01-01 00:00:00"),
+            None,
+        ]])
+        .expect("append");
+    assert!(matches!(ticket.select_bound(&q), Err(IntakeRefusal::Stale)));
+    let again = ticket
+        .bind(&draft("ticket").where_eq("title", "vpn"))
+        .expect("rebinds");
+    let kept = ticket.select_bound(&again).expect("rebound");
+    let got = ticket.rows_of(&kept).expect("rows");
+    assert!(got.rows.iter().any(|r| r[0].as_deref() == Some("1001")));
+}
+
+/// FAILS IF: the PostgreSQL egress adapter writes other cells, order or
+/// repeats than `rows_of`, spells an absent cell differently, or writes a
+/// stale or foreign selection.
+#[test]
+fn write_selection_equals_rows_of() {
+    let (mut ticket, rows, deleted) = live_tickets();
+    let keys: Vec<u64> = (0..rows.len())
+        .filter(|&r| !deleted[r])
+        .map(|r| r as u64 + 1)
+        .step_by(7)
+        .collect();
+    let mut bag = keys.clone();
+    bag.extend(keys.iter().rev().step_by(2));
+    let kept = ticket.select_keys_ref(&bag).expect("keep");
+    let expect = ticket.rows_of(&kept).expect("rows_of");
+    assert!(
+        expect.rows.iter().any(|r| r[1].is_none()),
+        "a NULL title is written"
+    );
+    assert!(
+        expect.rows.iter().any(|r| r[2].as_deref() == Some("")),
+        "an absent note is ''"
+    );
+
+    let mut sink = CollectRows::new();
+    assert_eq!(
+        write_selection(&ticket, &kept, &mut sink).expect("write"),
+        bag.len()
+    );
+    assert_eq!(sink.rows, expect.rows);
+    let mut copy = CopyText::new();
+    write_selection(&ticket, &kept, &mut copy).expect("copy");
+    assert_eq!(copy.out.iter().filter(|&&b| b == b'\n').count(), bag.len());
+
+    let (other, _, _) = live_tickets();
+    let foreign = {
+        let mut other = other;
+        other.select_keys_ref(&keys).expect("other keep")
+    };
+    assert!(matches!(
+        write_selection(&ticket, &foreign, &mut CollectRows::new()),
+        Err(IntakeRefusal::Stale)
+    ));
+    ticket.delete_key(keys[0]).expect("delete");
+    assert!(matches!(
+        write_selection(&ticket, &kept, &mut CollectRows::new()),
+        Err(IntakeRefusal::Stale)
+    ));
+}
+
+// ---- declared types and the absent policy --------------------------------
+
+fn field_rows() -> Vec<Vec<Option<&'static str>>> {
+    vec![
+        vec![Some("1"), Some("")],
+        vec![Some("2"), None],
+        vec![Some("3"), Some("abc")],
+        vec![Some("4"), Some("")],
+    ]
+}
+
+fn field_table(absent: Option<AbsentAs>) -> Table {
+    let mut config = ShapeConfig::default();
+    config.columns.insert(
+        "field".to_owned(),
+        ColumnConfig {
+            ty: Some(PgType::Text),
+            encoding: None,
+            absent,
+        },
+    );
+    Table::from_rows("f", 0x2B0A_0001, &["id", "field"], &field_rows(), &config).expect("table")
+}
+
+/// `COUNT(*)`, `COUNT(field)`, `field = ''`, `field IS NULL`, `field = 'abc'`.
+fn field_answers(t: &mut Table) -> [usize; 5] {
+    let present = t
+        .count_where(&Filter::cmp(Col(1), Cmp::NeU32(u32::MAX)))
+        .expect("count(field)");
+    let mut eq = |text: &str| {
+        let q = t.bind(&draft("f").where_eq("field", text)).expect("bind");
+        let kept = t.select_bound(&q).expect("select");
+        t.count_of(&kept).expect("count")
+    };
+    let (empty, abc) = (eq(""), eq("abc"));
+    [t.len(), present, empty, t.len() - present, abc]
+}
+
+/// FAILS IF: a declared nullable text column loses the difference between a
+/// present `''` and NULL, or any of the five answers differs from
+/// PostgreSQL 16.15 on the same rows.
+#[test]
+fn fixture_a_nullable_text_keeps_empty_and_null_apart() {
+    let mut t = field_table(None);
+    assert_eq!(t.shape()[1].col, TEXT);
+    let ours = field_answers(&mut t);
+    assert_eq!(ours, [4, 3, 2, 1, 1]);
+
+    let Some(pg) = pg_or_skip() else { return };
+    pg.script(
+        "DROP TABLE IF EXISTS f; CREATE TABLE f (id integer, field text);\
+         INSERT INTO f VALUES (1, ''), (2, NULL), (3, 'abc'), (4, '');",
+    )
+    .expect("create");
+    let one = |sql: &str| -> usize {
+        pg.query(sql).expect("query").rows[0][0]
+            .as_deref()
+            .expect("count")
+            .parse()
+            .expect("number")
+    };
+    let theirs = [
+        one("SELECT count(*) FROM f"),
+        one("SELECT count(field) FROM f"),
+        one("SELECT count(*) FROM f WHERE field = ''"),
+        one("SELECT count(*) FROM f WHERE field IS NULL"),
+        one("SELECT count(*) FROM f WHERE field = 'abc'"),
+    ];
+    assert_eq!(ours, theirs, "PostgreSQL 16.15");
+}
+
+/// FAILS IF: a declared empty-as-absent policy is not followed: `''` and
+/// NULL must be one absent value, spelled `''`. This is the declared,
+/// lossy policy; it is not compared with PostgreSQL.
+#[test]
+fn fixture_b_declared_empty_as_absent_follows_the_policy() {
+    let mut t = field_table(Some(AbsentAs::EmptyText));
+    assert_eq!(t.shape()[1].col, TEXT_EMPTY);
+    assert_eq!(field_answers(&mut t), [4, 1, 3, 3, 1]);
+    let spelled: Vec<Option<String>> = t
+        .select_all()
+        .expect("rows")
+        .rows
+        .into_iter()
+        .map(|r| r[1].clone())
+        .collect();
+    assert_eq!(
+        spelled,
+        [Some(""), Some(""), Some("abc"), Some("")].map(|s| s.map(str::to_owned))
+    );
+}
+
+const TYPED_COLUMNS: [&str; 5] = ["id", "t", "b", "i", "d"];
+
+fn typed_config() -> ShapeConfig {
+    let mut config = ShapeConfig::default();
+    for (name, ty) in [
+        ("t", PgType::Text),
+        ("b", PgType::Bool),
+        ("i", PgType::Int4),
+        ("d", PgType::Date),
+    ] {
+        config.columns.insert(
+            name.to_owned(),
+            ColumnConfig {
+                ty: Some(ty),
+                ..ColumnConfig::default()
+            },
+        );
+    }
+    config
+}
+
+/// FAILS IF: a declared type is replaced by what the cells suggest (digits in
+/// a text column, `false` in a boolean one), `''`, `false` or `0` is not
+/// kept as a present value, an append changes the declared class, an
+/// incompatible cell is admitted, or the rows differ from PostgreSQL 16.15
+/// with the same declared types.
+#[test]
+fn fixture_c_declared_types_hold_their_values() {
+    let rows: Vec<Vec<Option<&str>>> = vec![
+        vec![
+            Some("1"),
+            Some("0"),
+            Some("false"),
+            Some("0"),
+            Some("2024-01-02"),
+        ],
+        vec![Some("2"), Some(""), Some("true"), Some("5"), None],
+        vec![
+            Some("3"),
+            Some("7"),
+            Some("false"),
+            None,
+            Some("1999-12-31"),
+        ],
+    ];
+    let mut t = Table::from_rows("typed", 0x2B0A_0002, &TYPED_COLUMNS, &rows, &typed_config())
+        .expect("declared");
+    let shapes: Vec<PgColumn> = t.shape().iter().skip(1).map(|c| c.col).collect();
+    assert_eq!(shapes, [TEXT, BOOL, INT4, DATE]);
+    // `''` is not an integer, so detection already reads `t` as text.
+    assert_eq!(t.shape()[1].verdict, Verdict::Agrees);
+    assert!(
+        matches!(t.shape()[2].verdict, Verdict::Differs { .. }),
+        "false declared as boolean"
+    );
+    assert_eq!(t.len(), 3);
+
+    let present = |t: &Table, k: u16| {
+        // `x <> <unused value>` is TRUE on every present cell and UNKNOWN on
+        // an absent one, so its count is COUNT(x).
+        let cmp = if k == 3 {
+            Cmp::NeI32(i32::MIN)
+        } else {
+            Cmp::NeU32(u32::MAX)
+        };
+        t.count_where(&Filter::cmp(Col(k), cmp)).expect("count")
+    };
+    assert_eq!(
+        [
+            present(&t, 1),
+            present(&t, 2),
+            present(&t, 3),
+            present(&t, 4)
+        ],
+        [3, 3, 2, 2]
+    );
+    let q = t.bind(&draft("typed").where_eq("i", 0i32)).expect("bind");
+    let kept = t.select_bound(&q).expect("select");
+    assert_eq!(
+        t.rows_of(&kept).expect("rows").rows[0][0].as_deref(),
+        Some("1")
+    );
+    let q = t.bind(&draft("typed").where_eq("t", "")).expect("bind");
+    let kept = t.select_bound(&q).expect("select");
+    assert_eq!(t.count_of(&kept).expect("count"), 1);
+
+    let before = t.select_all().expect("rows");
+    t.append(&[vec![Some("4"), Some("8"), Some("t"), Some("1"), None]])
+        .expect("append keeps the class");
+    assert_eq!(t.shape()[1].col, TEXT);
+    let refused = t.append(&[vec![Some("5"), Some("x"), Some("f"), Some("abc"), None]]);
+    assert!(
+        matches!(refused, Err(IntakeRefusal::ShapeChanged { ref column, .. }) if column == "i")
+    );
+    let refused = t.append(&[vec![Some("5"), Some("x"), Some("maybe"), Some("1"), None]]);
+    assert!(
+        matches!(refused, Err(IntakeRefusal::ShapeChanged { ref column, .. }) if column == "b")
+    );
+    assert_eq!(t.len(), 4);
+    let after = t.select_all().expect("rows");
+    assert_eq!(&after.rows[..3], &before.rows[..]);
+
+    let Some(pg) = pg_or_skip() else { return };
+    pg.script(
+        "DROP TABLE IF EXISTS typed;\
+         CREATE TABLE typed (id integer, t text, b boolean, i integer, d date);\
+         INSERT INTO typed VALUES (1, '0', 'false', 0, '2024-01-02'),\
+           (2, '', 'true', 5, NULL), (3, '7', 'false', NULL, '1999-12-31'),\
+           (4, '8', 't', 1, NULL);",
+    )
+    .expect("create");
+    let theirs = pg.query("SELECT * FROM typed").expect("query");
+    assert_eq!(theirs.types, after.types);
+    if let Some(diff) = multiset_diff(&theirs.rows, &after.rows) {
+        panic!("typed: PostgreSQL differs: {diff}");
+    }
 }
