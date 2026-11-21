@@ -8,3 +8,8 @@ description = "DT64: the ClassId-addressed binding store. Class schema (through 
 [dependencies]
 # The one dependency. The contract is zero-dep, so this crate is too.
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+[features]
+# Disable run for tests/bound_read.rs: the by-reference check skips its
+# store digest compare. A compile error outside a debug build.
+disable-bound-digest = []
