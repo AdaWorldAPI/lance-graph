@@ -1,0 +1,22 @@
+[package]
+name = "lance-graph-pg-row"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The PostgreSQL row polyfill for consumers: one DT64 lane check per table, WHERE lowered through Quack and run by mask-risc, rows read in place at positions or under a kept mask, and a virtual tuple bag for joins. Cells are spelled only at the end, by lance-graph-contract::pg_row. Adds no store, owner or evaluator."
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+
+[dev-dependencies]
+pg-parity-harness = { path = "../pg-parity-harness" }
+
+[features]
+# Disable runs for the PostgreSQL gate (tests/pg_gate.rs). Each makes the
+# gate go red; each is a compile error outside a debug build.
+disable-pg-row-presence = []
+disable-pg-row-live = []
+disable-pg-row-bag-present = []
