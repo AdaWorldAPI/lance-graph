@@ -88,8 +88,16 @@ mod tests {
             .expect("keep under current frame");
         let mut sink = CollectRows::new();
         let refused = write_selection(&t, &bad, &mut sink);
-        assert!(refused.is_err(), "{refused:?}");
-        assert!(sink.rows.len() <= 1);
+        assert_eq!(
+            refused,
+            Err(IntakeRefusal::PgRow(
+                lance_graph_pg_row::PgRowRefusal::DeadPosition { at: dead }
+            ))
+        );
+        assert_eq!(
+            sink.rows,
+            vec![vec![Some("1".to_owned()), Some("a".to_owned())]]
+        );
         assert_eq!(t.owner.lend.get(), None);
 
         let good = t.select_keys_ref(&[1, 3]).expect("keep");
