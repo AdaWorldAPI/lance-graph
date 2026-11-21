@@ -3,31 +3,45 @@
 //! reads codes, lanes and planes only.
 //!
 //! ```text
-//! table("ticket").where_eq("title", "vpn").bind_typed(&t)   cold: names, DT code lookup
-//!     → TypedQuery<Frame>                                     numeric, witnessed
-//! t.select_bound(&q)                                         warm: frame check, fold, keep
-//!     → SelectionRef                                          DR-owned positions
+//! t.bind(&table("ticket").where_eq("title", "vpn"))   cold: names, DT code lookup
+//!     → BoundQuery                                     numeric, under this table's frame
+//! t.select_bound(&q)                                  warm: frame check, fold, keep
+//!     → SelectionRef                                   DR-owned positions
 //! ```
 //!
 //! Only signed-integer lanes (`FieldKind::I32`) and text-code lanes
 //! (`FieldKind::Code`) bind: Quack's membrane has no unsigned, boolean or
 //! date literal kind, so a field of those encodings is not offered and binds
-//! as [`BindError::UnknownField`](lance_graph_quack::bind::BindError).
+//! as `BindError::UnknownField`.
 //!
-//! A column whose absent spelling is `''` (`AbsentAs::EmptyText`) admitted
-//! every `''` as absent, so `''` has no code there and binding `= ''` on it is
-//! refused as `UnknownValue`. It is never answered as an empty set:
-//! PostgreSQL would keep those rows, and this membrane has no absent literal.
+//! # Empty-absent text columns
+//!
+//! A column whose absent spelling is `''` (`AbsentAs::EmptyText`) is chosen
+//! only when the column holds no NULL, so an absent cell there IS the value
+//! `''`: its lane holds code 0, and real strings have codes from 1. Such a
+//! column is offered without a validity plane, and `''` binds to code 0. So
+//! `= ''`, `<> x` and a `LIKE` pattern that matches `''` keep exactly the rows
+//! PostgreSQL keeps.
 
-use lance_graph_contract::pg_row::LaneEncoding;
+use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding};
 use lance_graph_dt64::dr::{Frame, ValueKey};
 use lance_graph_pg_row::{bound_validity, BOUND_LIVE};
 use lance_graph_quack::bind::{
-    BindError, Binder, BoundField, CodeWitness, FieldKind, Pattern, TableId, TypedQuery,
+    BindError, Binder, BoundField, CodeWitness, Draft, FieldKind, Pattern, TableId, TypedQuery,
 };
 use lance_graph_quack::{Col, Mask};
 
 use crate::{positions_of, IntakeRefusal, SelectionRef, Table};
+
+/// A query bound against one table under one frame. It runs only on that
+/// table and only while the frame is current: the frame names the table's
+/// store and its data version, so a query is refused on another table and
+/// after any append or delete, whether or not it compares a text literal.
+#[derive(Debug, Clone)]
+pub struct BoundQuery {
+    typed: TypedQuery<Frame>,
+    frame: Frame,
+}
 
 impl Table {
     fn column_of(&self, t: TableId, col: Col) -> Option<usize> {
@@ -39,19 +53,31 @@ impl Table {
         TableId(self.owner.class)
     }
 
-    /// Run a query bound against this table once, keep the positions it
-    /// holds for under the current data version, and return the handle, as
-    /// [`Table::select_ref`] does for a numeric filter.
+    fn empty_absent(&self, k: usize) -> bool {
+        self.shape[k].col.absent == AbsentAs::EmptyText
+    }
+
+    /// Resolve `draft`'s names and literals against this table once.
+    pub fn bind(&self, draft: &Draft) -> Result<BoundQuery, IntakeRefusal> {
+        Ok(BoundQuery {
+            typed: draft.bind_typed(self).map_err(IntakeRefusal::Bind)?,
+            frame: self.owner.frame.clone(),
+        })
+    }
+
+    /// Run a bound query once, keep the positions it holds for under the
+    /// current data version, and return the handle, as [`Table::select_ref`]
+    /// does for a numeric filter.
     ///
-    /// The query is admitted first: a code space it was bound under must
-    /// still be witnessed by the current frame, so a query bound before an
-    /// append or a delete is refused as `Bind(StaleCodeSpace)` and must be
-    /// bound again.
-    pub fn select_bound(&mut self, q: &TypedQuery<Frame>) -> Result<SelectionRef, IntakeRefusal> {
-        let query = q
-            .admit(self)
-            .map_err(|e| IntakeRefusal::Bind(format!("{e:?}")))?
-            .clone();
+    /// A query bound by another table, or before an append or a delete, is
+    /// refused as [`IntakeRefusal::Stale`] and must be bound again.
+    pub fn select_bound(&mut self, q: &BoundQuery) -> Result<SelectionRef, IntakeRefusal> {
+        self.owner
+            .table
+            .frames()
+            .check(&q.frame)
+            .map_err(|_| IntakeRefusal::Stale)?;
+        let query = q.typed.admit(self).map_err(IntakeRefusal::Bind)?.clone();
         let positions = {
             let texts = self.texts();
             let specs = self.specs(&texts);
@@ -87,12 +113,15 @@ impl Binder for Table {
         Some(BoundField {
             col: Col(col),
             kind,
-            validity: Some(bound_validity(col)),
+            validity: (!self.empty_absent(k)).then(|| bound_validity(col)),
         })
     }
 
     fn code(&self, table: TableId, field: Col, literal: &str) -> Option<u32> {
         let k = self.column_of(table, field)?;
+        if literal.is_empty() && self.empty_absent(k) {
+            return Some(0);
+        }
         let space = self.spaces.get(k)?.as_ref()?;
         self.codes
             .code(&self.owner.frame, space, &ValueKey(literal.to_owned()))
@@ -102,22 +131,24 @@ impl Binder for Table {
     fn codes_matching(&self, table: TableId, field: Col, pattern: &Pattern) -> Option<Vec<u32>> {
         let k = self.column_of(table, field)?;
         let space = self.spaces.get(k)?.as_ref()?;
+        let empty = (self.empty_absent(k) && pattern.matches("")).then_some(0);
         Some(
-            (1..=self.code_counts[k])
-                .filter(|&code| {
+            empty
+                .into_iter()
+                .chain((1..=self.code_counts[k]).filter(|&code| {
                     self.codes
                         .key(&self.owner.frame, space, code)
                         .is_ok_and(|key| pattern.matches(&key.0))
-                })
+                }))
                 .collect(),
         )
     }
 }
 
-/// The witness of a code space is the frame it was read under: codes are
-/// stable across appends, but the frame moves with every data version, so a
-/// bound query is refused after any append or delete. That is conservative,
-/// never wrong.
+/// The witness of a code space is the frame it was read under. Codes are
+/// stable across appends, but the frame moves with every data version, so
+/// this is conservative, never wrong. [`BoundQuery`] checks the same frame
+/// for every query, coded or not.
 impl CodeWitness for Table {
     type Witness = Frame;
 
@@ -134,5 +165,64 @@ impl CodeWitness for Table {
             .filter(|_| self.owner.table.frames().check(held).is_ok())
             .map(|_| ())
             .ok_or(BindError::StaleCodeSpace)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ShapeConfig;
+    use lance_graph_quack::bind::table;
+
+    fn small(name: &str) -> Table {
+        let rows: Vec<Vec<Option<&str>>> = vec![
+            vec![Some("1"), Some("a"), Some("-1"), Some("t")],
+            vec![Some("2"), Some(""), Some("2"), Some("f")],
+            vec![Some("3"), Some("b"), None, Some("t")],
+        ];
+        Table::from_rows(
+            name,
+            0x2B09_0002,
+            &["id", "note", "n", "ok"],
+            &rows,
+            &ShapeConfig::default(),
+        )
+        .expect("table")
+    }
+
+    /// FAILS IF: a field kind the membrane cannot compare is offered, a
+    /// validity plane index does not follow `bound_validity`, or an
+    /// empty-absent text column is gated by validity.
+    #[test]
+    fn fields_follow_the_plane_layout() {
+        let t = small("t");
+        let id = t.table("t").expect("table");
+        let note = t.field(id, "note").expect("note");
+        assert_eq!(t.shape[1].col.absent, AbsentAs::EmptyText);
+        assert_eq!(
+            (note.col, note.kind, note.validity),
+            (Col(1), FieldKind::Code, None)
+        );
+        let n = t.field(id, "n").expect("n");
+        assert_eq!(
+            (n.kind, n.validity),
+            (FieldKind::I32, Some(bound_validity(2)))
+        );
+        assert!(t.field(id, "ok").is_none(), "boolean has no literal kind");
+        assert_eq!(t.code(id, Col(1), ""), Some(0));
+        assert!(t.code(id, Col(1), "zzz").is_none());
+    }
+
+    /// FAILS IF: a numeric-only query runs on a table it was not bound by,
+    /// or after the data version moves.
+    #[test]
+    fn a_numeric_query_is_tied_to_its_table_and_version() {
+        let mut t = small("t");
+        let mut other = small("t");
+        let q = t.bind(&table("t").where_eq("n", 2i32)).expect("bind");
+        assert!(matches!(other.select_bound(&q), Err(IntakeRefusal::Stale)));
+        assert_eq!(t.select_bound(&q).expect("current").len(), 1);
+        t.delete_key(1).expect("delete");
+        assert!(matches!(t.select_bound(&q), Err(IntakeRefusal::Stale)));
     }
 }

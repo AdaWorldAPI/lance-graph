@@ -1321,7 +1321,7 @@ fn a_bound_literal_equals_postgresql() {
     ];
     let mut ours = Vec::new();
     for (sql, d, keep) in cases {
-        let q = d.bind_typed(&ticket).expect("binds");
+        let q = ticket.bind(&d).expect("binds");
         let kept = ticket.select_bound(&q).expect("select");
         let got = ticket.rows_of(&kept).expect("rows");
         let model: Vec<Row> = (0..rows.len())
@@ -1336,8 +1336,8 @@ fn a_bound_literal_equals_postgresql() {
         ours.push((sql, got));
     }
     assert!(matches!(
-        draft("ticket").where_eq("open", 1i32).bind_typed(&ticket),
-        Err(BindError::UnknownField { .. })
+        ticket.bind(&draft("ticket").where_eq("open", 1i32)),
+        Err(IntakeRefusal::Bind(BindError::UnknownField { .. }))
     ));
 
     let Some(pg) = pg_or_skip() else { return };
@@ -1355,39 +1355,66 @@ fn a_bound_literal_equals_postgresql() {
     }
 }
 
-/// FAILS IF: `note = ''` on a column whose absent spelling is `''` binds to
-/// a filter (any code, or an empty answer) instead of being refused. Those
-/// cells are absent, and PostgreSQL keeps them, so no silent empty answer is
-/// acceptable.
+/// FAILS IF: on a column whose absent spelling is `''`, `= ''`, `<> x` or a
+/// `LIKE` pattern that matches `''` keeps other rows than PostgreSQL. Those
+/// cells are the value `''` in PostgreSQL, so dropping them as UNKNOWN is
+/// a wrong answer.
 #[test]
-fn an_empty_text_literal_on_an_empty_absent_column_is_refused() {
-    let (ticket, rows, deleted) = live_tickets();
+fn empty_absent_text_compares_as_postgresql() {
+    let (mut ticket, rows, deleted) = live_tickets();
     assert_eq!(ticket.shape()[2].col.absent, AbsentAs::EmptyText);
-    let refused = draft("ticket").where_eq("note", "").bind_typed(&ticket);
+    type Keep = fn(&str) -> bool;
+    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 4] = [
+        ("note = ''", draft("ticket").where_eq("note", ""), |n| {
+            n.is_empty()
+        }),
+        (
+            "note <> 'waiting'",
+            draft("ticket").where_cmp("note", lance_graph_quack::bind::Op::Ne, "waiting"),
+            |n| n != "waiting",
+        ),
+        (
+            "note LIKE '%'",
+            draft("ticket").where_like("note", "%"),
+            |_| true,
+        ),
+        (
+            "note LIKE 'w%'",
+            draft("ticket").where_like("note", "w%"),
+            |n| n.starts_with('w'),
+        ),
+    ];
+    let mut ours = Vec::new();
+    for (sql, d, keep) in cases {
+        let q = ticket.bind(&d).expect("binds");
+        let kept = ticket.select_bound(&q).expect("select");
+        let got = ticket.rows_of(&kept).expect("rows");
+        let model: Vec<Row> = (0..rows.len())
+            .filter(|&r| !deleted[r] && rows[r][2].as_deref().is_some_and(keep))
+            .map(|r| rows[r].clone())
+            .collect();
+        assert!(!model.is_empty(), "{sql}: the fixture has rows");
+        same(sql, &model, &got);
+        ours.push((sql, got));
+    }
     assert!(
-        matches!(refused, Err(BindError::UnknownValue { .. })),
-        "{refused:?}"
+        ours.iter()
+            .any(|(_, g)| g.rows.iter().any(|r| r[2].as_deref() == Some(""))),
+        "empty notes are kept"
     );
-    let empties = (0..rows.len())
-        .filter(|&r| !deleted[r] && rows[r][2].as_deref() == Some(""))
-        .count();
-    assert!(empties > 0, "the fixture holds empty notes");
-    assert!(draft("ticket")
-        .where_eq("note", "waiting")
-        .bind_typed(&ticket)
-        .is_ok());
 
     let Some(pg) = pg_or_skip() else { return };
     pg.script(&create(&ticket, &rows, &deleted))
         .expect("create");
-    let theirs = pg
-        .query("SELECT * FROM ticket WHERE note = ''")
-        .expect("query");
-    assert_eq!(
-        theirs.rows.len(),
-        empties,
-        "PostgreSQL keeps the empty notes"
-    );
+    for (sql, got) in ours {
+        let theirs = pg
+            .query(&format!("SELECT * FROM ticket WHERE {sql}"))
+            .unwrap_or_else(|e| panic!("{sql}: {e}"));
+        if let Some(diff) = multiset_diff(&theirs.rows, &got.rows) {
+            panic!("{sql}: PostgreSQL differs: {diff}");
+        }
+        println!("PASS {sql}: {} rows", got.rows.len());
+    }
 }
 
 /// FAILS IF: a query bound before an append is still executed after it, or
@@ -1395,9 +1422,8 @@ fn an_empty_text_literal_on_an_empty_absent_column_is_refused() {
 #[test]
 fn a_bound_query_is_refused_after_the_data_version_moves() {
     let (mut ticket, _, _) = live_tickets();
-    let q = draft("ticket")
-        .where_eq("title", "vpn")
-        .bind_typed(&ticket)
+    let q = ticket
+        .bind(&draft("ticket").where_eq("title", "vpn"))
         .expect("binds");
     ticket.select_bound(&q).expect("current");
     ticket
@@ -1412,13 +1438,9 @@ fn a_bound_query_is_refused_after_the_data_version_moves() {
             None,
         ]])
         .expect("append");
-    assert!(matches!(
-        ticket.select_bound(&q),
-        Err(IntakeRefusal::Bind(_))
-    ));
-    let again = draft("ticket")
-        .where_eq("title", "vpn")
-        .bind_typed(&ticket)
+    assert!(matches!(ticket.select_bound(&q), Err(IntakeRefusal::Stale)));
+    let again = ticket
+        .bind(&draft("ticket").where_eq("title", "vpn"))
         .expect("rebinds");
     let kept = ticket.select_bound(&again).expect("rebound");
     let got = ticket.rows_of(&kept).expect("rows");

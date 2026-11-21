@@ -41,6 +41,7 @@ mod bind;
 pub mod config;
 pub mod detect;
 pub mod pg;
+pub use bind::BoundQuery;
 
 use lance_graph_mask_risc::LaneRef;
 use std::cell::{Cell, RefCell};
@@ -115,9 +116,9 @@ pub enum IntakeRefusal {
     /// A [`SelectionRef`] was kept under an older data version than the
     /// table's current one.
     Stale,
-    /// A query bound through `lance_graph_quack::bind` was not admitted (its
-    /// code spaces are no longer witnessed); bind it again.
-    Bind(String),
+    /// A query could not be bound through `lance_graph_quack::bind`, or a
+    /// bound query was not admitted; bind it again.
+    Bind(lance_graph_quack::bind::BindError),
 }
 
 impl From<LaneRefusal> for IntakeRefusal {
