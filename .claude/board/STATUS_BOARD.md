@@ -5,14 +5,14 @@ Plan: `.claude/plans/d-regc-register-contract-reconciliation-v1.md`. Knowledge: 
 | D-id | Deliverable | Status |
 |---|---|---|
 | D-REGC-0 | Knowledge doc, plan, ⊘ notes on d-dt64-7 §1f and waben:1266 | In PR, docs only |
-| D-REGC-1 | DT64 read through one class lens (frame, scope and order checks only) | Queued (needs C1 decision) |
-| D-REGC-2 | Basis checked once at `register`; per-read basis re-check retired | Queued (needs C1 decision) |
+| D-REGC-1 | DT64 read through one class lens (frame, scope and order checks only) | In PR: `LaneBinding::{check_bound, borrow_all_present_bound, borrow_all_selected_present_bound}`; `lance-graph-pg-row::Reader` opens through them; `tests/bound_read.rs` (4 tests) |
+| D-REGC-2 | Basis checked once at `register`; per-read basis re-check retired | In PR (additive): the by-reference read keeps the O(1) store-digest compare and drops the trip through the view; `check(view)` unchanged; disable `disable-bound-digest` red. Basis share of the census not yet measured |
 | D-REGC-3 | A delete writes −0 on every lane and clears the live bit | Queued (EXO-337 / EXO-294) |
 | D-REGC-4 | Presence plane on a selection for an outer-join side with no row | Queued (needs decision on the form) |
 | D-REGC-5 | `CubeLanes: SelectionSource`, selections issued by DR | Queued (EXO-329) |
 | D-REGC-6 | Strided forms of the lane-only predicates a recorded workload uses | Queued (count first) |
 | D-REGC-7 | Keys resolved once per distinct key per frame | Queued (after D-REGC-5) |
-| D-REGC-8 | Cube across several tiles; bijection after `add_edge` / `refold` | Queued |
+| D-REGC-8 | Cube across several tiles; bijection after `add_edge` / `refold` | In PR: `lance-graph-xlog/tests/cube_tiled_bijection.rs`: 600 ids over 3 tiles, bijective, unchanged through edges and refold; 1 lookup per listed tile per key (1800 for 600 keys) |
 | D-REGC-9 | Consumer intake on shared coordinates; join as an aligned pass | Queued (EXO-140) |
 | D-REGC-10 | PostgreSQL egress: absent text cell → `''` or NULL by column default | In PR: `pg_row::AbsentAs` (contract); zammad-rs adoption queued |
 | D-REGC-12 | PostgreSQL row polyfill for consumers: `lance_graph_contract::pg_row` + `crates/lance-graph-pg-row` | In PR: `tests/pg_gate.rs` = model oracle = PostgreSQL 16.15 on 4 cases (276 / 139 / 82 / 276 rows); 3 disables red |

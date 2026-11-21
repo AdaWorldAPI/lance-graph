@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-669 entries, 2026-08-06 .. 2026-11-21.
+670 entries, 2026-08-06 .. 2026-11-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-21 | `D-REGC-0` |  | [2026-11-21-d-regc-register-contract-reconciliation.md](2026-11-21-d-regc-register-contract-reconciliation.md) |
+| 2026-11-21 | `D-REGC-1` |  | [2026-11-21-d-regc-bound-read-tiled-cube.md](2026-11-21-d-regc-bound-read-tiled-cube.md) |
 | 2026-11-21 | `D-REGC-12` |  | [2026-11-21-d-regc-12-pg-row-polyfill.md](2026-11-21-d-regc-12-pg-row-polyfill.md) |
 | 2026-11-19 | `D-XLOG-W7-2-STEP-4B` |  | [2026-11-19-d-xlog-w7-2-method-is-a-called-do.md](2026-11-19-d-xlog-w7-2-method-is-a-called-do.md) |
 | 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-quack-like-at-bind.md](2026-11-19-d-gpw-quack-like-at-bind.md) |

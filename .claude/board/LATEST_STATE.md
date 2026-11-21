@@ -1,3 +1,11 @@
+## 2026-11-21 — D-REGC-1 / -2 / -8 (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-dt64`: `LaneBinding::{check_bound, borrow_all_present_bound, borrow_all_selected_present_bound}` (read by reference, no `ClassView`); `LaneBinding` records each bound field's `FieldRef`; feature `disable-bound-digest` (debug-only disable). `check(view)` and the view reads are unchanged.
+- `lance-graph-pg-row`: `Reader::open` / `open_selected` no longer take a `ClassView` (breaking for the crate's callers; none outside this workspace yet).
+- `lance-graph-xlog`: test only (`tests/cube_tiled_bijection.rs`). [entry](entries/2026-11-21-d-regc-bound-read-tiled-cube.md)
+
 ## 2026-11-21 — D-REGC-12, PostgreSQL row polyfill (in PR #2152, not on main)
 
 ### Current Contract Inventory — net delta
