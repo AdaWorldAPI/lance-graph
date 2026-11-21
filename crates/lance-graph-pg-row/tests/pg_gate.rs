@@ -340,9 +340,9 @@ impl ClassView for View {
     }
 }
 
-/// One table: its class, view, binding and source.
+/// One table: its class, binding and source. The view is used at bind only;
+/// reads go by reference.
 struct Bound {
-    view: View,
     store: BindStore,
     binding: LaneBinding,
     source: Source,
@@ -398,7 +398,6 @@ fn bind(
         .expect("bind");
     (
         Bound {
-            view,
             store,
             binding,
             source,
@@ -420,15 +419,7 @@ fn specs<'c>(t: &Logical, codes: &'c [Vec<String>]) -> Vec<ColumnSpec<'c>> {
 }
 
 fn open<'s, 'c>(b: &'s Bound, cols: &'c [ColumnSpec<'c>]) -> Reader<'s, 'c> {
-    Reader::open(
-        &b.binding,
-        &b.store,
-        &b.view,
-        &b.source.frames,
-        &b.source,
-        cols,
-    )
-    .expect("open")
+    Reader::open(&b.binding, &b.store, &b.source.frames, &b.source, cols).expect("open")
 }
 
 // ---- the model oracle: PostgreSQL's text output of logical cells -------
@@ -613,7 +604,6 @@ fn polyfill_equals_postgresql() {
     let (sr, positions) = Reader::open_selected(
         &tb.binding,
         &tb.store,
-        &tb.view,
         &tb.source.frames,
         &tb.source,
         sels[0],
@@ -768,14 +758,7 @@ fn refusals() {
     // Wrong arity.
     let short = &acols[..1];
     assert!(matches!(
-        Reader::open(
-            &ab.binding,
-            &ab.store,
-            &ab.view,
-            &ab.source.frames,
-            &ab.source,
-            short
-        ),
+        Reader::open(&ab.binding, &ab.store, &ab.source.frames, &ab.source, short),
         Err(PgRowRefusal::Arity {
             columns: 1,
             lanes: 2
@@ -789,7 +772,7 @@ fn refusals() {
         coordinates: 1,
     });
     assert!(matches!(
-        Reader::open(&ab.binding, &ab.store, &ab.view, &other, &ab.source, &acols),
+        Reader::open(&ab.binding, &ab.store, &other, &ab.source, &acols),
         Err(PgRowRefusal::Lane(_))
     ));
 
