@@ -87,21 +87,42 @@ from zammad-rs (MEASURED, zammad-rs#96 `tests/register_census.rs`).
   classid per shape".
 - The `ClassView` is the schema and its only enforcement. `SchemaRev` becomes a
   constant of the classid, not a store.
-- The basis digest is checked once, at registration, never per read.
+- The basis is resolved through the `ClassView` at registration and at
+  bind, never again per read. After bind, a read uses the basis recorded in
+  the binding, not the view.
+
+What a read must still refuse, and how. Review on #2152 pointed out that
+`register` alone cannot cover either case:
+- **A different store.** A store may hold a different basis for the same
+  classid. Today `LaneBinding::check` refuses this through `resolve_counted`
+  and the digest compare `bound != self.basis` (`lane.rs:427-430`), which
+  re-resolves through the view first. The proposal keeps an O(1) compare of
+  the store's registered digest for the classid against the binding's, and
+  drops the re-resolution.
+- **A view mutated after bind.** A `ClassView` is a trait object and can
+  return other fields later, without passing through `register`. Under the
+  proposal no read consults the view, so a mutation changes nothing a read
+  returns. It is refused at the next `register` or bind. If reads have to
+  keep consulting the view (for example, `lane_of` takes the view's
+  `FieldRef` rather than the binding's recorded one), the per-read
+  whole-basis compare stays.
 
 **Implications:**
-- **D-REGC-2:** retire the per-read basis re-check. The registration check stays
-  as the falsifier that a `ClassView` returns the same fields for the same
-  classid.
-- A `ClassView` that changes a classid's fields becomes a contract violation
-  caught at registration.
+- **D-REGC-2:** retire the per-read re-resolution of the basis through the
+  view. Keep the per-read digest compare against the store, and
+  `register`'s refusal of a changed basis.
+- A `ClassView` that changes a classid's fields becomes a contract violation.
+  It is caught at the next registration or bind, and is invisible to reads.
 - What becomes of Decision J's "append-only across revisions" (`class_view.rs:1058-1059`)
   is part of the owner decision. Across classids, it becomes "a derived classid
   extends its parent's prefix".
 
-**Falsifier:** a `ClassView` that returns a different basis for an
-already-registered classid must be refused at `register`, and no read may
-succeed through it.
+**Falsifiers:**
+- A `ClassView` that returns a different basis for an already-registered
+  classid is refused at `register` and at bind.
+- A read through a store holding a different basis for the classid is
+  refused.
+- A view mutated after bind leaves every read's answer unchanged.
 
 **Decides:** the owner (DECISION NEEDED, lance-graph · Decisions).
 
@@ -294,8 +315,12 @@ stale rows) and is green with the rule, in both layouts.
 
 **Proposed resolution:**
 - DR issues selections, under its frame and the relation's row order.
-- Keys are resolved once per distinct key per frame, at binding, never per cell
-  or per row.
+- Keys are resolved once per distinct key per frame *and row order*
+  (`CoordSpace`), at binding, never per cell or per row. A logged edge or a
+  refold moves rows without moving the frame (C5). So a resolved position is
+  reused only while the selection's `CoordSpace` is unchanged; after a
+  row-order change it is resolved again. The socket already refuses a
+  selection issued in another row order (`SelectionSpace`).
 
 **Implications:** D-REGC-5 (`CubeLanes: SelectionSource`, issued by DR) and
 D-REGC-7 (resolve once per distinct key).
