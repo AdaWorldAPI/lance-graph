@@ -115,6 +115,29 @@ What a read must still refuse, and how. Review on #2152 pointed out that
   Until that table owns it, the cheap rule stands: no read consults the
   view, so a mutation changes no answer.
 
+**Replay key** (owner, 2026-11-21: data is replayable in relation to version
+× DR reference × BindStore version). A read is replayable only when all
+three are named:
+- **data version:** the source's sealed generation, `FrameRevisions::source`
+  (for Lance, the dataset version the lanes come from);
+- **DR reference:** the row order and relation map,
+  `FrameRevisions::{relation_map, coordinates}`, plus the route version
+  (`RouteVersion`), under which mappings are kept (`MapTable::keep / kept /
+  kept_under`, #2150);
+- **BindStore version:** the registered class reference (classid, revision,
+  basis digest) the binding was made at.
+
+The three move independently, and each derived artifact depends on some of
+them:
+- A resolved key position depends on the DR reference.
+- A kept WHERE mask or an order index depends on the data version too.
+- A binding depends on the BindStore version.
+
+An artifact is reused only while every component it depends on is
+unchanged. Otherwise it is recomputed or replayed under the old triple. The
+frame check, the row-order check (`CoordinateSpace` / `SelectionSpace`) and
+the digest compare are the three refusals that enforce this today.
+
 **Implications:**
 - **D-REGC-2:** retire the per-read re-resolution of the basis through the
   view. Keep the per-read digest compare against the store, and
