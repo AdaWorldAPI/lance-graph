@@ -14,14 +14,17 @@
 //! date literal kind, so a field of those encodings is not offered and binds
 //! as `BindError::UnknownField`.
 //!
-//! # Empty-absent text columns
+//! # Declared empty-as-absent text columns
 //!
-//! A column whose absent spelling is `''` (`AbsentAs::EmptyText`) is chosen
-//! only when the column holds no NULL, so an absent cell there IS the value
-//! `''`: its lane holds code 0, and real strings have codes from 1. Such a
-//! column is offered without a validity plane, and `''` binds to code 0. So
-//! `= ''`, `<> x` and a `LIKE` pattern that matches `''` keep exactly the rows
-//! PostgreSQL keeps.
+//! Detection never reads `''` as absent: an observed `''` is a present value
+//! with its own code, kept apart from NULL. A source may DECLARE that its
+//! empty text means absent (`ColumnConfig::absent = AbsentAs::EmptyText`);
+//! admission then stores `''` and NULL alike as absent (−0, code 0), and
+//! egress spells them `''`. Under that declared policy `''` and NULL are one
+//! value, so such a column is offered without a validity plane, `''` binds to
+//! code 0, and a `LIKE` pattern that matches `''` covers code 0. Those
+//! answers follow the declared policy; they are not PostgreSQL parity for a
+//! nullable text column, which keeps `''` and NULL apart.
 
 use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding};
 use lance_graph_dt64::dr::{Frame, ValueKey};
@@ -175,27 +178,45 @@ mod tests {
     use lance_graph_quack::bind::table;
 
     fn small(name: &str) -> Table {
+        small_with(name, &ShapeConfig::default())
+    }
+
+    fn small_with(name: &str, config: &ShapeConfig) -> Table {
         let rows: Vec<Vec<Option<&str>>> = vec![
             vec![Some("1"), Some("a"), Some("-1"), Some("t")],
             vec![Some("2"), Some(""), Some("2"), Some("f")],
             vec![Some("3"), Some("b"), None, Some("t")],
         ];
-        Table::from_rows(
-            name,
-            0x2B09_0002,
-            &["id", "note", "n", "ok"],
-            &rows,
-            &ShapeConfig::default(),
-        )
-        .expect("table")
+        Table::from_rows(name, 0x2B09_0002, &["id", "note", "n", "ok"], &rows, config)
+            .expect("table")
+    }
+
+    /// FAILS IF: an observed `''` makes a column empty-absent without a
+    /// declaration, or `''` then has no code of its own.
+    #[test]
+    fn an_undeclared_empty_string_is_a_present_value() {
+        let t = small("t");
+        let id = t.table("t").expect("table");
+        assert_eq!(t.shape[1].col.absent, AbsentAs::Null);
+        let note = t.field(id, "note").expect("note");
+        assert_eq!(note.validity, Some(bound_validity(1)));
+        assert!(t.code(id, Col(1), "").is_some_and(|c| c > 0));
     }
 
     /// FAILS IF: a field kind the membrane cannot compare is offered, a
-    /// validity plane index does not follow `bound_validity`, or an
+    /// validity plane index does not follow `bound_validity`, or a declared
     /// empty-absent text column is gated by validity.
     #[test]
     fn fields_follow_the_plane_layout() {
-        let t = small("t");
+        let mut config = ShapeConfig::default();
+        config.columns.insert(
+            "note".to_owned(),
+            crate::ColumnConfig {
+                absent: Some(AbsentAs::EmptyText),
+                ..Default::default()
+            },
+        );
+        let t = small_with("t", &config);
         let id = t.table("t").expect("table");
         let note = t.field(id, "note").expect("note");
         assert_eq!(t.shape[1].col.absent, AbsentAs::EmptyText);

@@ -145,14 +145,12 @@ pub fn parse_epoch_seconds(s: &str) -> Option<u32> {
     u32::try_from(days * 86_400 + h * 3600 + mi * 60 + se).ok()
 }
 
-/// The absent spelling of a text column: `''` is absent when the column has
-/// `''` cells and no NULL cell; otherwise NULL is.
-fn text_absent(present: &[(usize, &str)], has_null: bool) -> AbsentAs {
-    if !has_null && present.iter().any(|&(_, s)| s.is_empty()) {
-        AbsentAs::EmptyText
-    } else {
-        AbsentAs::Null
-    }
+/// The absent spelling of a detected text column is always NULL: an observed
+/// `''` is a present value, never evidence that `''` means absent. Reading
+/// `''` as absent is a source policy, declared through `ColumnConfig::absent`
+/// (`AbsentAs::EmptyText`), never inferred from the data.
+fn text_absent() -> AbsentAs {
+    AbsentAs::Null
 }
 
 /// The shape of one column from its cells, `None` being NULL.
@@ -163,14 +161,13 @@ pub fn detect_column(cells: &[Option<&str>]) -> Detected {
         .filter_map(|(row, cell)| cell.map(|s| (row, s)))
         .collect();
     let total = present.len();
-    let has_null = total < cells.len();
     let done = |col: PgColumn, witness: Option<usize>| Detected {
         col,
         support: total,
         total,
         witness,
     };
-    let text = |witness: Option<usize>| done(text_column(text_absent(&present, has_null)), witness);
+    let text = |witness: Option<usize>| done(text_column(text_absent()), witness);
 
     if total == 0 {
         return done(text_column(AbsentAs::Null), None);

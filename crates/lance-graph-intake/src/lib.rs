@@ -139,8 +139,10 @@ impl From<PgRowRefusal> for IntakeRefusal {
 fn lane_value(col: &PgColumn, text: &str, code_of: &mut dyn FnMut(&str) -> u32) -> Option<u32> {
     match col.encoding {
         LaneEncoding::Bool => match text {
-            "t" => Some(1),
-            "f" => Some(0),
+            // PostgreSQL's output spelling, and its input spelling of the
+            // same values: a declared boolean reads both.
+            "t" | "true" => Some(1),
+            "f" | "false" => Some(0),
             _ => None,
         },
         LaneEncoding::Signed => {
