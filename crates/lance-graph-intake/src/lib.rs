@@ -213,6 +213,9 @@ fn admit_text(
     code
 }
 
+/// The selection number under which the owner lends a kept selection.
+const KEPT_SEL: u16 = u16::MAX;
+
 /// The source owner: lanes, presence and live planes, the key map and the
 /// selections it issues. It holds the `MapTable`, so its frame store is the
 /// one the key map is sealed under.
@@ -228,6 +231,9 @@ struct Owner {
     frame: Frame,
     tiles: Vec<TileId>,
     selections: Vec<Vec<u32>>,
+    /// A kept selection lent as selection [`KEPT_SEL`] while one read is
+    /// open: its positions are read from DR's keep log in place, never copied.
+    lend: Option<KeptId>,
 }
 
 /// A column's lane as the owner holds it. A signed column is an `i32` lane,
@@ -315,7 +321,12 @@ impl PresenceSource for Owner {
 
 impl SelectionSource for Owner {
     fn selection_of(&self, sel: u16, _frame: &Frame) -> Option<SelAddr> {
-        (usize::from(sel) < self.selections.len()).then_some(SelAddr {
+        let issued = if sel == KEPT_SEL {
+            self.lend.is_some()
+        } else {
+            usize::from(sel) < self.selections.len()
+        };
+        issued.then_some(SelAddr {
             space: self.space,
             sel,
             scope: READER,
@@ -323,6 +334,14 @@ impl SelectionSource for Owner {
     }
 
     fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]> {
+        if addr.sel == KEPT_SEL {
+            let id = self.lend?;
+            return self
+                .table
+                .kept::<Vec<u32>>(&self.frame, id)
+                .ok()
+                .map(Vec::as_slice);
+        }
         self.selections
             .get(usize::from(addr.sel))
             .map(Vec::as_slice)
@@ -500,6 +519,7 @@ impl Table {
             frame,
             tiles: Vec::new(),
             selections: Vec::new(),
+            lend: None,
         };
 
         let view = IntakeView {
@@ -825,8 +845,11 @@ impl Table {
     /// The rows of a kept selection, in its order. The selection must have
     /// been kept under the current data version; no predicate runs.
     pub fn rows_of(&mut self, r: &SelectionRef) -> Result<PgRows, IntakeRefusal> {
-        let positions = self.kept_of(r)?.clone();
-        self.read_positions(positions)
+        self.kept_of(r)?;
+        self.owner.lend = Some(r.id);
+        let result = self.read_selection(KEPT_SEL);
+        self.owner.lend = None;
+        result
     }
 
     /// How many positions a kept selection holds, under the same currency
