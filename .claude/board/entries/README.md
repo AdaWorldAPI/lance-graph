@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-671 entries, 2026-08-06 .. 2026-11-21.
+672 entries, 2026-08-06 .. 2026-11-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-11-21 | `D-REGC-1` |  | [2026-11-21-d-regc-bound-read-tiled-cube.md](2026-11-21-d-regc-bound-read-tiled-cube.md) |
 | 2026-11-21 | `D-REGC-14` |  | [2026-11-21-d-regc-14-intake.md](2026-11-21-d-regc-14-intake.md) |
 | 2026-11-21 | `D-REGC-12` |  | [2026-11-21-d-regc-12-pg-row-polyfill.md](2026-11-21-d-regc-12-pg-row-polyfill.md) |
+| 2026-11-21 | `D-INTAKE-2` |  | [2026-11-21-d-intake-2-compiler.md](2026-11-21-d-intake-2-compiler.md) |
 | 2026-11-19 | `D-XLOG-W7-2-STEP-4B` |  | [2026-11-19-d-xlog-w7-2-method-is-a-called-do.md](2026-11-19-d-xlog-w7-2-method-is-a-called-do.md) |
 | 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-quack-like-at-bind.md](2026-11-19-d-gpw-quack-like-at-bind.md) |
 | 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-lance-graph-spacy-front-end.md](2026-11-19-d-gpw-lance-graph-spacy-front-end.md) |

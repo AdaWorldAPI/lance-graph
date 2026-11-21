@@ -1,3 +1,9 @@
+## 2026-11-21 — D-INTAKE-2A/B/C/D (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-intake`: `Table::{append, select_ref, select_keys_ref, rows_of, count_of}`, `AppendReport`, `SelectionRef`; `IntakeRefusal::{Keep, Stale}`; `#[doc(hidden)]` `rows_written`, `predicate_runs`, `code_key`, `code_key_at`, `frame`. Text codes now in DT `CodeTable`; the facade's own code table is removed. New example `select_bench` and `duckdb_select.py`. [entry](entries/2026-11-21-d-intake-2-compiler.md)
+
 ## 2026-11-21 — D-REGC-14, `lance-graph-intake` (in PR, not on main)
 
 ### Current Contract Inventory — net delta
