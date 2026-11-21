@@ -37,6 +37,7 @@ the owner has not chosen.
 | D-REGC-11 | zammad-rs's store moved onto owner-held 512-byte rows lent as `Strided` | census counts and PostgreSQL answers identical before and after | D-REGC-6 |
 | D-REGC-12 | `lance_graph_contract::pg_row` + `crates/lance-graph-pg-row`: the PostgreSQL row polyfill for consumers (knowledge doc §4) | `tests/pg_gate.rs` = model oracle = PostgreSQL 16.15 on 4 cases; 3 disables red | — (In PR) |
 | D-REGC-13 | The DR projection descriptor names its row order (`Ordinal` / `Morton { width }`); order-dependent predicates refused against the other order (`knowledge/morton-vs-ordinal-rows.md` §5) | one prefix predicate admitted as `Range` only under Morton; both answers equal a value-sweep oracle | DT64 / DR owner decision |
+| D-REGC-14 | `lance-graph-intake`: data as config, class as config; one facade over pg-row, DT64 and DR (`knowledge/consumer-surface-data-and-class-as-config.md`) | `tests/intake.rs` (20) + unit (4); model oracle = PostgreSQL 16.15 on 4 cases; disables `disable-intake-signed`, `disable-intake-live` red | — (In PR) |
 
 ## Decisions this plan needs
 

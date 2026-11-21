@@ -503,5 +503,8 @@ negative integers. Disable runs, each red:
 - Who issues join positions (C7) and where the outer side's plane comes from
   (C4). The gate's test stands in for both.
 
+The consumer facade over all of this (data as config, class as config):
+`consumer-surface-data-and-class-as-config.md`.
+
 Row order (ordinal records against Morton cells of a DR tile), and why a
 reader refuses a mixed order instead of converting it: `morton-vs-ordinal-rows.md`.

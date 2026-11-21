@@ -1,3 +1,9 @@
+## 2026-11-21 — D-REGC-14, `lance-graph-intake` (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- New crate `lance-graph-intake` (workspace member): `Table::{from_rows, shape, name, len, is_empty, key_name, select_all, select_where, count_where, rows_for_keys, delete_key, left_join, observe}`, `ShapeConfig`, `ColumnConfig`, `ColumnShape`, `Verdict`, `Shape`, `merge`, `IntakeRefusal`, `detect_column`, `detect_key`, `Detected`, `parse_epoch_seconds`, `parse_epoch_days`; debug-only features `disable-intake-signed`, `disable-intake-live`. Depends on contract, dt64, mask-risc, quack, pg-row. [entry](entries/2026-11-21-d-regc-14-intake.md)
+
 ## 2026-11-21 — D-REGC-1 / -2 / -8 (in PR, not on main)
 
 ### Current Contract Inventory — net delta
