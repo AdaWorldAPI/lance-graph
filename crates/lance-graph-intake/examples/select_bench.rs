@@ -13,8 +13,9 @@
 //! Every answer is asserted against a scalar oracle before any time is
 //! reported. Times are medians of 11 runs, in nanoseconds:
 //!
-//! - `count`: `count_where`, which does the work of a fresh query (bound
-//!   check, validity folds, predicate, count). This compares with DuckDB's
+//! - `count`: `count_where` after the first call of the data version has
+//!   kept the validity planes (bound check, predicate, count). The first call
+//!   and the warm lines are printed beside it. This compares with DuckDB's
 //!   warm `COUNT(*)`.
 //! - `select_ref`: the same, plus keeping the positions under the current
 //!   version.
@@ -93,8 +94,13 @@ fn main() {
         let want2 = (0..n)
             .filter(|&r| (r * 7919) % 1000 < 100 && r % 5 != 0 && ((r * 31) % 50) >= 25)
             .count();
+        let folds_before = table.validity_folds();
+        let t0 = Instant::now();
         assert_eq!(table.count_where(&p1).unwrap(), want1);
+        let cold1 = t0.elapsed().as_nanos();
+        let folds_after_first = table.validity_folds();
         assert_eq!(table.count_where(&p2).unwrap(), want2);
+        assert_eq!(table.validity_folds(), folds_after_first);
 
         let count1 = time(11, || table.count_where(&p1).unwrap());
         let count2 = time(11, || table.count_where(&p2).unwrap());
@@ -102,6 +108,14 @@ fn main() {
         let kept = table.select_ref(&p1).unwrap();
         assert_eq!(kept.len(), want1);
         let replay = time(11, || table.count_of(&kept).unwrap());
+
+        // One warm-up call keeps the validity planes for this data version.
+        assert_eq!(table.count_where(&p1).unwrap(), want1);
+        assert_eq!(table.count_where(&p2).unwrap(), want2);
+        let folds_warm_start = table.validity_folds();
+        let warm1 = time(11, || table.count_where(&p1).unwrap());
+        let warm2 = time(11, || table.count_where(&p2).unwrap());
+        assert_eq!(table.validity_folds(), folds_warm_start);
 
         let bag: Vec<u64> = (0..4096u64)
             .map(|k| 1 + (k * 2654435761) % n as u64)
@@ -123,6 +137,13 @@ fn main() {
         println!(
             "  P2 count {count2} ns ({:.2} ns/selected, {want2} selected)",
             count2 as f64 / want2 as f64
+        );
+        println!(
+            "  first count_where (folds the validity planes) {cold1} ns; validity_folds {folds_before} -> {folds_after_first}"
+        );
+        println!(
+            "  warm count (planes kept) P1 {warm1} ns, P2 {warm2} ns; validity_folds {folds_warm_start} -> {}",
+            table.validity_folds()
         );
         for (k, ns) in overhead {
             println!(

@@ -1146,3 +1146,107 @@ fn a_key_bag_ref_keeps_order_and_repeats() {
         Some(IntakeRefusal::UnknownKey(9))
     );
 }
+
+fn ticket_table() -> (Table, Vec<Vec<Option<String>>>) {
+    let (ticket_rows, _) = tickets();
+    let table = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .expect("table");
+    (table, ticket_rows)
+}
+
+/// FAILS IF: the first WHERE under a data version folds no validity plane or
+/// not one per column, or a later WHERE (count, select, another filter) under
+/// the same version folds again, or a warm answer differs from the first.
+#[test]
+fn a_warm_where_folds_no_validity() {
+    let (table, _) = ticket_table();
+    let filter = owner_or_not_negative();
+    let columns = TICKET_COLUMNS.len() as u64;
+    assert_eq!(table.validity_folds(), 0);
+
+    let first = table.count_where(&filter).expect("first count");
+    assert_eq!(table.validity_folds(), columns);
+    assert!(first > 0 && first < 300, "a real subset");
+
+    assert_eq!(table.count_where(&filter), Ok(first));
+    let selected = table.select_where(&filter).expect("select");
+    assert_eq!(selected.rows.len(), first);
+    assert_eq!(table.select_where(&filter), Ok(selected));
+    let other = Filter::cmp(Col(5), Cmp::LtI32(0));
+    table.count_where(&other).expect("another filter");
+    assert_eq!(table.validity_folds(), columns, "no fold after the first");
+}
+
+/// FAILS IF: validity planes kept before an append or a delete are used after
+/// it (the answer misses the new row or still counts the deleted one), or the
+/// recompute folds other than one plane per column, or folds again on the
+/// second WHERE under the new version.
+#[test]
+fn validity_is_recomputed_after_append_or_delete() {
+    let (mut table, ticket_rows) = ticket_table();
+    let filter = owner_or_not_negative();
+    let columns = TICKET_COLUMNS.len() as u64;
+
+    let base = table.count_where(&filter).expect("count");
+    assert_eq!(table.validity_folds(), columns);
+
+    let mut extra = ticket_rows[0].clone();
+    extra[0] = text("301");
+    extra[4] = text("2");
+    table.append(&cells(&[extra])).expect("append");
+    assert_eq!(table.count_where(&filter), Ok(base + 1));
+    assert_eq!(table.validity_folds(), 2 * columns);
+    assert_eq!(table.count_where(&filter), Ok(base + 1));
+    let kept = table.select_where(&filter).expect("select");
+    assert_eq!(kept.rows.len(), base + 1);
+    assert!(kept.rows.iter().any(|r| r[0].as_deref() == Some("301")));
+    assert_eq!(table.validity_folds(), 2 * columns);
+
+    table.delete_key(301).expect("delete");
+    assert_eq!(table.count_where(&filter), Ok(base));
+    assert_eq!(table.validity_folds(), 3 * columns);
+    assert_eq!(table.count_where(&filter), Ok(base));
+    assert_eq!(table.validity_folds(), 3 * columns);
+}
+
+/// FAILS IF: the K3 WHERE of the PostgreSQL gate fixture answers differently
+/// through kept validity planes than on the cold call that folded them, or
+/// than the model rows derived from the input text.
+#[test]
+fn kept_validity_does_not_change_answers() {
+    let (mut table, ticket_rows) = ticket_table();
+    let (_, deleted) = tickets();
+    for (r, &gone) in deleted.iter().enumerate() {
+        if gone {
+            table.delete_key(r as u64 + 1).expect("delete");
+        }
+    }
+    let filter = owner_or_not_negative();
+    let model: Vec<Row> = (0..ticket_rows.len())
+        .filter(|&r| !deleted[r])
+        .filter(|&r| {
+            let owner = int(&ticket_rows[r], 4).map(|o| o == 2);
+            let not_negative = int(&ticket_rows[r], 5).map(|p| p >= 0);
+            owner == Some(true) || not_negative == Some(true)
+        })
+        .map(|r| ticket_rows[r].clone())
+        .collect();
+
+    let cold = table.select_where(&filter).expect("cold");
+    let folds = table.validity_folds();
+    same("kept-validity cold", &model, &cold);
+    let warm = table.select_where(&filter).expect("warm");
+    assert_eq!(table.validity_folds(), folds, "the warm call folds nothing");
+    assert_eq!(warm, cold);
+    same("kept-validity warm", &model, &warm);
+    assert_eq!(table.count_where(&filter), Ok(model.len()));
+    let kept = table.select_ref(&filter).expect("keep");
+    assert_eq!(table.validity_folds(), folds);
+    assert_eq!(table.rows_of(&kept).expect("rows"), cold);
+}
