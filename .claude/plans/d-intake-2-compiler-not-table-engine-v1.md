@@ -1,7 +1,7 @@
 # D-INTAKE-2: intake as a compiler into a versioned, codebook-addressed execution surface (v1)
 
-**Status:** PROPOSED, 2026-11-21. Slice A is being built; the other slices
-are queued.
+**Status:** 2A, 2B, 2C built and in PR. 2D measured: two failed gates, now 2G
+and 2H. 2E and 2F queued. Results: `knowledge/consumer-surface-data-and-class-as-config.md` §9.
 
 **Follows:**
 - D-REGC-14 (#2154, `lance-graph-intake`), whose consumer API is kept;
@@ -61,6 +61,8 @@ VERIFIED-IN-CODE at `6e0a15c`:
 | D-INTAKE-2D | **DuckDB benchmark.** The same data and predicate run through DuckDB 2.0.1 (Python, `duckdb.sql` over Arrow or a VALUES table) and through `Table`. Results are reported in ns, separately: cold selection, warm replay, validation overhead (one `check_bound` plus digest), decode per cell. | cold selection ns per selected row within 2× DuckDB at 10^5 and 10^6 rows (target, not a claim); warm replay against DuckDB re-running the query, labelled amortization; validation overhead at 1, 64 and 4096 selected rows; no millisecond result (lance-graph P0) |
 | D-INTAKE-2E | **Multiplicity and ordering gates.** Covers bag multiplicity through append (repeated keys in a relation), NULL policies after append, and snapshot validity. | PostgreSQL multiset equality per snapshot; ORDER BY stays out until EXO-114 |
 | D-INTAKE-2F | **zammad-rs onto `Table`.** `quack-shadow` reads through the facade. | zammad-rs#95's PostgreSQL gate unchanged; the census (#96) shows one check per table read |
+| D-INTAKE-2G | Sink-based cell writer in `pg-row` (`write_rows(positions, &mut impl CellSink)`, one reused buffer, L1 chunks) | `rows_of(4096)` in µs, with every cell equal to `write_cell` (today a failed gate: 272–357 ns per row) |
+| D-INTAKE-2H | Validity planes kept once per data version (`MapTable::keep`) | `count_where` P2 at 10^6 rows in µs (today a failed gate); 0 validity folds on a warm WHERE (counted) |
 
 ## 4. Rules this plan keeps
 

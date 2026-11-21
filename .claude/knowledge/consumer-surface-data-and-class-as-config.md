@@ -240,3 +240,90 @@ versioned reference. It never mutates a registered class (C1, and the owner,
    claim.
 5. **When a caveat in §6 is fixed, change its row in the same PR.** Do not add
    a second document.
+
+## 9. D-INTAKE-2: intake as a compiler, not a table engine (2026-11-21)
+
+Plan: `.claude/plans/d-intake-2-compiler-not-table-engine-v1.md`.
+
+**Basis:** owner, 2026-11-21:
+- "a compiler from external data into a versioned, codebook-addressed
+  execution surface";
+- "the ORM is allowed to think in rows and objects; the engine should not";
+- PostgreSQL is the semantic oracle, DuckDB the execution benchmark.
+
+### What changed (VERIFIED-IN-CODE, test-pinned; 28 tests)
+
+- **2A, text codes in DT.** The facade's own code table is gone. There is one
+  DT `CodeTable<u32>` per table and one `CodeSpaceId` per text column. It is
+  advanced through `MapTable::advance_codes`, so a code change advances the
+  lanes' frame. `SpaceText` reads `CodeTable::key` at the bound frame. Code 0
+  is never a key, and an old frame reads the old generation
+  (`text_codes_live_in_dt`).
+- **2B, append, not rebuild.**
+  - `Table::append` admits new rows as codes and positions: the last tile is
+    extended (a prefix extension, `LocalMap::extends`), or a tile is added.
+  - The data version advances once per append, and the table rebinds.
+  - `from_rows` is now an empty table plus `append`.
+  - `delete_key` also advances the version.
+  - A table fed in three appends (100 + 150 + 50 rows, tiles touched
+    `[1, 1, 2]`) equals the one-shot table and PostgreSQL 16.15 on the four
+    gate cases.
+  - `rows_written` grows by exactly the appended rows.
+  - A refused append leaves the table unchanged.
+- **2C, amortized selection.**
+  - `select_ref` / `select_keys_ref` run the predicate once and keep the
+    positions with `MapTable::keep` under the current version.
+  - `rows_of` / `count_of` run no predicate (counted). They lend the kept
+    positions in place from DR's keep log under `KEPT_SEL`, never as a copy.
+  - After an append or a delete, an old ref is `Stale` for the newest state.
+
+### Measured (`cargo run --release -p lance-graph-intake --example select_bench`, avx512f host, median of 11, every answer asserted)
+
+| n | P1 `count_where` | P2 `count_where` | `select_ref` P1 | warm `count_of` | `rows_of(1)` | `rows_of(64)` | `rows_of(4096)` | admit (cold, reported) |
+|---|---|---|---|---|---|---|---|---|
+| 100 000 | 62.7 µs (6.3 ns/selected, 10 000) | 79.1 µs (19.8 ns/selected, 4 000) | 67.7 µs | 64 ns | 424 ns | 16.4 µs | **FAILED** (272 ns/row) | 38 875 µs |
+| 1 000 000 | 878.5 µs (8.8 ns/selected, 100 000) | **FAILED** (26.4 ns/selected, 40 000) | **FAILED** | 58 ns | 388 ns | 15.3 µs | **FAILED** (357 ns/row) | 462 012 µs |
+
+DuckDB 2.0.1 through its Python client (`examples/duckdb_select.py`, the same
+data) measured:
+- P1 warm `COUNT(*)`: 920 µs at 100 000 rows and 1 169 µs at 1 000 000;
+- P1 id fetch: 944 µs and 2 353 µs;
+- a 4096-key `IN` list: about 20 000 µs.
+
+**Read these honestly:**
+- **DuckDB's numbers include about 900 µs of Python-client parse and plan
+  per query.** They are query latencies, not selection-vector throughput, so
+  no "faster than DuckDB" claim follows from them. A fair throughput
+  comparison needs DuckDB's C API or its own `EXPLAIN ANALYZE` operator
+  timings. That is still open.
+- **Warm replay (58–64 ns, flat in n) is amortization:** a kept selection
+  read again with no predicate work. It is not a faster selection vector.
+- **`rows_of(4096)` is a failed gate** (lance-graph P0: no millisecond
+  results). About 270–360 ns per row of 4 cells is the decode: one `String`
+  per cell, in `Vec<Vec<Option<String>>>`. That is the materialization the
+  plan says should only happen at the wire, and here it is the cost. The
+  cause is `PgRows`' owned-string shape, not the selection.
+  - **Fix:** a sink-based writer in `pg-row`,
+    `Reader::write_rows(positions, &mut impl CellSink)`, that appends each
+    cell's text to one reused buffer, with no per-cell allocation, in chunks
+    sized to L1 (D-QSP-VROW). This is D-INTAKE-2G.
+- **`count_where` at 1 000 000 rows:** P1 is 878.5 µs, and P2 and `select_ref`
+  are failed gates at that size. Per call it runs one validity fold per
+  column (4 here) before the predicate. The validity planes depend only on
+  the data version.
+  - **Fix:** keep them once per version, with `MapTable::keep`, like a
+    selection. A WHERE then costs one predicate pass. This is D-INTAKE-2H.
+- **Admission (cold) is 0.46 µs per row** of 4 cells, including detection.
+  It is reported, not gated.
+
+### Caveats from slices A–C, with their solutions
+
+| Caveat | Solution | State |
+|---|---|---|
+| The append's existing-key check calls `locate` per new key, which reads every tile (O(tiles) per key) | one sorted pass over the tile maps per append | OPEN |
+| A deleted key stays in the tile map, so re-appending it is `DuplicateKey` | a tombstone generation in DR, or a revive operation | OPEN (EXO-337) |
+| No API lists a code space's entries, so `append` rebuilds them with `key(frame, space, 1..=count)` | a `CodeTable::entries(frame, space)` read in DT | OPEN, small |
+| Snapshot reads of a stale ref are not offered | lanes are append-only, but the live plane is not versioned per row; a versioned live plane, or a delete that writes −0, would allow it | OPEN (EXO-337) |
+| If the rebind fails after the lanes grew, the table is left changed | build the new lanes beside the old ones and swap after a successful bind | OPEN |
+| `append` reports `ShapeChanged` and `from_rows` reports `Cell` for a misfit | intended: `append` judges against the built shape, `from_rows` against the merged config | BY DESIGN |
+
