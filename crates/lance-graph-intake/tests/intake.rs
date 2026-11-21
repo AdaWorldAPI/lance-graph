@@ -616,37 +616,63 @@ fn create(table: &Table, rows: &[Vec<Option<String>>], deleted: &[bool]) -> Stri
 #[test]
 fn intake_equals_postgresql() {
     let (ticket_rows, ticket_deleted) = tickets();
-    let mut agent_deleted = vec![false; AGENT_NAMES.len()];
-    agent_deleted[2] = true;
     let agent_rows = agents();
 
-    let config = ShapeConfig::default();
-    let mut ticket = Table::from_rows(
+    let ticket = Table::from_rows(
         "ticket",
         0x2B01_0001,
         &TICKET_COLUMNS,
         &cells(&ticket_rows),
-        &config,
+        &ShapeConfig::default(),
     )
     .expect("ticket table");
-    let mut agent = Table::from_rows(
+    assert!(ticket
+        .shape()
+        .iter()
+        .all(|c| c.verdict == Verdict::DetectedOnly));
+    gate(
+        ticket,
+        agent_table(&agent_rows),
+        &ticket_rows,
+        &ticket_deleted,
+        &agent_rows,
+        &agent_gone(),
+    );
+}
+
+fn agent_table(agent_rows: &[Vec<Option<String>>]) -> Table {
+    Table::from_rows(
         "agent",
         0x2B02_0001,
         &AGENT_COLUMNS,
-        &cells(&agent_rows),
-        &config,
+        &cells(agent_rows),
+        &ShapeConfig::default(),
     )
-    .expect("agent table");
+    .expect("agent table")
+}
 
+fn agent_gone() -> Vec<bool> {
+    let mut deleted = vec![false; AGENT_NAMES.len()];
+    deleted[2] = true;
+    deleted
+}
+
+/// Delete the marked rows, answer the four cases from the tables and compare
+/// each with the model (and PostgreSQL when a server answers). Returns the
+/// four answers: select-all, where, selection bag, left join.
+fn gate(
+    mut ticket: Table,
+    mut agent: Table,
+    ticket_rows: &[Vec<Option<String>>],
+    ticket_deleted: &[bool],
+    agent_rows: &[Vec<Option<String>>],
+    agent_deleted: &[bool],
+) -> [PgRows; 4] {
     let shapes: Vec<PgColumn> = ticket.shape().iter().map(|c| c.col).collect();
     assert_eq!(
         shapes,
         [INT4, TEXT, TEXT_EMPTY, BOOL, INT4, INT4, TIMESTAMP, DATE]
     );
-    assert!(ticket
-        .shape()
-        .iter()
-        .all(|c| c.verdict == Verdict::DetectedOnly));
     assert_eq!(ticket.key_name(), "id");
     assert_eq!(agent.shape()[0].col, INT4);
     assert_eq!(agent.shape()[1].col, TEXT);
@@ -714,7 +740,7 @@ fn intake_equals_postgresql() {
     let joined = ticket.left_join("owner_id", &agent).expect("left join");
     let live_agents: BTreeMap<i64, &Vec<Option<String>>> = agent_rows
         .iter()
-        .zip(&agent_deleted)
+        .zip(agent_deleted)
         .filter(|(_, &gone)| !gone)
         .filter_map(|(row, _)| int(row, 0).map(|id| (id, row)))
         .collect();
@@ -735,6 +761,12 @@ fn intake_equals_postgresql() {
         .collect();
     assert!(missing > 0, "some tickets have no live owner");
     same("left-join", &model_join, &joined);
+    let out = [
+        all.clone(),
+        where_rows.clone(),
+        picked.clone(),
+        joined.clone(),
+    ];
 
     let empty_notes = all
         .rows
@@ -762,13 +794,13 @@ fn intake_equals_postgresql() {
                 "PG_ROW_REQUIRE_PG is set and PostgreSQL is unavailable: {why}"
             );
             println!("SKIP (PostgreSQL half): {why}");
-            return;
+            return out;
         }
     };
     println!("PostgreSQL {}", pg.version());
     pg.script(
-        &(create(&ticket, &ticket_rows, &ticket_deleted)
-            + &create(&agent, &agent_rows, &agent_deleted)),
+        &(create(&ticket, ticket_rows, ticket_deleted)
+            + &create(&agent, agent_rows, agent_deleted)),
     )
     .expect("create");
     let bag_ids: Vec<String> = bag_keys.iter().map(u64::to_string).collect();
@@ -801,4 +833,316 @@ fn intake_equals_postgresql() {
         }
         println!("PASS {name}: {} rows", ours.rows.len());
     }
+    out
+}
+
+/// A table whose columns are the one-shot table's merged shapes, handed in as
+/// hand config, so batches of any size are judged against the same shape.
+fn full_config(table: &Table) -> ShapeConfig {
+    let mut config = ShapeConfig::default();
+    for c in table.shape() {
+        config.columns.insert(
+            c.name.clone(),
+            ColumnConfig {
+                ty: Some(c.col.ty),
+                encoding: Some(c.col.encoding),
+                absent: Some(c.col.absent),
+            },
+        );
+    }
+    config.key = Some(table.key_name().to_owned());
+    config
+}
+
+/// The filter of the gate's where case: `owner_id = 2 OR NOT (priority < 0)`.
+fn owner_or_not_negative() -> Filter {
+    Filter::or([
+        Filter::cmp(Col(4), Cmp::EqI32(2)),
+        Filter::negate(Filter::cmp(Col(5), Cmp::LtI32(0))),
+    ])
+}
+
+/// FAILS IF: a text column's strings are held anywhere but DT's `CodeTable`,
+/// code 0 maps to a key, an old code is renumbered by an append, a repeated
+/// string takes a new code, or a frame from before an append reads the new
+/// generation.
+#[test]
+fn text_codes_live_in_dt() {
+    let rows: Grid = vec![
+        vec![Some("1"), Some("a")],
+        vec![Some("2"), Some("b")],
+        vec![Some("3"), None],
+    ];
+    let mut table = Table::from_rows(
+        "w",
+        0x2B04_0001,
+        &["id", "w"],
+        &rows,
+        &ShapeConfig::default(),
+    )
+    .expect("table");
+    assert_eq!(
+        table.code_key("w", 0),
+        None,
+        "code 0 is absent, never a key"
+    );
+    assert_eq!(table.code_key("w", 1), Some("a".to_owned()));
+    assert_eq!(table.code_key("w", 2), Some("b".to_owned()));
+    assert_eq!(table.code_key("w", 3), None);
+    assert_eq!(
+        table.code_key("id", 1),
+        None,
+        "an integer column has no codes"
+    );
+
+    let old = table.frame();
+    table
+        .append(&[vec![Some("4"), Some("c")], vec![Some("5"), Some("a")]])
+        .expect("append");
+    assert_eq!(table.code_key("w", 3), Some("c".to_owned()));
+    assert_eq!(
+        table.code_key("w", 4),
+        None,
+        "a repeated string takes no new code"
+    );
+    assert_eq!(
+        table.code_key("w", 1),
+        Some("a".to_owned()),
+        "old codes stay"
+    );
+    assert_eq!(table.code_key_at(&old, "w", 1), Some("a".to_owned()));
+    assert_eq!(
+        table.code_key_at(&old, "w", 3),
+        None,
+        "the old frame reads the old generation"
+    );
+    assert_eq!(
+        table.select_all().expect("select").rows,
+        vec![
+            vec![text("1"), text("a")],
+            vec![text("2"), text("b")],
+            vec![text("3"), None],
+            vec![text("4"), text("c")],
+            vec![text("5"), text("a")],
+        ]
+    );
+}
+
+/// FAILS IF: ticket rows fed in three appends (100, 150, 50) answer any of
+/// the four cases differently from the model, from PostgreSQL, or from the
+/// same rows built in one `from_rows`; if an append writes rows other than
+/// the ones it was given; or if the tile count the appends touch is not the
+/// one the positions imply (one extended, one extended, one extended and one
+/// added).
+#[test]
+fn append_equals_postgresql_on_the_union() {
+    let (ticket_rows, ticket_deleted) = tickets();
+    let agent_rows = agents();
+    let agent_gone = agent_gone();
+
+    let one_shot = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .expect("one-shot table");
+    assert_eq!(one_shot.rows_written(), ticket_rows.len() as u64);
+
+    let mut appended = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &[],
+        &full_config(&one_shot),
+    )
+    .expect("empty table");
+    assert!(appended.is_empty());
+    assert_eq!(appended.rows_written(), 0);
+
+    let (mut start, mut touched) = (0, Vec::new());
+    for count in [100usize, 150, 50] {
+        let before = appended.rows_written();
+        let report = appended
+            .append(&cells(&ticket_rows[start..start + count]))
+            .expect("append");
+        assert_eq!(report.rows, count);
+        assert_eq!(appended.rows_written() - before, count as u64);
+        touched.push(report.tiles_touched);
+        start += count;
+    }
+    assert_eq!(touched, [1, 1, 2]);
+    assert_eq!(appended.rows_written(), ticket_rows.len() as u64);
+
+    let from_appends = gate(
+        appended,
+        agent_table(&agent_rows),
+        &ticket_rows,
+        &ticket_deleted,
+        &agent_rows,
+        &agent_gone,
+    );
+    let from_one_shot = gate(
+        one_shot,
+        agent_table(&agent_rows),
+        &ticket_rows,
+        &ticket_deleted,
+        &agent_rows,
+        &agent_gone,
+    );
+    assert_eq!(from_appends, from_one_shot);
+}
+
+/// FAILS IF: an existing key, a key repeated in the batch, a NULL key, a
+/// ragged row or a cell that does not fit is accepted, or a refused append
+/// leaves any trace: the length, the reads or the rows written change, or a
+/// later valid append is affected.
+#[test]
+fn append_refuses() {
+    let mut table = small_table(&ShapeConfig::default()).expect("table");
+    let before = table.select_all().expect("select");
+    let written = table.rows_written();
+
+    let refused: [(&[Vec<Option<&str>>], IntakeRefusal); 5] = [
+        (
+            &[vec![Some("1"), Some("5")]],
+            IntakeRefusal::DuplicateKey(1),
+        ),
+        (
+            &[vec![Some("7"), Some("1")], vec![Some("7"), Some("2")]],
+            IntakeRefusal::DuplicateKey(7),
+        ),
+        (&[vec![None, Some("1")]], IntakeRefusal::NoKey),
+        (
+            &[vec![Some("9")]],
+            IntakeRefusal::Ragged { row: 0, cells: 1 },
+        ),
+        (
+            &[vec![Some("8"), Some("5")], vec![Some("9"), Some("x")]],
+            IntakeRefusal::ShapeChanged {
+                column: "n".to_owned(),
+                was: INT4,
+                now: TEXT,
+            },
+        ),
+    ];
+    for (rows, refusal) in refused {
+        assert_eq!(table.append(rows), Err(refusal));
+        assert_eq!(table.len(), 3);
+        assert_eq!(table.select_all().expect("select"), before);
+        assert_eq!(table.rows_written(), written);
+    }
+
+    let report = table
+        .append(&[vec![Some("4"), Some("40")]])
+        .expect("a valid append after refusals");
+    assert_eq!((report.rows, report.tiles_touched), (1, 1));
+    assert_eq!(table.len(), 4);
+    assert_eq!(
+        table.rows_for_keys(&[4, 1]).expect("keys").rows,
+        vec![vec![text("4"), text("40")], vec![text("1"), text("10")]]
+    );
+}
+
+/// FAILS IF: `select_ref` does not run the predicate exactly once, a warm
+/// `rows_of` runs one, the kept rows differ between reads, or differ from
+/// `select_where` on the same filter.
+#[test]
+fn a_kept_selection_is_reused_without_predicate_work() {
+    let (ticket_rows, _) = tickets();
+    let mut table = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .expect("table");
+    let filter = owner_or_not_negative();
+
+    let runs = table.predicate_runs();
+    let kept = table.select_ref(&filter).expect("keep");
+    assert_eq!(table.predicate_runs(), runs + 1);
+    assert!(
+        !kept.is_empty() && kept.len() < ticket_rows.len(),
+        "a real subset"
+    );
+
+    let first = table.rows_of(&kept).expect("first read");
+    let second = table.rows_of(&kept).expect("second read");
+    let third = table.rows_of(&kept).expect("third read");
+    assert_eq!(
+        table.predicate_runs(),
+        runs + 1,
+        "warm reads run no predicate"
+    );
+    assert_eq!(first, second);
+    assert_eq!(second, third);
+    assert_eq!(first.rows.len(), kept.len());
+    assert_eq!(table.count_of(&kept), Ok(kept.len()));
+    assert_eq!(table.predicate_runs(), runs + 1);
+
+    assert_eq!(first, table.select_where(&filter).expect("select_where"));
+    assert_eq!(table.predicate_runs(), runs + 2, "select_where runs one");
+}
+
+/// FAILS IF: a selection kept before an append or a delete still reads (or
+/// counts), a selection kept after one is refused, or the refusal is anything
+/// but `Stale`.
+#[test]
+fn a_kept_selection_is_refused_after_append_or_delete() {
+    let (ticket_rows, _) = tickets();
+    let mut table = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .expect("table");
+    let filter = owner_or_not_negative();
+
+    let before_append = table.select_ref(&filter).expect("keep");
+    assert!(table.rows_of(&before_append).is_ok());
+    let mut extra = ticket_rows[0].clone();
+    extra[0] = text("301");
+    table.append(&cells(&[extra])).expect("append");
+    assert_eq!(table.rows_of(&before_append), Err(IntakeRefusal::Stale));
+    assert_eq!(table.count_of(&before_append), Err(IntakeRefusal::Stale));
+
+    let after_append = table.select_ref(&filter).expect("keep again");
+    let rows = table.rows_of(&after_append).expect("a new ref reads");
+    assert_eq!(rows.rows.len(), after_append.len());
+
+    table.delete_key(2).expect("delete");
+    assert_eq!(table.rows_of(&after_append), Err(IntakeRefusal::Stale));
+    assert_eq!(table.count_of(&after_append), Err(IntakeRefusal::Stale));
+    let after_delete = table.select_ref(&filter).expect("keep after delete");
+    assert!(table.rows_of(&after_delete).is_ok());
+}
+
+/// FAILS IF: a kept bag of keys loses a repeat, reorders its keys, runs a
+/// predicate, differs from `rows_for_keys`, or accepts an unknown key.
+#[test]
+fn a_key_bag_ref_keeps_order_and_repeats() {
+    let mut table = small_table(&ShapeConfig::default()).expect("table");
+    let runs = table.predicate_runs();
+    let kept = table.select_keys_ref(&[3, 1, 3]).expect("keep");
+    assert_eq!(kept.len(), 3);
+    let rows = table.rows_of(&kept).expect("read");
+    assert_eq!(
+        rows.rows,
+        vec![
+            vec![text("3"), None],
+            vec![text("1"), text("10")],
+            vec![text("3"), None],
+        ]
+    );
+    assert_eq!(rows, table.rows_for_keys(&[3, 1, 3]).expect("bag"));
+    assert_eq!(table.predicate_runs(), runs);
+    assert_eq!(
+        table.select_keys_ref(&[1, 9]).err(),
+        Some(IntakeRefusal::UnknownKey(9))
+    );
 }

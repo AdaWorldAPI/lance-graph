@@ -10,11 +10,12 @@
 //!    ([`config`]);
 //! 3. builds the class from the merged fields (a `ClassView`), registers it in a
 //!    `BindStore` and routes it on a DR position;
-//! 4. places the rows: one `u32` lane and one presence plane per column and a
-//!    live plane, owned by this crate's source, and the key to position map in
-//!    DR W256 tiles (`MapTable`);
-//! 5. binds once, and answers through `lance_graph_pg_row::Reader`, which reads
-//!    by the bound basis and consults no `ClassView`.
+//! 4. places the rows ([`Table::append`] on an empty table): one `u32` lane and
+//!    one presence plane per column and a live plane, owned by this crate's
+//!    source, the key to position map in DR W256 tiles (`MapTable`), and every
+//!    text column's strings in a DT `CodeTable`;
+//! 5. binds, and answers through `lance_graph_pg_row::Reader`, which reads by
+//!    the bound basis and consults no `ClassView`.
 //!
 //! The position of a row is its row index; a key is resolved to it through
 //! `MapTable::locate`, never through a hash map. A `Reader` borrows the source
@@ -22,6 +23,11 @@
 //!
 //! A key is the column's integer value as `u64`: an unsigned column as is, a
 //! signed one sign-extended (`-1i64 as u64`).
+//!
+//! Ownership: DT owns string to code (one code space per text column), DR owns
+//! key to position. This crate holds neither. [`Table::append`] and
+//! [`Table::delete_key`] advance the data version, which refuses every
+//! [`SelectionRef`] kept before.
 
 #![forbid(unsafe_code)]
 
@@ -35,6 +41,7 @@ pub mod config;
 pub mod detect;
 
 use lance_graph_mask_risc::LaneRef;
+use std::cell::Cell;
 use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
@@ -43,7 +50,8 @@ use lance_graph_contract::pg_row::{
     AbsentAs, CodeText, LaneEncoding, PgColumn, PgType, PgTypeRefusal,
 };
 use lance_graph_dt64::dr::{
-    Frame, FrameStore, LocalMap, LocateRefusal, MapTable, Scope, TileId, Width,
+    CodeSpaceId, CodeTable, Frame, FrameStore, KeptId, LocalMap, LocateRefusal, MapTable, Scope,
+    TileId, ValueKey, Width,
 };
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
@@ -58,7 +66,7 @@ const READER: Scope = Scope { id: 1 };
 const ROUTE_POSITION: u16 = 1;
 const TILE_WIDTH: usize = 256;
 const MAX_COLUMNS: usize = 255;
-const PLACEHOLDER_CODE: &str = "<code 0>";
+const RELATION_MAP: u64 = 1;
 
 /// Why intake, a placement or a read refused. Nothing is returned with a
 /// refusal.
@@ -98,8 +106,13 @@ pub enum IntakeRefusal {
     Ragged { row: usize, cells: usize },
     /// No row holds this key.
     UnknownKey(u64),
-    /// The key map could not be built or read.
+    /// The key map or the code table could not be built or read.
     Placement(String),
+    /// A selection could not be kept or read back.
+    Keep(String),
+    /// A [`SelectionRef`] was kept under an older data version than the
+    /// table's current one.
+    Stale,
 }
 
 impl From<LaneRefusal> for IntakeRefusal {
@@ -114,34 +127,10 @@ impl From<PgRowRefusal> for IntakeRefusal {
     }
 }
 
-/// A text column's codes: code 0 is reserved for absent.
-struct Codes {
-    table: Vec<String>,
-    index: BTreeMap<String, u32>,
-}
-
-impl Codes {
-    fn new() -> Codes {
-        Codes {
-            table: vec![PLACEHOLDER_CODE.to_owned()],
-            index: BTreeMap::new(),
-        }
-    }
-
-    fn code(&mut self, text: &str) -> u32 {
-        if let Some(&code) = self.index.get(text) {
-            return code;
-        }
-        let code = self.table.len() as u32;
-        self.table.push(text.to_owned());
-        self.index.insert(text.to_owned(), code);
-        code
-    }
-}
-
 /// The inverse of `write_cell` for one cell: the lane value, or `None` when
-/// the text is not a value of the column.
-fn lane_value(col: &PgColumn, text: &str, codes: &mut Codes) -> Option<u32> {
+/// the text is not a value of the column. `code_of` admits a text cell and
+/// returns its code; it is called for text columns only.
+fn lane_value(col: &PgColumn, text: &str, code_of: &mut dyn FnMut(&str) -> u32) -> Option<u32> {
     match col.encoding {
         LaneEncoding::Bool => match text {
             "t" => Some(1),
@@ -166,7 +155,7 @@ fn lane_value(col: &PgColumn, text: &str, codes: &mut Codes) -> Option<u32> {
                     return None;
                 }
             }
-            Some(codes.code(text))
+            Some(code_of(text))
         }
     }
 }
@@ -182,6 +171,46 @@ fn key_of(encoding: LaneEncoding, value: u32) -> Option<u64> {
 
 fn bit(plane: &[u64], at: usize) -> bool {
     plane.get(at / 64).is_some_and(|w| w >> (at % 64) & 1 == 1)
+}
+
+/// The ascending positions of the set bits of `mask`.
+fn positions_of(mask: &[u64]) -> Vec<u32> {
+    let mut positions = Vec::new();
+    for (w, &word) in mask.iter().enumerate() {
+        let mut bits = word;
+        while bits != 0 {
+            positions.push((w * 64) as u32 + bits.trailing_zeros());
+            bits &= bits - 1;
+        }
+    }
+    positions
+}
+
+/// The code of `text` in one space: its code at `frame` when DT holds one,
+/// else the next fresh code after `base` (codes start at 1; 0 is absent). A
+/// fresh string is recorded in `fresh` in code order. `memo` answers repeats
+/// within one batch without asking DT again.
+fn admit_text(
+    codes: &CodeTable<u32>,
+    frame: &Frame,
+    space: &CodeSpaceId,
+    base: u32,
+    memo: &mut BTreeMap<String, u32>,
+    fresh: &mut Vec<String>,
+    text: &str,
+) -> u32 {
+    if let Some(&code) = memo.get(text) {
+        return code;
+    }
+    let code = match codes.code(frame, space, &ValueKey(text.to_owned())) {
+        Ok(code) => code,
+        Err(_) => {
+            fresh.push(text.to_owned());
+            base + fresh.len() as u32
+        }
+    };
+    memo.insert(text.to_owned(), code);
+    code
 }
 
 /// The source owner: lanes, presence and live planes, the key map and the
@@ -216,6 +245,13 @@ impl OwnedLane {
                 OwnedLane::I32(raw.into_iter().map(|v| v as i32).collect())
             }
             _ => OwnedLane::U32(raw),
+        }
+    }
+
+    fn push(&mut self, value: u32) {
+        match self {
+            OwnedLane::U32(v) => v.push(value),
+            OwnedLane::I32(v) => v.push(value as i32),
         }
     }
 
@@ -324,62 +360,66 @@ impl ClassView for IntakeView {
     }
 }
 
-struct Cells {
-    lanes: Vec<Vec<u32>>,
-    presence: Vec<Vec<u64>>,
-    codes: Vec<Vec<String>>,
+/// One text column's code space, read at one frame. Built per read, beside the
+/// column specs that point at it.
+struct SpaceText<'a> {
+    codes: &'a CodeTable<u32>,
+    frame: &'a Frame,
+    space: &'a CodeSpaceId,
 }
 
-/// Rows to lanes, presence planes and code tables, by each column's merged
-/// shape. NULL is absent (presence 0, value 0), and so is `''` under
-/// `AbsentAs::EmptyText`.
-fn place_cells(shape: &[ColumnShape], rows: &[Vec<Option<&str>>]) -> Result<Cells, IntakeRefusal> {
-    let n = rows.len();
-    let words = n.div_ceil(64);
-    let mut lanes = vec![vec![0u32; n]; shape.len()];
-    let mut presence = vec![vec![0u64; words]; shape.len()];
-    let mut codes: Vec<Codes> = shape.iter().map(|_| Codes::new()).collect();
-    for (r, row) in rows.iter().enumerate() {
-        for (k, column) in shape.iter().enumerate() {
-            let Some(text) = row.get(k).copied().flatten() else {
-                continue;
-            };
-            if text.is_empty() && column.col.absent == AbsentAs::EmptyText {
-                continue;
-            }
-            let value = lane_value(&column.col, text, &mut codes[k]).ok_or_else(|| {
-                IntakeRefusal::Cell {
-                    column: column.name.clone(),
-                    row: r,
-                    text: text.to_owned(),
-                }
-            })?;
-            lanes[k][r] = value;
-            presence[k][r / 64] |= 1 << (r % 64);
-        }
+impl CodeText for SpaceText<'_> {
+    fn text(&self, code: u32) -> Option<&str> {
+        self.codes
+            .key(self.frame, self.space, code)
+            .ok()
+            .map(|key| key.0.as_str())
     }
-    Ok(Cells {
-        lanes,
-        presence,
-        codes: codes.into_iter().map(|c| c.table).collect(),
-    })
 }
 
-/// The key of every row, from the key column's lane. A NULL key is refused.
-fn key_values(
-    column: &ColumnShape,
-    lane: &[u32],
-    presence: &[u64],
-) -> Result<Vec<u64>, IntakeRefusal> {
-    lane.iter()
-        .enumerate()
-        .map(|(r, &value)| {
-            bit(presence, r)
-                .then(|| key_of(column.col.encoding, value))
-                .flatten()
-                .ok_or(IntakeRefusal::NoKey)
-        })
-        .collect()
+/// New rows as lane values, and the strings DT does not hold yet.
+struct Placed {
+    /// `[column][row]`: the lane value, `None` for an absent cell.
+    cells: Vec<Vec<Option<u32>>>,
+    /// `[column]`: the fresh strings, in code order after the column's
+    /// existing codes.
+    fresh: Vec<Vec<String>>,
+}
+
+/// What one [`Table::append`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AppendReport {
+    /// Rows appended.
+    pub rows: usize,
+    /// Tiles extended or added.
+    pub tiles_touched: usize,
+    /// The data version after the append.
+    pub version: u64,
+}
+
+/// A selection kept under the data version it was made at.
+///
+/// It reads back only while that version is the table's current one: an
+/// append or a delete refuses it with [`IntakeRefusal::Stale`]. A read of a
+/// stale reference under its own snapshot is not offered: lanes are
+/// append-only, but the live plane after a delete is not versioned per row,
+/// so an old selection would not replay what it kept.
+#[derive(Clone, Debug)]
+pub struct SelectionRef {
+    id: KeptId,
+    frame: Frame,
+    len: usize,
+}
+
+impl SelectionRef {
+    /// Positions kept.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 /// A table of rows: detected shape, registered class, placed rows and one
@@ -388,14 +428,25 @@ pub struct Table {
     name: String,
     shape: Vec<ColumnShape>,
     key: usize,
-    codes: Vec<Vec<String>>,
+    /// Every text column's strings, one code space per column.
+    codes: CodeTable<u32>,
+    /// `Some` for a text column.
+    spaces: Vec<Option<CodeSpaceId>>,
+    /// Codes assigned per column; they are `1..=code_counts[k]`.
+    code_counts: Vec<u32>,
+    /// The data version: it moves with every append and every delete.
+    source: u64,
+    rows_written: Cell<u64>,
+    predicate_runs: Cell<u64>,
     owner: Owner,
+    view: IntakeView,
     store: BindStore,
     binding: LaneBinding,
 }
 
 impl Table {
-    /// Detect, merge config, build the class, place rows, register, bind.
+    /// Detect, merge config, build the class, register, bind an empty table,
+    /// then [`Table::append`] the rows.
     pub fn from_rows(
         name: &str,
         class: u32,
@@ -408,34 +459,13 @@ impl Table {
                 columns: columns.len(),
             });
         }
-        let n = u32::try_from(rows.len())
-            .map_err(|_| IntakeRefusal::Placement("more rows than a position holds".to_owned()))?;
         let shaped = Shape::build(columns, rows, config)?;
         let key = shaped.key_column(columns, rows, config)?;
         let shape = shaped.columns;
-        let cells = place_cells(&shape, rows)?;
-        let keys = key_values(&shape[key], &cells.lanes[key], &cells.presence[key])?;
 
-        let mut sorted = keys.clone();
-        sorted.sort_unstable();
-        if let Some(pair) = sorted.windows(2).find(|pair| pair[0] == pair[1]) {
-            return Err(IntakeRefusal::DuplicateKey(pair[0]));
-        }
-
-        let mut table = MapTable::new(1, 1);
-        let mut tiles = Vec::new();
-        let mut changes = Vec::new();
-        for (i, chunk) in keys.chunks(TILE_WIDTH).enumerate() {
-            let tile = TileId::try_from(i + 1).map_err(|_| {
-                IntakeRefusal::Placement("more tiles than a tile id holds".to_owned())
-            })?;
-            let map = LocalMap::prepare(Width::W256, chunk)
-                .map_err(|refusal| IntakeRefusal::Placement(format!("{refusal:?}")))?;
-            tiles.push(tile);
-            changes.push((tile, Some(map)));
-        }
-        table.advance(1, 1, changes);
-        let frame = table.seal();
+        let map_table = MapTable::new(1, RELATION_MAP);
+        let frame = map_table.seal();
+        let codes = CodeTable::new(map_table.frames());
 
         let space = CoordSpace {
             population: u64::from(class),
@@ -445,26 +475,30 @@ impl Table {
             .iter()
             .map(|c| format!("intake:{name}/{}", c.name))
             .collect();
-        let mut live = vec![0u64; rows.len().div_ceil(64)];
-        for r in 0..rows.len() {
-            live[r / 64] |= 1 << (r % 64);
-        }
+        let spaces: Vec<Option<CodeSpaceId>> = iris
+            .iter()
+            .zip(&shape)
+            .map(|(iri, c)| {
+                (c.col.encoding == LaneEncoding::TextCode).then(|| CodeSpaceId {
+                    class,
+                    property: iri.clone(),
+                })
+            })
+            .collect();
         let owner = Owner {
             class,
             space,
             iris: iris.clone(),
-            lanes: cells
-                .lanes
-                .into_iter()
-                .zip(&shape)
-                .map(|(raw, column)| OwnedLane::new(column.col.encoding, raw))
+            lanes: shape
+                .iter()
+                .map(|column| OwnedLane::new(column.col.encoding, Vec::new()))
                 .collect(),
-            presence: cells.presence,
-            live,
-            rows: n as usize,
-            table,
+            presence: vec![Vec::new(); shape.len()],
+            live: Vec::new(),
+            rows: 0,
+            table: map_table,
             frame,
-            tiles,
+            tiles: Vec::new(),
             selections: Vec::new(),
         };
 
@@ -510,15 +544,23 @@ impl Table {
             },
         )?;
 
-        Ok(Table {
+        let mut table = Table {
             name: name.to_owned(),
+            code_counts: vec![0; shape.len()],
             shape,
             key,
-            codes: cells.codes,
+            codes,
+            spaces,
+            source: 1,
+            rows_written: Cell::new(0),
+            predicate_runs: Cell::new(0),
             owner,
+            view,
             store,
             binding,
-        })
+        };
+        table.append_rows(rows)?;
+        Ok(table)
     }
 
     /// Every column's merged shape with its verdict against the detection.
@@ -543,15 +585,65 @@ impl Table {
         self.len() == 0
     }
 
-    fn specs(&self) -> Vec<ColumnSpec<'_>> {
+    /// Rows placed by `from_rows` and `append` so far: one per row, never per
+    /// row already in the table.
+    #[doc(hidden)]
+    pub fn rows_written(&self) -> u64 {
+        self.rows_written.get()
+    }
+
+    /// Predicate executions (`keep_where` or `count_where`) the facade has
+    /// run. Reading a kept selection runs none.
+    #[doc(hidden)]
+    pub fn predicate_runs(&self) -> u64 {
+        self.predicate_runs.get()
+    }
+
+    /// The frame the table's lanes and codes are currently sealed under.
+    #[doc(hidden)]
+    pub fn frame(&self) -> Frame {
+        self.owner.frame.clone()
+    }
+
+    /// The string `code` meant in `column` as of `frame`, read from DT's
+    /// `CodeTable`. `None` for code 0, an unknown code or a non-text column.
+    #[doc(hidden)]
+    pub fn code_key_at(&self, frame: &Frame, column: &str, code: u32) -> Option<String> {
+        let k = self.shape.iter().position(|c| c.name == column)?;
+        let space = self.spaces.get(k)?.as_ref()?;
+        self.codes
+            .key(frame, space, code)
+            .ok()
+            .map(|key| key.0.clone())
+    }
+
+    /// [`Table::code_key_at`] under the current frame.
+    #[doc(hidden)]
+    pub fn code_key(&self, column: &str, code: u32) -> Option<String> {
+        self.code_key_at(&self.owner.frame, column, code)
+    }
+
+    fn texts(&self) -> Vec<Option<SpaceText<'_>>> {
+        self.spaces
+            .iter()
+            .map(|space| {
+                space.as_ref().map(|space| SpaceText {
+                    codes: &self.codes,
+                    frame: &self.owner.frame,
+                    space,
+                })
+            })
+            .collect()
+    }
+
+    fn specs<'a>(&'a self, texts: &'a [Option<SpaceText<'a>>]) -> Vec<ColumnSpec<'a>> {
         self.shape
             .iter()
-            .zip(&self.codes)
-            .map(|(column, codes)| ColumnSpec {
+            .zip(texts)
+            .map(|(column, text)| ColumnSpec {
                 name: &column.name,
                 col: column.col,
-                codes: (column.col.encoding == LaneEncoding::TextCode)
-                    .then_some(codes as &dyn CodeText),
+                codes: text.as_ref().map(|t| t as &dyn CodeText),
             })
             .collect()
     }
@@ -571,7 +663,8 @@ impl Table {
 
     /// SELECT * : every live row, ascending position.
     pub fn select_all(&self) -> Result<PgRows, IntakeRefusal> {
-        let specs = self.specs();
+        let texts = self.texts();
+        let specs = self.specs(&texts);
         let reader = self.reader(&specs)?;
         Ok(reader.rows_in(&self.owner.live)?)
     }
@@ -582,16 +675,20 @@ impl Table {
         &self,
         filter: &lance_graph_quack::Filter,
     ) -> Result<PgRows, IntakeRefusal> {
-        let specs = self.specs();
+        let texts = self.texts();
+        let specs = self.specs(&texts);
         let reader = self.reader(&specs)?;
+        self.predicate_runs.set(self.predicate_runs.get() + 1);
         let kept = reader.keep_where(filter)?;
         Ok(reader.rows_in(&kept)?)
     }
 
     /// `COUNT(*)` of the live rows `filter` holds for.
     pub fn count_where(&self, filter: &lance_graph_quack::Filter) -> Result<usize, IntakeRefusal> {
-        let specs = self.specs();
+        let texts = self.texts();
+        let specs = self.specs(&texts);
         let reader = self.reader(&specs)?;
+        self.predicate_runs.set(self.predicate_runs.get() + 1);
         Ok(reader.count_where(filter)?)
     }
 
@@ -620,9 +717,9 @@ impl Table {
         bit(&self.owner.live, position as usize)
     }
 
-    /// The rows of these keys, in list order, duplicates kept (a bag); an
-    /// unknown or deleted key is refused.
-    pub fn rows_for_keys(&mut self, keys: &[u64]) -> Result<PgRows, IntakeRefusal> {
+    /// The positions of these keys, in list order, duplicates kept; an
+    /// unknown key is refused.
+    fn positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
         // Each distinct key is located once per call and reused for its
         // repeats. A sorted Vec of this call's keys is local to the call, so it
         // is not a second key registry (D-REGC-7): the key map stays the DR tiles.
@@ -640,7 +737,19 @@ impl Table {
                 .map_err(|_| IntakeRefusal::UnknownKey(key))?;
             positions.push(resolved[at].1);
         }
+        Ok(positions)
+    }
 
+    /// The rows of these keys, in list order, duplicates kept (a bag); an
+    /// unknown or deleted key is refused.
+    pub fn rows_for_keys(&mut self, keys: &[u64]) -> Result<PgRows, IntakeRefusal> {
+        let positions = self.positions_for_keys(keys)?;
+        self.read_positions(positions)
+    }
+
+    /// Hand `positions` to the reader as the owner's selection 0, read, then
+    /// clear. No predicate runs.
+    fn read_positions(&mut self, positions: Vec<u32>) -> Result<PgRows, IntakeRefusal> {
         self.owner.selections.clear();
         self.owner.selections.push(positions);
         let result = self.read_selection(0);
@@ -649,7 +758,8 @@ impl Table {
     }
 
     fn read_selection(&self, sel: u16) -> Result<PgRows, IntakeRefusal> {
-        let specs = self.specs();
+        let texts = self.texts();
+        let specs = self.specs(&texts);
         let (reader, positions) = Reader::open_selected(
             &self.binding,
             &self.store,
@@ -661,14 +771,107 @@ impl Table {
         Ok(reader.rows_at(positions)?)
     }
 
+    /// Keep `positions` under the current frame.
+    fn keep_positions(&mut self, positions: Vec<u32>) -> Result<SelectionRef, IntakeRefusal> {
+        let len = positions.len();
+        let frame = self.owner.frame.clone();
+        let id = self
+            .owner
+            .table
+            .keep(&frame, positions)
+            .map_err(|refusal| IntakeRefusal::Keep(format!("{refusal:?}")))?;
+        Ok(SelectionRef { id, frame, len })
+    }
+
+    /// Run `filter` once, keep the positions it holds for under the current
+    /// data version, and return the handle. [`Table::rows_of`] then reads
+    /// them back with no predicate work.
+    pub fn select_ref(
+        &mut self,
+        filter: &lance_graph_quack::Filter,
+    ) -> Result<SelectionRef, IntakeRefusal> {
+        let positions = {
+            let texts = self.texts();
+            let specs = self.specs(&texts);
+            let reader = self.reader(&specs)?;
+            self.predicate_runs.set(self.predicate_runs.get() + 1);
+            let kept = reader.keep_where(filter)?;
+            positions_of(&kept)
+        };
+        self.keep_positions(positions)
+    }
+
+    /// Keep the positions of these keys, in list order, repeats kept, as
+    /// [`Table::rows_for_keys`] resolves them. An unknown key is refused.
+    pub fn select_keys_ref(&mut self, keys: &[u64]) -> Result<SelectionRef, IntakeRefusal> {
+        let positions = self.positions_for_keys(keys)?;
+        self.keep_positions(positions)
+    }
+
+    /// The kept positions of `r`, when `r` was kept under the table's current
+    /// data version.
+    fn kept_of(&self, r: &SelectionRef) -> Result<&Vec<u32>, IntakeRefusal> {
+        self.owner
+            .table
+            .frames()
+            .check(&r.frame)
+            .map_err(|_| IntakeRefusal::Stale)?;
+        self.owner
+            .table
+            .kept::<Vec<u32>>(&r.frame, r.id)
+            .map_err(|refusal| IntakeRefusal::Keep(format!("{refusal:?}")))
+    }
+
+    /// The rows of a kept selection, in its order. The selection must have
+    /// been kept under the current data version; no predicate runs.
+    pub fn rows_of(&mut self, r: &SelectionRef) -> Result<PgRows, IntakeRefusal> {
+        let positions = self.kept_of(r)?.clone();
+        self.read_positions(positions)
+    }
+
+    /// How many positions a kept selection holds, under the same currency
+    /// check as [`Table::rows_of`].
+    pub fn count_of(&self, r: &SelectionRef) -> Result<usize, IntakeRefusal> {
+        Ok(self.kept_of(r)?.len())
+    }
+
+    /// Re-seal the frame after the table advanced, and bind again under it:
+    /// registration and route are unchanged. Cold; once per append or delete.
+    fn rebind(&mut self) -> Result<(), IntakeRefusal> {
+        self.owner.frame = self.owner.table.seal();
+        let fields: Vec<u8> = (0..self.shape.len()).map(|k| k as u8).collect();
+        self.binding = self.store.bind_lanes(
+            &self.view,
+            self.owner.table.frames(),
+            &self.owner,
+            LaneRequest {
+                route: self.binding.route(),
+                rev: SchemaRev(1),
+                fields: &WideFieldMask::from_positions(&fields),
+                frame: &self.owner.frame,
+                scope: READER,
+                selection: self.owner.space,
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Advance the data version once, with the given tile changes.
+    fn advance_data(&mut self, changes: Vec<(TileId, Option<LocalMap>)>) {
+        self.source += 1;
+        self.owner.table.advance(self.source, RELATION_MAP, changes);
+    }
+
     /// Mark a row deleted: its live bit is cleared; its values stay, and
-    /// reads refuse or skip it.
+    /// reads refuse or skip it. The data version advances, so a kept
+    /// selection from before is refused.
     pub fn delete_key(&mut self, key: u64) -> Result<(), IntakeRefusal> {
         let at = self.position_of(key)? as usize;
         if !cfg!(feature = "disable-intake-live") {
             self.owner.live[at / 64] &= !(1u64 << (at % 64));
         }
-        Ok(())
+        self.advance_data(Vec::new());
+        self.rebind()
     }
 
     /// LEFT JOIN `right` ON right.key = self.`fk`: every live row of self,
@@ -727,8 +930,10 @@ impl Table {
             }
         }
 
-        let left_specs = self.specs();
-        let right_specs = right.specs();
+        let left_texts = self.texts();
+        let right_texts = right.texts();
+        let left_specs = self.specs(&left_texts);
+        let right_specs = right.specs(&right_texts);
         let left_reader = self.reader(&left_specs)?;
         let right_reader = right.reader(&right_specs)?;
         Ok(read_bag(&[
@@ -763,11 +968,10 @@ impl Table {
             });
         }
         for (k, was) in self.shape.iter().enumerate() {
-            let mut scratch = Codes::new();
             let fits = rows.iter().all(|row| match row.get(k).copied().flatten() {
                 None => true,
                 Some("") if was.col.absent == AbsentAs::EmptyText => true,
-                Some(text) => lane_value(&was.col, text, &mut scratch).is_some(),
+                Some(text) => lane_value(&was.col, text, &mut |_: &str| 0u32).is_some(),
             });
             if !fits {
                 let cells: Vec<Option<&str>> = rows
@@ -787,5 +991,212 @@ impl Table {
     /// The key column's name.
     pub fn key_name(&self) -> &str {
         &self.shape[self.key].name
+    }
+
+    /// Append rows. Every row must fit the table's merged shape (as
+    /// [`Table::observe`] judges it) and carry a key no row holds; otherwise
+    /// the call refuses and the table is unchanged. A new shape is a new
+    /// class, so a column is never widened in place.
+    ///
+    /// Positions continue from the rows already placed: the last tile is
+    /// extended and further tiles are added. New strings take the next codes
+    /// of their column's code space; old codes never renumber. The data
+    /// version advances once, so a [`SelectionRef`] kept before is refused.
+    pub fn append(&mut self, rows: &[Vec<Option<&str>>]) -> Result<AppendReport, IntakeRefusal> {
+        self.observe(rows)?;
+        self.append_rows(rows)
+    }
+
+    /// Place rows that have not been checked against the shape: a cell that
+    /// does not fit is a `Cell` refusal. Nothing changes until every check
+    /// has passed.
+    fn append_rows(&mut self, rows: &[Vec<Option<&str>>]) -> Result<AppendReport, IntakeRefusal> {
+        let n = rows.len();
+        if n == 0 {
+            return Ok(AppendReport {
+                rows: 0,
+                tiles_touched: 0,
+                version: self.source,
+            });
+        }
+        let n0 = self.owner.rows;
+        let total = n0
+            .checked_add(n)
+            .filter(|&t| u32::try_from(t).is_ok())
+            .ok_or_else(|| {
+                IntakeRefusal::Placement("more rows than a position holds".to_owned())
+            })?;
+
+        let placed = self.place(rows)?;
+        let keys = self.new_keys(&placed)?;
+        let (changes, new_tiles) = self.tile_changes(&keys)?;
+        let tiles_touched = changes.len();
+
+        // Past the last refusal. DT first: its advance is the only step that
+        // can still refuse, and it refuses without changing anything.
+        let mut code_changes = Vec::new();
+        for (k, fresh) in placed.fresh.iter().enumerate() {
+            let Some(space) = self.spaces[k].as_ref().filter(|_| !fresh.is_empty()) else {
+                continue;
+            };
+            let base = self.code_counts[k];
+            let mut entries = Vec::with_capacity(base as usize + fresh.len());
+            for code in 1..=base {
+                let key = self
+                    .codes
+                    .key(&self.owner.frame, space, code)
+                    .map_err(|refusal| IntakeRefusal::Placement(format!("{refusal:?}")))?;
+                entries.push((key.clone(), code));
+            }
+            for (i, text) in fresh.iter().enumerate() {
+                entries.push((ValueKey(text.clone()), base + 1 + i as u32));
+            }
+            code_changes.push((space.clone(), entries));
+        }
+        if !code_changes.is_empty() {
+            self.owner
+                .table
+                .advance_codes(&mut self.codes, code_changes)
+                .map_err(|refusal| IntakeRefusal::Placement(format!("{refusal:?}")))?;
+            for (count, fresh) in self.code_counts.iter_mut().zip(&placed.fresh) {
+                *count += fresh.len() as u32;
+            }
+        }
+
+        let words = total.div_ceil(64);
+        for (k, lane) in self.owner.lanes.iter_mut().enumerate() {
+            for cell in &placed.cells[k] {
+                lane.push(cell.unwrap_or(0));
+            }
+        }
+        for (k, plane) in self.owner.presence.iter_mut().enumerate() {
+            plane.resize(words, 0);
+            for (r, cell) in placed.cells[k].iter().enumerate() {
+                if cell.is_some() {
+                    let at = n0 + r;
+                    plane[at / 64] |= 1 << (at % 64);
+                }
+            }
+        }
+        self.owner.live.resize(words, 0);
+        for at in n0..total {
+            self.owner.live[at / 64] |= 1 << (at % 64);
+        }
+        self.owner.rows = total;
+        self.owner.tiles.extend(new_tiles);
+
+        self.advance_data(changes);
+        self.rebind()?;
+        self.rows_written.set(self.rows_written.get() + n as u64);
+        Ok(AppendReport {
+            rows: n,
+            tiles_touched,
+            version: self.source,
+        })
+    }
+
+    /// New rows to lane values. NULL is absent (presence 0, value 0), and so
+    /// is `''` under `AbsentAs::EmptyText`. A text cell is admitted through
+    /// DT: its code at the current frame, else the next fresh one.
+    fn place(&self, rows: &[Vec<Option<&str>>]) -> Result<Placed, IntakeRefusal> {
+        let columns = self.shape.len();
+        let mut cells = vec![vec![None; rows.len()]; columns];
+        let mut memos: Vec<BTreeMap<String, u32>> = vec![BTreeMap::new(); columns];
+        let mut fresh: Vec<Vec<String>> = vec![Vec::new(); columns];
+        for (r, row) in rows.iter().enumerate() {
+            for (k, (column, space)) in self.shape.iter().zip(&self.spaces).enumerate() {
+                let Some(text) = row.get(k).copied().flatten() else {
+                    continue;
+                };
+                if text.is_empty() && column.col.absent == AbsentAs::EmptyText {
+                    continue;
+                }
+                let base = self.code_counts[k];
+                let (memo, new) = (&mut memos[k], &mut fresh[k]);
+                let mut code_of = |t: &str| match space {
+                    Some(space) => {
+                        admit_text(&self.codes, &self.owner.frame, space, base, memo, new, t)
+                    }
+                    None => 0,
+                };
+                let value = lane_value(&column.col, text, &mut code_of).ok_or_else(|| {
+                    IntakeRefusal::Cell {
+                        column: column.name.clone(),
+                        row: r,
+                        text: text.to_owned(),
+                    }
+                })?;
+                cells[k][r] = Some(value);
+            }
+        }
+        Ok(Placed { cells, fresh })
+    }
+
+    /// The key of every new row, from the key column. A NULL key is refused,
+    /// and so is a key repeated in the batch or held by an existing row.
+    fn new_keys(&self, placed: &Placed) -> Result<Vec<u64>, IntakeRefusal> {
+        let encoding = self.shape[self.key].col.encoding;
+        let keys = placed.cells[self.key]
+            .iter()
+            .map(|&cell| {
+                cell.and_then(|value| key_of(encoding, value))
+                    .ok_or(IntakeRefusal::NoKey)
+            })
+            .collect::<Result<Vec<u64>, IntakeRefusal>>()?;
+        let mut sorted = keys.clone();
+        sorted.sort_unstable();
+        if let Some(pair) = sorted.windows(2).find(|pair| pair[0] == pair[1]) {
+            return Err(IntakeRefusal::DuplicateKey(pair[0]));
+        }
+        for &key in &keys {
+            if self.locate(key)?.is_some() {
+                return Err(IntakeRefusal::DuplicateKey(key));
+            }
+        }
+        Ok(keys)
+    }
+
+    /// The tile changes that place `keys` after the rows already held: the
+    /// last tile extended up to its width, then new tiles. Also the ids of
+    /// the tiles added.
+    #[allow(clippy::type_complexity)]
+    fn tile_changes(
+        &self,
+        keys: &[u64],
+    ) -> Result<(Vec<(TileId, Option<LocalMap>)>, Vec<TileId>), IntakeRefusal> {
+        let placement = |detail: String| IntakeRefusal::Placement(detail);
+        let mut changes = Vec::new();
+        let mut added = Vec::new();
+        let mut rest = keys;
+        if let Some(&last) = self.owner.tiles.last() {
+            let old = self
+                .owner
+                .table
+                .map(&self.owner.frame, last)
+                .map_err(|refusal| placement(format!("{refusal:?}")))?;
+            let take = TILE_WIDTH.saturating_sub(old.len()).min(rest.len());
+            if take > 0 {
+                let mut globals = old.globals().to_vec();
+                globals.extend_from_slice(&rest[..take]);
+                let map = LocalMap::prepare(Width::W256, &globals)
+                    .map_err(|refusal| placement(format!("{refusal:?}")))?;
+                if !map.view().extends(old) {
+                    return Err(placement(
+                        "a tile extension renumbered a position".to_owned(),
+                    ));
+                }
+                changes.push((last, Some(map)));
+                rest = &rest[take..];
+            }
+        }
+        for chunk in rest.chunks(TILE_WIDTH) {
+            let tile = TileId::try_from(self.owner.tiles.len() + added.len() + 1)
+                .map_err(|_| placement("more tiles than a tile id holds".to_owned()))?;
+            let map = LocalMap::prepare(Width::W256, chunk)
+                .map_err(|refusal| placement(format!("{refusal:?}")))?;
+            added.push(tile);
+            changes.push((tile, Some(map)));
+        }
+        Ok((changes, added))
     }
 }
