@@ -94,11 +94,12 @@ from zammad-rs (MEASURED, zammad-rs#96 `tests/register_census.rs`).
 What a read must still refuse, and how. Review on #2152 pointed out that
 `register` alone cannot cover either case:
 - **A different store.** A store may hold a different basis for the same
-  classid. Today `LaneBinding::check` refuses this through `resolve_counted`
-  and the digest compare `bound != self.basis` (`lane.rs:427-430`), which
-  re-resolves through the view first. The proposal keeps an O(1) compare of
-  the store's registered digest for the classid against the binding's, and
-  drops the re-resolution.
+  classid. Today `LaneBinding::check` refuses this with the O(1) compare
+  `bound != self.basis` (`lane.rs:427-430`): the store's registered digest
+  against the binding's. No hash is recomputed. Before that compare,
+  `resolve_counted` asks the view for the fields and checks revision and
+  count through `check_basis` (`lib.rs:1128-1140`). The proposal keeps the
+  digest compare and drops the trip through the view.
 - **A view mutated after bind.** Owner, 2026-11-21: a `ClassView` changes
   only while ruff's class proposer stages classes that do not exist yet. That
   staging is Explore, outside the store (`classid-on-do-call-shape.md` §113:
