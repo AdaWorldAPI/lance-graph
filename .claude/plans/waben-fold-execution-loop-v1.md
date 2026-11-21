@@ -1263,6 +1263,7 @@ T0 = ndarray backends, T1 = `ndarray::simd` facade + mask ALU, T2 = behaviour
 | six-neighbour shift | `ndarray::simd::mask_shift_morton` · hex probe | nd@40a71ad | **I** (as a *whole-field* op) | closed-tile contract (W4) | axial BFS oracle + degree-one control (both already in the probe) |
 | u8 gate predicates | `gt_u8_to_mask` etc. · hex probe | nd@40a71ad | **I** | — | in-probe |
 | gated predicate | `*_to_mask_under` — skips compare on a zero gate word, still visits the gate span | nd@40a71ad | **I** | pass bounded gates, never a global one | gate-word visit counter |
+| ⊘ 2026-11-21: STALE since lg@25988f3c — `LaneRef::Strided` shipped (`lance-graph-mask-risc/src/ir.rs:27-50` at `87d7b41`); predicate coverage: `.claude/knowledge/register-contract-reconciliation.md` C8 | | | | | |
 | **strided facet lane** | `LaneRef::{I32,U32,U64}` — no strided variant; `ir.rs:21-27` names the gap itself | lg@25988f3c | **M** | `LaneRef::Strided{base,stride,group}`, mirroring `ndarray::simd::ternary_match_strided_to_mask` — needed only when the rail read leaves the probe (§5) | differential vs a contiguous copy of the same lane |
 | tree-depth column ("G8") | nothing in ndarray `src/` | nd@40a71ad | **M** | out of scope for this arc; name it, don't assume it | — |
 | alpha claim algebra | `AlphaOverlay::claim` · `wave_dispatch::dispatch_thought` (**orphan**) | lg@25988f3c | **D** | use AS IS in W6 and measure; the input-coordinate change is deferred behind that number | a cost line per stage, not a speedup |

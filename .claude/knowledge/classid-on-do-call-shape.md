@@ -19,6 +19,10 @@
 > Canonical plan for the registration side:
 > `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Read that
 > first. This file adds no decision to it; it connects it to consumers.
+>
+> 2026-11-21: what was measured against PostgreSQL on the register contract
+> (absent, deleted, bijection, joins, schema checks), and which contradictions
+> between plans remain open: `register-contract-reconciliation.md`.
 
 ## 0. Thirty-second version
 

@@ -25,6 +25,9 @@ members = [
     # DT64: the ClassId-addressed binding store (D-DRDT §1/§4, D-DT64-6 §1/§3).
     # Depends on the zero-dep contract only.
     "crates/lance-graph-dt64",
+    # The PostgreSQL row polyfill for consumers (D-QSP-VROW, D-REGC): one DT64
+    # check per table, WHERE through Quack/mask-risc, a virtual tuple bag for joins.
+    "crates/lance-graph-pg-row",
     "crates/dr256-ternlog-lab",
     # LAB: one Quack-lowered Program against a bound source, a wrong source, a
     # revised row order and a detached kept mask, admitted through the DT64

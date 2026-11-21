@@ -175,6 +175,11 @@ jobs:
       # PostgreSQL server.
       - name: Run pg-parity-harness tests
         run: cargo test --manifest-path crates/pg-parity-harness/Cargo.toml
+      # lance-graph-pg-row (D-REGC-12): the PostgreSQL row polyfill. The gate
+      # compares every case with a model oracle here; its PostgreSQL half
+      # prints SKIP, since CI has no server.
+      - name: Run pg-row tests
+        run: cargo test --manifest-path crates/lance-graph-pg-row/Cargo.toml
       # lance-graph-report: no workflow ran its tests before D-LANESOCK-2. The
       # lane-socket suite is a `#[cfg(test)]` unit module (its constructor
       # takes an unwitnessed reader scope), so the plain run covers it.
