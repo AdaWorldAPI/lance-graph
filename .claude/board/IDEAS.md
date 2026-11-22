@@ -85,6 +85,15 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
+## 2026-11-22 — Train D-EPI-COT C3c on "the ablation discriminated", read from the ledger's sensitivity
+
+`[P1 domain:epistemic D-EPI-COT C3c]`
+
+C3c's learned ordering trains on a label that the entry itself says should change to "the ablation discriminated" (`entries/2026-10-28-d-epi-cot-c3c-learn.md`; `d-nsl-w0-w1` repeats it). The signal already exists: `DerivationLedger::sensitivity` (`crates/lance-graph-planner/src/nars/support.rs:571`) returns how much a statement's truth moves under an ablation. **Next probe:** relabel from `sensitivity`, retrain, and show the ordering changes on at least one fixture where the old label and the new one disagree. **Kill:** the two labels never disagree on any fixture (then the change is cosmetic). Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N21).
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
 ## 2026-11-03 — k-of-n on the shipped carry words: does the Abakus register model hold on a WHERE threshold?
 
 `[P1 @falsifier-designer domain:mask-algebra D-DRAM-3 D-DRAM-P3-5]`

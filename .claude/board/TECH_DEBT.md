@@ -1,3 +1,10 @@
+## TD-REGC-PG-ROW-POLYFILL-PRESENCE-ZERO-ARM-HAS-NO-FIXTURE — the presence 0, value ≠ 0 arm is untested (2026-11-22) — OPEN
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** cited (`entries/2026-11-21-d-regc-12-pg-row-polyfill.md:29`: "the presence 0, value ≠ 0 arm has no fixture row").
+
+- **What closes it:** one fixture row with presence 0 and a non-zero value, asserting the polyfill reads it as absent, with a disable run. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N38).
+
 ## TD-FROZEN-POLYFILL-NAMED-BY-R2IL — the compile-time polyfill is declared at runtime and named through `ogar-r2il` (2026-10-31) — OPEN
 
 `BindStore::declare_algebra` (in `crates/lance-graph-dt64/src/lib.rs`) declares the polyfill lens at runtime, and `lance-graph-r2il::binding` resolves every word through `ogar_r2il::R2ILVocabulary` and refuses any lens whose concept is not `ogar_r2il::CONCEPT_R2IL_FOLD` (`binding.rs:278`, `:496-525`; `0xC401` is provisional, not minted). By D-DT64-7 D2/D3 the polyfill is Frozen (compile time) and R2IL is harvest-side.
@@ -29,6 +36,7 @@ needs per-side counts near 3·10⁹ rows.
 **Fruit:** Low-hanging
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`native.rs:45`, `:148-157`; no hit for `NativeRefusal::Count` outside `native.rs`, read on main `b38d88e`).
 
+- **Note (2026-11-22, inferred, not re-read):** #2083 (checked i128 join size) and #2092 (checked i64 escape) changed the cube's arithmetic; check whether either makes `NativeRefusal::Count` reachable from a test before splitting the multiply. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (S9).
 - **What closes it:** split the multiply so a test can hand it counts, then
   pin the refusal with a can-fire and a stay-silent case, or document the
   path as unreachable and say why.

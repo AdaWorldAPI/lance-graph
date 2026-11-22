@@ -1,3 +1,27 @@
+## ISS-METHOD-IDENTITY-EXO-50-BLOCKS-FIVE-OPEN-LINES — MethodSignature, MethodRef or MethodKey? (2026-11-22)
+
+**Status:** OPEN (operator decision, EXO-50). **Basis:** CITED, entry re-read 2026-11-22 (`entries/2026-10-31-d-dt64-6-dr-addressing-module.md:13`: "`bind_dr64` waits on the `MethodSignature` vs `MethodRef` identity (EXO-50)").
+**Fruit:** High-signal
+
+- Five open lines name the same missing identity: `bind_dr64` and the probe owner switch to `dt64::dr` (d-dt64-6-dr-addressing-module), the XLOG Epi5 declaration (d-xlog-native-5-bindstore-epi5), the DR #4 router ("the method key is test-minted", d-drca-3), and the bind store's router carrying `MethodRef` (d-dt64-6-bs-bind-store-crate). #1979 stamps `MethodRef` with its issuing store and binding digest, which narrows but does not answer the question.
+- **What closes it:** one identity named in the contract, then the five lines re-read and closed or re-scoped. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N1, S10).
+
+## ISS-DR-FRAME-TO-LANCE-VERSION-HAS-NO-WITNESS — D4 / S-INGRESS blocks four plans (2026-11-22)
+
+**Status:** OPEN (operator ruling on ownership). **Basis:** CITED, entry re-read 2026-11-22 (`entries/2026-11-03-d-global-where-p2.md`: "Boundary: BLOCKED_D4. No witness binds a DR Frame to a Lance version").
+**Fruit:** Heavy
+
+- Blocks D-GLOBAL-WHERE P2, D-DRISA-6 (`_rowid` authority), D-DRIVER-ZC-5 and D-DRAM-4, and the storage-backed arm of D-DR-SELECT-K. The durable cycle writer for the map table (`entries/2026-11-10-dt64-map-table-lance.md`) persists mappings, not frames ("Frames are not restored").
+- **What closes it:** the owner of DR → Lance read planning named (d-dr-fold-map D4), then one witness that binds a sealed Frame to a Lance version, with a stale-version refusal test. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N2, S5).
+
+## ISS-DELETE-DOES-NOT-ADVANCE-DATA-VERSION-EXO-337 — a delete leaves the data version unchanged (2026-11-22)
+
+**Status:** OPEN. **Basis:** cited, not re-measured here (`entries/2026-11-21-d-regc-14-intake.md:33`: "a delete that does not advance the data version (EXO-337)").
+**Fruit:** High-signal
+
+- A reader keyed on the data version cannot see the delete, so every version-witnessed read (D-DRDT-SPLIT "a refusal means not witnessed for this version", #2026) can be stale after one.
+- **What closes it:** a test that pins the stale read after a delete (red), then the fix, then the test green and disable-verified. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N13).
+
 ## ISS-DT64-SCOPE-ID-IS-NOT-A-GRANT — a copied scope id still binds another reader's fields on dt64's raw path (2026-11-12)
 
 **Status:** OPEN (council, plan v3 W11). **Basis:** TEST-PINNED (`crates/lance-graph-rbac/tests/scoped_lane_binding.rs` `finding_a_copied_scope_id_binds_another_readers_fields`).
@@ -6,6 +30,7 @@
 - `dt64::dr::Scope { id: u64 }` is public, and `bind_lanes` takes the field mask from the caller. Equality of two ids is checked; who may hold the id is not.
 - The sealed shape (`mod sealed` in the same file) refuses foreign issuers and other classes and binds only the scope's own visible fields, but only on its own entry point.
 - **What closes it:** the council's ruling on a public dt64 change, either a private `Scope` id or `bind_lanes` taking the sealed scope (30 files in 13 crates import dt64's `Scope` today; an import count, not each use read). Then the finding flips to a refusal.
+- **Consumers and co-blockers (2026-11-22):** report-rs is a production caller of this exact shape: `src/xverweis.rs:219` declares `const READER: Scope = Scope { id: 1 };` and `:537` passes it to `bind_lanes` (report-rs main `f2e55c3`). Either ruling breaks that call site, so the ruling should name its migration. The same question blocks `dr-select-k-sv-2` ("no authority issues a reader Scope"), `abibatch-lane-socket` (no authoritative reader-scope witness) and Foundry parity G2 (IAM in the read path); bring them to the council as one question. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (S4, S15).
 
 ## ISS-ACTIVATION-IGNORES-APP-HALF — does activating a concept admit every app prefix over it? (2026-11-12)
 
@@ -145,6 +170,8 @@ read (untouched) + per-version order attest (sorted when sealed). (b) above is
 that second half.
 
 **Fruit:** Heavy
+- **Witness census first (2026-11-22):** five per-site witnesses now exist, each naming the one it lacks: #1977 exact predicate-basis witness, #1982 versioned source-local codes, #2040 a selection witnessed with its lanes, `quack-derived-plane-p2-p4` ("no producer witness for lane contents"), `d-drca-2` (a detached `Keep` accepted under a new seal). Next step: a one-page census of who issues each, what it binds and at which version, before any contract type. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (S1).
+
 **Status:** OPEN (reframed, see correction). **Basis:** VERIFIED-IN-CODE
 (STATUS_BOARD rows D-CMR-5, D-RU-6; `ordered_lane.rs`); witness reading per
 `entries/2026-10-20-d-tga-slot-axis-witness-pointer.md`.
@@ -172,6 +199,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 
 - DECISION ACTION-GATE A (`entries/2026-10-20-six-decisions.md`): `commit_via` canonical, fail closed, a `Public` / `Restricted` declaration on every action.
 - In code: `commit` still exists and checks role names only; `commit_via` adds `grant_permits`; with `required_role: None` both skip RBAC, pinned by `commit_via_no_required_role_proceeds_regardless_of_rbac`. No `Public`/`Restricted` type exists.
+- **Falsifier available (2026-11-22):** Foundry parity G4 (action gate) is the same absent gate seen from a consumer lab (`entries/2026-11-10-foundry-parity-1-lab.md`, "OPEN: ... G4 action gate"). Use it as the end-to-end check that `commit` fails closed. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md`.
 - **What closes it:** test first: flip the pinning test to expect a refusal for an undeclared action, add the declaration, route `commit` through `commit_via` or deprecate it. Each guard disable-verified red.
 - Source: `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-23e.md` §3a.
 
