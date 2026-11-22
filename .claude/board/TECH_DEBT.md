@@ -5,6 +5,7 @@
 **Fruit:** High-signal
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (lines above, `main` `b38d88e`).
 
+- **Overlap (2026-11-22):** shares its closing edit with `ISS-SIX-DECISIONS-NOT-EXECUTED-FLOAT-REFS` — `lance-graph-r2il/Cargo.toml:25-26` still pulls `ogar-loco`/`ogar-r2il` from OGAR `main` unconditionally. #1899/#1902 moved the lens to binding by position with alias views; neither made OGAR optional. Land both rows in one PR.
 - **What closes it:** D-DT64-7-3: a compile-time lance-graph table at `0xFFFF :: 0xF000`, registered by DT64 (D-DT64-7 §1a), with a parity test against `R2ILVocabulary`, and `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il`.
 
 ## TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN
@@ -104,7 +105,7 @@ STATUS_BOARD has no rows for D-DRMC-0..5, D-QR-SAP / IAM / CAP / POLY (plans #16
 
 **Receipt (2026-10-23, from `session_019fbZ92dFKQ5BJHrA3YcH9A/010`, re-read at `5f1df420` by leading cell):** also without a row: ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0..9, D-QSP-1/2. ADMISSION is recorded only as a decision inside the D-RU-0 row; D-RFT-2..5 share one PROPOSAL row with D-LFA-0.
 
-**Status:** OPEN (line added 2026-10-26).
+**Status:** OPEN (line added 2026-10-26). Re-scoped 2026-11-22: November plans also lack rows (D-INTAKE, D-REGC, D-DRDT-SPLIT, D-LANESOCK, D-DR-SELECT, D-XLOG-NATIVE, D-STAUNEN, D-VIRTUAL-ADDRESS-ALGEBRA); a `plans_without_rows` check in `preflight_drift` would stop the list regrowing.
 
 **Census 2026-10-26 (Haiku `census-counter`, STATUS_BOARD at `87b2899bd`; the orchestrator re-ran 5 of the 34 counts and all matched):**
 - Still no row, by leading cell or by substring: D-DRMC-0..4, D-QR-SAP/IAM/CAP/POLY, D-RFT-1-COST, P-D3, P-E2, P-D4, ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0/1/9, D-QSP-1/2. None was closed by a row since 2026-10-23.

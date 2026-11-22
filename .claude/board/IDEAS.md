@@ -92,7 +92,7 @@ Agents filter by `@`-mention or domain to see what's theirs.
 Working model: repeated bit-plane folding with `half_add_mask` and `full_add_mask` is a register-contract ALU fold at CPU speed. Each `u64` word is one significance column across 64 lanes, and the carry moves one column up in the same lane. ndarray's cost gate shows this beats per-lane adds on dense masks and ties on random masks, but nothing measures a k-of-n WHERE threshold. **Next probe (P3-5):** a k-of-n threshold over n masks (n = 3, 8, 32; k = 1, n/2, n) built from the two shipped words only, against native AND/OR/popcount, on dense, sparse-one-lane and random masks, with an exact scalar oracle; report ns per 64-lane word. **Kill:** the carry-word threshold is slower than native on dense masks, or disagrees with the oracle anywhere. Twin (silence): k = 1 and k = n must equal OR and AND exactly. No public type, no new opcode (#1949 §7). See `entries/2026-11-03-d-dram-p3-consolidated.md` and ndarray #402.
 
 **Fruit:** High-signal
-**Status:** Measured 2026-11-03: kill fired. The carry words are 1.7–4.0× slower than facade `U8x64` byte counters in every cell; the oracle and twins hold. See `entries/2026-11-03-d-dram-p3-5-kofn.md`.
+**Status:** KILLED 2026-11-03 (#1954; regraded 2026-11-22: the row stayed listed as open because "Measured" is not terminal). Measured 2026-11-03: kill fired. The carry words are 1.7–4.0× slower than facade `U8x64` byte counters in every cell; the oracle and twins hold. See `entries/2026-11-03-d-dram-p3-5-kofn.md`.
 
 ## 2026-10-31 — Independent support is a mask question: does one source root's edges still cover the answer?
 
@@ -131,7 +131,7 @@ ndarray). **Kill:** `pooled` and the probe disagree on a case they are meant to
 share. This decides whether X6a is already met by existing code.
 
 **Fruit:** High-signal
-**Status:** Open.
+**Status:** SUPERSEDED 2026-11-22 (merged into "Independent support is a mask question", same fixture): run P-X6A-LEDGER in the same test as P-X6A-MASK so the mask supports, `DerivationLedger::pooled` and the path oracle are compared on one fixture. Was: Open.
 
 ## 2026-10-31 — Recursion never emits a count
 
@@ -156,6 +156,10 @@ are not inferred from references. **Next probe (P-KYTHE-CALL):** one function
 that both calls `f()` and takes `&f` must give exactly 1 `ref/call` and 1
 `ref`; a pure address-of gives 0 `ref/call`. It starts red. Needs a call-fact
 source; Charon is not installed here.
+**Amended 2026-11-22:** a call-fact source now exists. ruff_charon reads Charon LLBC
+into a Codegraph store with a `FunDeclId` per row (ruff #129–#135), and
+D-CODEGRAPH-RECON-1 ran over real Charon stores (#2000). What remains is mapping
+Charon call rows to Kythe `ref/call` edges under the /xrefs parity check.
 
 **Fruit:** Heavy
 **Status:** Open.
@@ -305,6 +309,7 @@ receipts cannot replace deltas, and the arithmetic above stands against the
 design.
 
 **Fruit:** High-signal
+**Overlap (2026-11-22):** the replay half of this row and "One replay that checks proof, receipt and commit witness together" are one witness; build the replay test once and let it serve both.
 **Status:** Open.
 ## 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that
 
@@ -350,6 +355,7 @@ which lanes wrote them. The probe's third disable becomes "the vertical read
 shows a lane other than the thought's own and lane 0".
 
 **Fruit:** High-signal
+**Overlap (2026-11-22):** the replay half of this row and "A certificate replaces the deltas" are one witness; build the replay test once and let it serve both.
 **Status:** Open.
 
 ## 2026-10-23 — OGAR #357's first kill test (TLAC-P01) is now buildable from real guards

@@ -29,7 +29,7 @@
 
 ## ISS-SOURCE-ROOT-AGENT-OR-REPORT — is a source root the observer or one report? (2026-10-31)
 
-**Status:** OPEN (operator decision). **Basis:** VERIFIED-IN-CODE (`crates/xlog-relcomp-probe/tests/provenance.rs` `root()` hashes the observer and the report's facts; `unrelated_sources_never_collapse_to_one_root` pins that one observer with two different reports gives two roots).
+**Status:** RESOLVED 2026-11-01 (regraded 2026-11-22). DECISION (operator, 2026-11-01, `.claude/plans/d-staunen-5-resident-recursive-plasticity-v1.md` §line 157, #1916): a source root is neither the observer nor the report; it identifies the independent evidential origin, and observer identity, report identity and dependency lineage are kept separately beside it. Repeated accounts of one event do not multiply confidence. The ledger kept waiting on a ruling that had been made. Follow-up (not a blocker): re-key the probe `root()` on the evidential origin and replace P-AGENT-VS-REPORT with a test that two accounts of one event give one root. Was: OPEN (operator decision). **Basis:** VERIFIED-IN-CODE (`crates/xlog-relcomp-probe/tests/provenance.rs` `root()` hashes the observer and the report's facts; `unrelated_sources_never_collapse_to_one_root` pins that one observer with two different reports gives two roots).
 **Fruit:** High-signal
 
 - Today one observer filing two different reports counts as two independent
@@ -181,6 +181,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 **Fruit:** High-signal
 
 - DECISION FLOAT-REFS B: the fold path off by default.
+- **Overlap (2026-11-22):** the same optional-OGAR edit closes `TD-FROZEN-POLYFILL-NAMED-BY-R2IL`; land both in one PR. Re-read 2026-11-22: `crates/lance-graph/Cargo.toml:58` still unconditional.
 - **What closes it:** first a census of every `lance_graph::fold` import in the workspace and sibling repos (Haiku `harvest-scout`, a closed search space), then the `fold` feature, with the default build checked to no longer resolve OGAR.
 
 ## ISS-SIX-DECISIONS-NOT-EXECUTED-WIRE50-ISA-LEGACY — CE64 50..52 presence and the 46..49 legacy reading have no code (2026-10-23)
