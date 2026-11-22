@@ -1,4 +1,4 @@
-# D-XLOG-W7-2-STEP-4B, corrected: the probe's predicate is the method's DO (2026-11-19)
+# D-XLOG-W7-2-STEP-4B-CORRECTED (of D-XLOG-W7-2-STEP-4B): the probe's predicate is the method's DO (2026-11-19)
 
 **Status:** MEASURED (test-pinned; timing taken). Supersedes the shape, not
 the numbers' meaning, of `2026-11-18-d-xlog-w7-2-method-over-cube-lanes.md`.
