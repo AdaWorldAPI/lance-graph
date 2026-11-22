@@ -33,3 +33,10 @@ The two consumers are also linked to each other: report-rs is a server-side clie
 - Low-hanging: update STATUS_BOARD D-REGC-10 (done in zammad-rs) and the stale `decide_in` line (done in this commit).
 - High-signal: bring C1 to the council with both call sites named; the ruling's migration is two one-line changes plus whatever issues the sealed scope.
 - Heavy: D-REGC-11 and D-INTAKE-2F in zammad-rs (consumer side, not lance-graph's to land).
+
+## ⊘ Corrections (2026-11-22, same day, from a handoff carrying the recorded EXO decisions; code facts re-verified at lance-graph `138806961`)
+
+- **C1 is wrong in its last sentence.** A DR/DT `Scope` is a source-partition compatibility witness, not authorization (DECISION, EXO-206). It is not issued from a login, and lance-graph does not depend on any identity provider or on `ogar-auth`/`ogar-rbac`. Authorization stays in each consumer, through the provider-neutral `lance_graph_contract::rbac` contract, checked before a protected read. The two `Scope { id: 1 }` constants stay.
+- **C3 ordering is not an instruction.** zammad-rs #98 already moved reads to `Reader::open_selected`. Whether moving all of `quack-shadow` onto the intake `Table` (D-INTAKE-2F) removes work or only swaps a working adapter is to be assessed first. The measured work is #96's findings (lanes checked twice, rendered cells not using the checked lanes, 546 per-row key resolutions on join rows).
+- **report-rs #33 (§3 C2):** the value layer is not to be promoted by a visibility change; EXO-174 requires exact decimals and no report-rs value store.
+- **Method identity is decided** (EXO-199, `MethodRef` + `Stamp`, `lance-graph-dt64/src/lib.rs:369`). **Deletes already advance the data version** (`lance-graph-intake/src/lib.rs:957`); EXO-337 is the separate abort-representation question.

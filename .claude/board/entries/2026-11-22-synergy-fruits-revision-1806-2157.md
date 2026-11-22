@@ -432,3 +432,9 @@ Heavy (3):
 ---
 
 Cross-check of counts: arcs 17 (16 plus the report-rs consumer arc); revised rows 39 (38 from verdicts.md plus the row with no verdict); new loose ends 46 (N1-N46), with 5 close-candidates listed separately; synergies 19 (S1-S12 general, S13-S19 report-rs consumer observations). The report-rs import fact map (map-report-rs.md) was not available; Arc 17 and S13-S19 rest on PR titles only.
+
+## ⊘ Corrections (2026-11-22, same day)
+
+- **N1 / S10 (method identity) is closed:** decided as `MethodRef` with an issuer `Stamp` (EXO-199, #1979; `lance-graph-dt64/src/lib.rs:369`). EXO-50 is the agent-coordination channel. Residual: class basis under `SchemaRev` (EXO-370).
+- **N13 (EXO-337) had a wrong premise:** `Table::delete_key` advances the data version (`lance-graph-intake/src/lib.rs:957`). EXO-337 is about how an abort is represented.
+- **S4 / S15 (reader scope):** a `Scope` is not authorization (EXO-206); no login-derived scope, no identity-provider dependency in lance-graph.
