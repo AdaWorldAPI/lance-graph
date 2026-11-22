@@ -37,9 +37,9 @@ exactly one of them, never both.
 | 2026-11-21 | `D-REGC-14` |  | [2026-11-21-d-regc-14-intake.md](2026-11-21-d-regc-14-intake.md) |
 | 2026-11-21 | `D-REGC-12` |  | [2026-11-21-d-regc-12-pg-row-polyfill.md](2026-11-21-d-regc-12-pg-row-polyfill.md) |
 | 2026-11-21 | `D-INTAKE-2` |  | [2026-11-21-d-intake-2-compiler.md](2026-11-21-d-intake-2-compiler.md) |
-| 2026-11-19 | `D-XLOG-W7-2-STEP-4B` |  | [2026-11-19-d-xlog-w7-2-method-is-a-called-do.md](2026-11-19-d-xlog-w7-2-method-is-a-called-do.md) |
-| 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-quack-like-at-bind.md](2026-11-19-d-gpw-quack-like-at-bind.md) |
-| 2026-11-19 | `D-GPW` |  | [2026-11-19-d-gpw-lance-graph-spacy-front-end.md](2026-11-19-d-gpw-lance-graph-spacy-front-end.md) |
+| 2026-11-19 | `D-XLOG-W7-2-STEP-4B-CORRECTED` |  | [2026-11-19-d-xlog-w7-2-method-is-a-called-do.md](2026-11-19-d-xlog-w7-2-method-is-a-called-do.md) |
+| 2026-11-19 | `D-GPW-LIKE-AT-BIND` |  | [2026-11-19-d-gpw-quack-like-at-bind.md](2026-11-19-d-gpw-quack-like-at-bind.md) |
+| 2026-11-19 | `D-GPW-SPACY` |  | [2026-11-19-d-gpw-lance-graph-spacy-front-end.md](2026-11-19-d-gpw-lance-graph-spacy-front-end.md) |
 | 2026-11-19 | `D-GPW-0` |  | [2026-11-19-d-gpw-global-pattern-words.md](2026-11-19-d-gpw-global-pattern-words.md) |
 | 2026-11-19 | `d-codegraph-n1-ruff-source-rows-open` |  | [2026-11-19-d-codegraph-n1-ruff-source-rows-open.md](2026-11-19-d-codegraph-n1-ruff-source-rows-open.md) |
 | 2026-11-19 | `corrections-cube-tiles-and-trigger-wording` |  | [2026-11-19-corrections-cube-tiles-and-trigger-wording.md](2026-11-19-corrections-cube-tiles-and-trigger-wording.md) |

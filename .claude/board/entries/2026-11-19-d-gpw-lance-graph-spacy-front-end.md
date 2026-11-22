@@ -1,4 +1,4 @@
-# D-GPW: `lance-graph-spacy`, spaCy's Matcher token-pattern format as a front end (2026-11-19)
+# D-GPW-SPACY (D-GPW): `lance-graph-spacy`, spaCy's Matcher token-pattern format as a front end (2026-11-19)
 
 **Status:** TEST-PINNED against a table read from spaCy's source. **NOT run
 against spaCy.** Scope is a pending decision (EXO-345); this is its scope 1.

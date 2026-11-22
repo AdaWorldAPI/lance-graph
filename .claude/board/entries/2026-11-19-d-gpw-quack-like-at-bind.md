@@ -1,4 +1,4 @@
-# D-GPW, first step: a `LIKE` pattern is resolved at Quack's bind (2026-11-19)
+# D-GPW-LIKE-AT-BIND (D-GPW, first step): a `LIKE` pattern is resolved at Quack's bind (2026-11-19)
 
 **Status:** MEASURED (test-pinned). No timing taken: binding is cold, once
 per binding, and nothing in `lower` or the executor changed.
