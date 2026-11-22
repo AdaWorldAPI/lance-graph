@@ -25,10 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-672 entries, 2026-08-06 .. 2026-11-21.
+676 entries, 2026-08-06 .. 2026-11-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-22 | `synergy-fruits-revision-1806-2157` |  | [2026-11-22-synergy-fruits-revision-1806-2157.md](2026-11-22-synergy-fruits-revision-1806-2157.md) |
+| 2026-11-22 | `rbac-boundary-findings-postponed` |  | [2026-11-22-rbac-boundary-findings-postponed.md](2026-11-22-rbac-boundary-findings-postponed.md) |
+| 2026-11-22 | `consumer-synergy-zammad-rs-report-rs` |  | [2026-11-22-consumer-synergy-zammad-rs-report-rs.md](2026-11-22-consumer-synergy-zammad-rs-report-rs.md) |
 | 2026-11-21 | `D-REGC-0` |  | [2026-11-21-d-regc-register-contract-reconciliation.md](2026-11-21-d-regc-register-contract-reconciliation.md) |
 | 2026-11-21 | `D-REGC-1` |  | [2026-11-21-d-regc-bound-read-tiled-cube.md](2026-11-21-d-regc-bound-read-tiled-cube.md) |
 | 2026-11-21 | `D-REGC-14` |  | [2026-11-21-d-regc-14-intake.md](2026-11-21-d-regc-14-intake.md) |
@@ -223,6 +226,7 @@ exactly one of them, never both.
 | 2026-10-26 | `D-DQM-M1` |  | [2026-10-26-dqm-m1-timed-arm.md](2026-10-26-dqm-m1-timed-arm.md) |
 | 2026-10-26 | `D-TFLP-V2` |  | [2026-10-26-d-tflp-v2-synergy-revision.md](2026-10-26-d-tflp-v2-synergy-revision.md) |
 | 2026-10-26 | `D-TFLP-EVIDENCE-1` |  | [2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md](2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md) |
+| 2026-10-26 | `D-TFLP-AUDIT` |  | [2026-10-26-d-tflp-parity-audit.md](2026-10-26-d-tflp-parity-audit.md) |
 | 2026-10-26 | `D-TFLP` |  | [2026-10-26-d-tflp-65-landing.md](2026-10-26-d-tflp-65-landing.md) |
 | 2026-10-26 | `coresearch-lance13-masked-read-dr64` |  | [2026-10-26-coresearch-lance13-masked-read-dr64.md](2026-10-26-coresearch-lance13-masked-read-dr64.md) |
 | 2026-10-25 | `D-DRF-W8` |  | [2026-10-25-drf-w8-budget.md](2026-10-25-drf-w8-budget.md) |

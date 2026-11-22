@@ -1,0 +1,3 @@
+none exit=0 none sum=267911168 recip=1075843080 nb=8
+add exit=1 tensorflow/lite/micro/kernels/internal/fixedpoint.h:94:14: runtime error: signed integer overflow: 524288 + 2146959360 cannot be represented in type 'int'
+shift exit=1 tensorflow/lite/micro/kernels/internal/common.h:976:54: runtime error: shift exponent 32 is too large for 32-bit type 'unsigned int'

@@ -1,0 +1,38 @@
+TARGET x86_64 
+ARM scalar_simd_int_ops_dot_i8 cancel cases=800 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 conforming cases=800 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 extended cases=800 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-1,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-128,-127) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-128,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-128,127) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(0,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(1,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(127,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(127,127) cases=3 mismatches=0 
+SCALAR_ACC_LIMIT n=131071 got=2147467264 want=2147467264 exact=true
+SCALAR_ACC_LIMIT n=131072 got=-2147483648 want=2147483648 exact=false
+SCALAR_ACC_LIMIT n=140000 got=-2001207296 want=2293760000 exact=false
+SCALAR_ACC_LIMIT n=4000000 got=1111490560 want=65536000000 exact=false
+ARM avx2_dot_i8_raw_bytes cancel cases=800 mismatches=0 
+ARM avx2_dot_i8_raw_bytes conforming cases=800 mismatches=0 
+ARM avx2_dot_i8_raw_bytes extended cases=800 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(-1,-128) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(-128,-127) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(-128,-128) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(-128,127) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(0,-128) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(1,-128) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(127,-128) cases=3 mismatches=0 
+ARM avx2_dot_i8_raw_bytes pair(127,127) cases=3 mismatches=0 
+ARM avx2_dot_i8_fed_codec8_biased_u8 cancel cases=800 mismatches=324 cancel_n2_35: got 0 want -9472
+ARM avx2_dot_i8_fed_codec8_biased_u8 conforming cases=800 mismatches=799 conforming_n1_0: got -2576 want -3600
+ARM avx2_dot_i8_fed_codec8_biased_u8 extended cases=800 mismatches=800 extended_n1_0: got -460 want -4428
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(-1,-128) cases=3 mismatches=3 pair(-1,-128)x1: got 0 want 128
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(-128,-127) cases=3 mismatches=3 pair(-128,-127)x1: got 0 want 16256
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(-128,-128) cases=3 mismatches=3 pair(-128,-128)x1: got 0 want 16384
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(-128,127) cases=3 mismatches=3 pair(-128,127)x1: got 0 want -16256
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(0,-128) cases=3 mismatches=0 
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(1,-128) cases=3 mismatches=3 pair(1,-128)x1: got 0 want -128
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(127,-128) cases=3 mismatches=3 pair(127,-128)x1: got 0 want -16256
+ARM avx2_dot_i8_fed_codec8_biased_u8 pair(127,127) cases=3 mismatches=3 pair(127,127)x1: got 1 want 16129

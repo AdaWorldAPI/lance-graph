@@ -157,6 +157,7 @@ Read in code at lance-graph `fb27c46`, OGAR main and report-rs `83093de`. Nothin
 **Downstream observations (report-rs `83093de`, reported to its owner, not changed here).**
 
 - `LanceGraphScope::decide_in` maps `scope: None` to all customers (`src/iam.rs:231`). Safe today only because report-rs's actor source emits `None` solely for an explicit all-customers grant.
+  - ⊘ **Stale (2026-11-22):** report-rs main `f2e55c3` no longer widens on the decision alone: `customers_in` (`src/iam.rs:318ff`) admits every customer only when the actor's own entry is the explicit all-customers grant, and no customer otherwise.
 - `RoleScopeAuthority::scope_for(&AuthenticatedUser)` (`src/flow_scratch.rs`, around 288-306) binds the user id from a `VerifiedLogin` at construction but accepts any `AuthenticatedUser` with that id. The trait is OGAR's (`ReportAuthority`, `ogar-flow-m365/src/host.rs:88`).
 
 ### Still closed

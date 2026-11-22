@@ -1,0 +1,16 @@
+[package]
+name = "crossdot64"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Lab probe (D-TFLP Amendment 6.4): int8 dot products of ndarray's per-target paths against a widened
+# i64 oracle. Run natively, under qemu-aarch64 (NEON) and under node's WASI (wasm32 simd128).
+[dependencies]
+ndarray = { path = "../../../../../ndarray", default-features = false, features = ["std"] }
+
+[profile.release]
+debug = 0
+# overflow-checks stay at the release default (off) so wrapping behaviour is what is measured
+
+[workspace]

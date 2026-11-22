@@ -1,3 +1,10 @@
+## TD-REGC-PG-ROW-POLYFILL-PRESENCE-ZERO-ARM-HAS-NO-FIXTURE — the presence 0, value ≠ 0 arm is untested (2026-11-22) — OPEN
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** cited (`entries/2026-11-21-d-regc-12-pg-row-polyfill.md:29`: "the presence 0, value ≠ 0 arm has no fixture row").
+
+- **What closes it:** one fixture row with presence 0 and a non-zero value, asserting the polyfill reads it as absent, with a disable run. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N38).
+
 ## TD-FROZEN-POLYFILL-NAMED-BY-R2IL — the compile-time polyfill is declared at runtime and named through `ogar-r2il` (2026-10-31) — OPEN
 
 `BindStore::declare_algebra` (in `crates/lance-graph-dt64/src/lib.rs`) declares the polyfill lens at runtime, and `lance-graph-r2il::binding` resolves every word through `ogar_r2il::R2ILVocabulary` and refuses any lens whose concept is not `ogar_r2il::CONCEPT_R2IL_FOLD` (`binding.rs:278`, `:496-525`; `0xC401` is provisional, not minted). By D-DT64-7 D2/D3 the polyfill is Frozen (compile time) and R2IL is harvest-side.
@@ -5,6 +12,7 @@
 **Fruit:** High-signal
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (lines above, `main` `b38d88e`).
 
+- **Overlap (2026-11-22):** shares its closing edit with `ISS-SIX-DECISIONS-NOT-EXECUTED-FLOAT-REFS` — `lance-graph-r2il/Cargo.toml:25-26` still pulls `ogar-loco`/`ogar-r2il` from OGAR `main` unconditionally. #1899/#1902 moved the lens to binding by position with alias views; neither made OGAR optional. Land both rows in one PR.
 - **What closes it:** D-DT64-7-3: a compile-time lance-graph table at `0xFFFF :: 0xF000`, registered by DT64 (D-DT64-7 §1a), with a parity test against `R2ILVocabulary`, and `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il`.
 
 ## TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN
@@ -28,9 +36,19 @@ needs per-side counts near 3·10⁹ rows.
 **Fruit:** Low-hanging
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`native.rs:45`, `:148-157`; no hit for `NativeRefusal::Count` outside `native.rs`, read on main `b38d88e`).
 
+- **Note (2026-11-22, inferred, not re-read):** #2083 (checked i128 join size) and #2092 (checked i64 escape) changed the cube's arithmetic; check whether either makes `NativeRefusal::Count` reachable from a test before splitting the multiply. Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (S9).
 - **What closes it:** split the multiply so a test can hand it counts, then
   pin the refusal with a can-fire and a stay-silent case, or document the
   path as unreachable and say why.
+## TD-MPF-2-FOLD-NUMBERS-PREDATE-NDARRAY-376 — the measurement that proposed the fix still reports the old fold (2026-10-26)
+
+**Status:** OPEN. **Basis:** MEASURED elsewhere (D-DRF-P2), not re-run here.
+**Fruit:** Low-hanging
+
+- `entries/2026-10-23-d-mpf-2-fixed-cost.md` measured `ndarray::simd::masked_sum_i32` as a scalar set-bit walk: 1.7 / 25 / 44 µs at 0 / 50 / 100 % selected, 64 K rows. From that it concluded that an equal-work `i64` loop is about 3× faster than the fold. It then proposed a density-chosen body, without implementing it.
+- That proposal is now implemented. ndarray #376 (`195844bd`, 2026-10-25) sums dense words branch-free and walks sparse ones. D-DRF-P2 (`entries/2026-10-24-drf-p2-breakeven.md:36`) measured the effect on another workload: a full-mask fold went from 2 341 to 650 ns (AVX-512) and from 2 306 to 559 ns (AVX2), and 25 % masks were unchanged.
+- So D-MPF-2's 50 % and 100 % numbers, its "3× slower than scalar" verdict, and its OPEN question (does the mask form beat a scalar loop) were all measured on the old fold. Callers that inherit the new body: `math-polyfill-probe` (fixed_cost, hybrid), `drf-focus-probe`, `lance-graph-mask-risc`, and `lance-graph-onnx` `ReduceSum(Where(Greater))`.
+- **What closes it:** re-run the D-MPF-2 probe against ndarray `195844bd` or later, record the target-cpu, and append the numbers to that entry. If the gap to scalar closes, D-MPF-1's mask-vs-scalar question changes answer.
 
 ## TD-NARS-REVISION-UNGUARDED-CAUSAL-EDGE-ISA-1 — `Opcode::Revision` pools a duplicated source; a measured site of TD-NARS-REVISION-UNGUARDED (2026-10-23)
 
@@ -73,8 +91,9 @@ on main `8f610a85` with `CARGO_PROFILE_{DEV,TEST}_DEBUG=0 CARGO_INCREMENTAL=0`:
 No test reads a file or an env var, so nothing blocks gating them.
 **Fix:** drop `--lib` from that step (or add a second `--tests` step). The
 step comment gives no reason for `--lib`.
+**Amendment 2026-10-26 (main `87b2899bd`):** this has got worse. `crates/bgz-tensor/tests/` now holds 11 files, against 9 at `8f610a85`, and `rust-test.yml:282` still runs `--lib`. Every probe added since this row was filed is also outside CI. The fix is unchanged and is still a single line.
 **Fruit:** Low-hanging
-**Status:** OPEN
+**Status:** RESOLVED 2026-10-26 (CI step now `--tests`; measured locally: 12 binaries = lib + 11 integration files, 241 passed, 0 failed).
 
 ## TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN
 
@@ -84,7 +103,7 @@ main and 1..63 as a thought-git slot, which is why `execute` writing W = 0 is
 correct. The doc contradicts the decision. Linear EXO-65.
 
 **Fruit:** Low-hanging
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
+**Status:** RESOLVED 2026-10-26 (`edge.rs:944` and `layout.rs:53` now read W as the thought layer: 0 = main, 1..=63 hypothesis lanes, points nowhere; comment-only). **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
 
 ## TD-STATUS-BOARD-ROWS-MISSING-FOR-OCT-PLANS-1 (2026-10-23) — OPEN
 
@@ -93,6 +112,14 @@ correct. The doc contradicts the decision. Linear EXO-65.
 STATUS_BOARD has no rows for D-DRMC-0..5, D-QR-SAP / IAM / CAP / POLY (plans #1661–#1663), D-RFT-1-COST and the Palette256 probes P-D3, P-E2, P-D4, P-S2, although each has a plan or a board entry (`LEDGER-REVISION-2026-10-23e.md` §3c, checked by searching the board for each D-id, so a row under another name could exist). Payoff: "is it shipped" answerable from the board. Method: a Haiku `census-counter` lists every D-id in `INTEGRATION_PLANS.md` and `.claude/plans/` with no STATUS row; the owning sessions supply the wording; a `spec-editor` applies it.
 
 **Receipt (2026-10-23, from `session_019fbZ92dFKQ5BJHrA3YcH9A/010`, re-read at `5f1df420` by leading cell):** also without a row: ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0..9, D-QSP-1/2. ADMISSION is recorded only as a decision inside the D-RU-0 row; D-RFT-2..5 share one PROPOSAL row with D-LFA-0.
+
+**Status:** OPEN (line added 2026-10-26). Re-scoped 2026-11-22: November plans also lack rows (D-INTAKE, D-REGC, D-DRDT-SPLIT, D-LANESOCK, D-DR-SELECT, D-XLOG-NATIVE, D-STAUNEN, D-VIRTUAL-ADDRESS-ALGEBRA); a `plans_without_rows` check in `preflight_drift` would stop the list regrowing.
+
+**Census 2026-10-26 (Haiku `census-counter`, STATUS_BOARD at `87b2899bd`; the orchestrator re-ran 5 of the 34 counts and all matched):**
+- Still no row, by leading cell or by substring: D-DRMC-0..4, D-QR-SAP/IAM/CAP/POLY, D-RFT-1-COST, P-D3, P-E2, P-D4, ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0/1/9, D-QSP-1/2. None was closed by a row since 2026-10-23.
+- Two substring hits are collisions, not rows. `D-DRMC-5` appears only in the text of row EXP-DRMC-L1 (line 155). `P-S2` appears only inside `D-ONNX-CAP-S2` (line 134).
+- Rows present: D-DRAV-AV1 (line 24) and D-DTM-S0 (line 43).
+- **Correction to a likely next entry:** the DuckDB plan from #1787 (`duckdb-dr-quack-machine-room-reuse-v1.md`) defines no D-ids. It uses milestones M0–M4 and has an INTEGRATION_PLANS entry (2 hits). So it lacks a STATUS row because it has no ids to row, not because a row was missed. The fix is to mint ids when M1 is authorized, not a STATUS edit now.
 
 ## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
 

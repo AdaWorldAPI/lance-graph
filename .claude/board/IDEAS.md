@@ -85,6 +85,15 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
+## 2026-11-22 — Train D-EPI-COT C3c on "the ablation discriminated", read from the ledger's sensitivity
+
+`[P1 domain:epistemic D-EPI-COT C3c]`
+
+C3c's learned ordering trains on a label that the entry itself says should change to "the ablation discriminated" (`entries/2026-10-28-d-epi-cot-c3c-learn.md`; `d-nsl-w0-w1` repeats it). The signal already exists: `DerivationLedger::sensitivity` (`crates/lance-graph-planner/src/nars/support.rs:571`) returns how much a statement's truth moves under an ablation. **Next probe:** relabel from `sensitivity`, retrain, and show the ordering changes on at least one fixture where the old label and the new one disagree. **Kill:** the two labels never disagree on any fixture (then the change is cosmetic). Map: `entries/2026-11-22-synergy-fruits-revision-1806-2157.md` (N21).
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
 ## 2026-11-03 — k-of-n on the shipped carry words: does the Abakus register model hold on a WHERE threshold?
 
 `[P1 @falsifier-designer domain:mask-algebra D-DRAM-3 D-DRAM-P3-5]`
@@ -92,7 +101,7 @@ Agents filter by `@`-mention or domain to see what's theirs.
 Working model: repeated bit-plane folding with `half_add_mask` and `full_add_mask` is a register-contract ALU fold at CPU speed. Each `u64` word is one significance column across 64 lanes, and the carry moves one column up in the same lane. ndarray's cost gate shows this beats per-lane adds on dense masks and ties on random masks, but nothing measures a k-of-n WHERE threshold. **Next probe (P3-5):** a k-of-n threshold over n masks (n = 3, 8, 32; k = 1, n/2, n) built from the two shipped words only, against native AND/OR/popcount, on dense, sparse-one-lane and random masks, with an exact scalar oracle; report ns per 64-lane word. **Kill:** the carry-word threshold is slower than native on dense masks, or disagrees with the oracle anywhere. Twin (silence): k = 1 and k = n must equal OR and AND exactly. No public type, no new opcode (#1949 §7). See `entries/2026-11-03-d-dram-p3-consolidated.md` and ndarray #402.
 
 **Fruit:** High-signal
-**Status:** Measured 2026-11-03: kill fired. The carry words are 1.7–4.0× slower than facade `U8x64` byte counters in every cell; the oracle and twins hold. See `entries/2026-11-03-d-dram-p3-5-kofn.md`.
+**Status:** KILLED 2026-11-03 (#1954; regraded 2026-11-22: the row stayed listed as open because "Measured" is not terminal). Measured 2026-11-03: kill fired. The carry words are 1.7–4.0× slower than facade `U8x64` byte counters in every cell; the oracle and twins hold. See `entries/2026-11-03-d-dram-p3-5-kofn.md`.
 
 ## 2026-10-31 — Independent support is a mask question: does one source root's edges still cover the answer?
 
@@ -131,7 +140,7 @@ ndarray). **Kill:** `pooled` and the probe disagree on a case they are meant to
 share. This decides whether X6a is already met by existing code.
 
 **Fruit:** High-signal
-**Status:** Open.
+**Status:** SUPERSEDED 2026-11-22 (merged into "Independent support is a mask question", same fixture): run P-X6A-LEDGER in the same test as P-X6A-MASK so the mask supports, `DerivationLedger::pooled` and the path oracle are compared on one fixture. Was: Open.
 
 ## 2026-10-31 — Recursion never emits a count
 
@@ -156,9 +165,31 @@ are not inferred from references. **Next probe (P-KYTHE-CALL):** one function
 that both calls `f()` and takes `&f` must give exactly 1 `ref/call` and 1
 `ref`; a pure address-of gives 0 `ref/call`. It starts red. Needs a call-fact
 source; Charon is not installed here.
+**Amended 2026-11-22:** a call-fact source now exists. ruff_charon reads Charon LLBC
+into a Codegraph store with a `FunDeclId` per row (ruff #129–#135), and
+D-CODEGRAPH-RECON-1 ran over real Charon stores (#2000). What remains is mapping
+Charon call rows to Kythe `ref/call` edges under the /xrefs parity check.
 
 **Fruit:** Heavy
 **Status:** Open.
+## 2026-10-26 — The D-NAM-2 TFLite int8 leaf now has its arithmetic below it: ndarray #375 + codec8 phase (f)
+
+`[P1 @truth-architect domain:onnx-tflite D-NAM-2 D-NAM-4 D-NAM-PZL]`
+
+**Status:** OPEN — connection only; nothing built in lance-graph.
+**Fruit:** High-signal
+
+**What D-NAM-2 requires** (`d-nam-2-onnx-tflite-leaf-dto-v1.md:12`): treat TFLite affine `real = scale·(q − zero_point)` as its own contract, not Palette256. Preserve zero points, per-channel scales, accumulator width, rounding, bias, saturation and activation range, and keep "exact quantized interpretation" separate from "calibrated approximation". STATUS_BOARD:9 calls it SPEC / PROPOSED, with an independent oracle as a prerequisite.
+
+**What landed in ndarray on 2026-10-24:**
+- #375 (`84addbd8`): TFLite/gemmlowp fixed-point requantization, bit-exact. It includes `quantize_multiplier`, `multiply_by_quantized_multiplier_*`, `rounding_divide_by_pot_i32`, `srdhm_*` and `requantize_i32_to_i8`, with per-lane AVX methods. That covers the "exact quantized interpretation" arm.
+- #370 codec8 (plan `quantized-codec8-v2.md`, ratified by a 5+3 council): 8-bit code spaces and certified tanh tables. Its line 39 rules that `lance-graph-tflite` and `lance-graph-onnx` are `pub use` facades, and phase (f), line 171, is "facade PRs in lance-graph".
+
+**The connection:** the leaf D-NAM-2 specifies and the facade codec8 schedules are the same lance-graph PR. It would be a `lance-graph-tflite` crate (none exists yet) that re-exports #375 and codec8, as `lance-graph-onnx` already re-exports `vstanh` / `vsexp`. That satisfies D-NAM-2 point 4 without a second implementation.
+
+**Tension to settle first.** D-NAM PZL-1 (`d-nam-palette-native-lut-capstone-v1.md:69`) says "no new codec" for its single-LUT example. codec8's certified tanh tables are a code space. Before any facade PR, one owner decides whether PZL-1's LUT is a codec8 table (adopt) or a separate offline example (keep both, documented as different contracts). Otherwise there will be two 256-entry tanh tables with two owners. Also, D-NAM-2 says TFLite int8 TANH "is not a free f32 alias". The codec8 tanh table is exactly that non-free arm and must not be wired as an alias.
+
+**First gate if authorized:** a golden test that feeds ndarray's #375 golden vectors through the facade path unchanged (re-export, not re-implementation). Add a disable-run: replacing one `pub use` with a hand copy must fail a symbol-identity check.
 
 ## 2026-10-25 — Virtual associative folds + comma syndromes + emergency Thought-Git Pickaxe (brainstorm cluster)
 
@@ -287,6 +318,7 @@ receipts cannot replace deltas, and the arithmetic above stands against the
 design.
 
 **Fruit:** High-signal
+**Overlap (2026-11-22):** the replay half of this row and "One replay that checks proof, receipt and commit witness together" are one witness; build the replay test once and let it serve both.
 **Status:** Open.
 ## 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that
 
@@ -332,6 +364,7 @@ which lanes wrote them. The probe's third disable becomes "the vertical read
 shows a lane other than the thought's own and lane 0".
 
 **Fruit:** High-signal
+**Overlap (2026-11-22):** the replay half of this row and "A certificate replaces the deltas" are one witness; build the replay test once and let it serve both.
 **Status:** Open.
 
 ## 2026-10-23 — OGAR #357's first kill test (TLAC-P01) is now buildable from real guards

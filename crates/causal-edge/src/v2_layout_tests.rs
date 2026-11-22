@@ -20,7 +20,7 @@
 // The half-field writers are deprecated (D-EPI-CANON-0); these tests
 // pin their physical layout, so they keep calling them.
 #[allow(deprecated)]
-mod v2_layout_tests {
+mod tests {
     use crate::edge::{CausalEdge64, InferenceType};
     use crate::layout::{CausalTopology, ReasoningBand, TrustTexture};
     use crate::pearl::CausalMask;

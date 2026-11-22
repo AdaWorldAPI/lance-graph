@@ -216,5 +216,5 @@ rec_bad = sum(1 for s, l in zip(Ss, rr) if tuple(map(int, l.split()[2:4])) != ge
 res.update(counts=cnt, f24_row_classes=f24cls, by_length=by_len, aborts=abort_rows, oracle_vs_ref_examples=diff_examples,
            reciprocal_check=dict(values=len(Ss), mismatches=rec_bad),
            timing_python_s=dict(oracle_all=t_oracle, recipe_all=t_recipe, f24_all=t_f24))
-json.dump(res, open(OUT, "w"), indent=1, default=str)
+json.dump(res, open(OUT, "w"), separators=(",", ":"), default=str)
 print(json.dumps({k: v for k, v in res.items() if k not in ("aborts", "oracle_vs_ref_examples", "calibrations")}, indent=1, default=str))

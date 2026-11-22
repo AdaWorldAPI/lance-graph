@@ -1,0 +1,27 @@
+TARGET aarch64 
+ARM scalar_simd_int_ops_dot_i8 cancel cases=800 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 conforming cases=800 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 extended cases=800 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-1,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-128,-127) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-128,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(-128,127) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(0,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(1,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(127,-128) cases=3 mismatches=0 
+ARM scalar_simd_int_ops_dot_i8 pair(127,127) cases=3 mismatches=0 
+SCALAR_ACC_LIMIT n=131071 got=2147467264 want=2147467264 exact=true
+SCALAR_ACC_LIMIT n=131072 got=-2147483648 want=2147483648 exact=false
+SCALAR_ACC_LIMIT n=140000 got=-2001207296 want=2293760000 exact=false
+SCALAR_ACC_LIMIT n=4000000 got=1111490560 want=65536000000 exact=false
+ARM neon_dot_i8x16_neon cancel cases=300 mismatches=0 
+ARM neon_dot_i8x16_neon conforming cases=300 mismatches=0 
+ARM neon_dot_i8x16_neon extended cases=300 mismatches=0 
+ARM neon_dot_i8x16_neon pair(-1,-128) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(-128,-127) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(-128,-128) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(-128,127) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(0,-128) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(1,-128) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(127,-128) cases=2 mismatches=0 
+ARM neon_dot_i8x16_neon pair(127,127) cases=2 mismatches=0 

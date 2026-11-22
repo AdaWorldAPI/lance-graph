@@ -226,7 +226,7 @@ fn compose_changes_only_the_payload() {
         let mut t = vec![0u8; 65536].into_boxed_slice();
         for x in 0..256 {
             for y in 0..256 {
-                t[x * 256 + y] = (x * a ^ y * b) as u8;
+                t[x * 256 + y] = ((x * a) ^ (y * b)) as u8;
             }
         }
         t.try_into().unwrap()

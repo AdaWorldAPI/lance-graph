@@ -115,14 +115,8 @@ impl InferenceType {
                     Self::Abduction
                 }
             } // Exemplification / Analogy-neg
-            4 => Self::Revision, // Revision +/- (same enum, sign distinguishes)
-            5 => {
-                if forward {
-                    Self::Synthesis
-                } else {
-                    Self::Synthesis
-                }
-            } // Synthesis / Decomposition
+            4 => Self::Revision,  // Revision +/- (same enum, sign distinguishes)
+            5 => Self::Synthesis, // Synthesis / Decomposition (same enum, sign distinguishes)
             6 => {
                 if forward {
                     Self::Intervention
@@ -233,6 +227,10 @@ impl CausalEdge64 {
     ///
     /// For new code, prefer `pack_v2()` (feature `causal-edge-v2-layout`).
     #[inline]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "v1 packer: one argument per packed field, public API kept for back-compat"
+    )]
     pub fn pack(
         s_idx: u8,
         p_idx: u8,
@@ -818,15 +816,17 @@ impl CausalEdge64 {
                 self.set_s_idx(observation.s_idx());
             }
         }
-        if plast.p_hot() && observation.p_idx() != self.p_idx() {
-            if observation.confidence() > self.confidence() {
-                self.set_p_idx(observation.p_idx());
-            }
+        if plast.p_hot()
+            && observation.p_idx() != self.p_idx()
+            && observation.confidence() > self.confidence()
+        {
+            self.set_p_idx(observation.p_idx());
         }
-        if plast.o_hot() && observation.o_idx() != self.o_idx() {
-            if observation.confidence() > self.confidence() {
-                self.set_o_idx(observation.o_idx());
-            }
+        if plast.o_hot()
+            && observation.o_idx() != self.o_idx()
+            && observation.confidence() > self.confidence()
+        {
+            self.set_o_idx(observation.o_idx());
         }
 
         // NARS revision: merge evidence (the canonical truth function).
@@ -903,6 +903,10 @@ impl CausalEdge64 {
     /// back-compat and migration tests. Use `pack_v2()` for all new v2 code.
     #[cfg(feature = "causal-edge-v2-layout")]
     #[inline]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one argument per v2 field; the remaining fields are set by the with_* builders"
+    )]
     pub fn pack_v2(
         s_idx: u8,
         p_idx: u8,
@@ -941,7 +945,9 @@ impl CausalEdge64 {
 impl CausalEdge64 {
     // ── Read Accessors ──────────────────────────────────────────────────────
 
-    /// Witness corpus root handle (6-bit, 0..=63). 0 = no corpus anchor.
+    /// Thought layer (6-bit, 0..=63): 0 = main (the givens), 1..=63 =
+    /// hypothesis lanes. It names the lane the state belongs to and points
+    /// nowhere (decided 2026-10-17, #1597).
     ///
     /// WARNING: Returns GARBAGE for non-zero v1 edges — bits 53-58 were
     /// temporal MSBs in v1. Apply a version gate before calling on edges
