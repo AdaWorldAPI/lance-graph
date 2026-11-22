@@ -114,6 +114,6 @@ for (b, z, kind) in cal:
 res["counts"] = cnt; res["examples"] = examples
 res["timing_python_s"] = dict(stage_tables_from_source=t_prep_tables, sequence_two_kernel_calls_all=t_seq,
                               fused_table_composition_all=t_fuse, certified_math_arms_all=t_math)
-json.dump(res, open(OUT, "w"), indent=1)
+json.dump(res, open(OUT, "w"), separators=(",", ":"))
 print(json.dumps({k: v for k, v in res.items() if k != "examples"}, indent=1)[:4000])
 for k, v in examples.items(): print(k, v[:2])

@@ -73,5 +73,5 @@ while i < len(lines):
             examples.setdefault(f"{suite}|{kind}", dict(case=cid, batch=b, channel=c, acc=acc, mult=M[c], shift=Sh[c],
                                                        real=str(real), exact=str(acc * real), D=D, Q=Q, S1=S1, A=a_byte - ozp, out_zp=ozp))
 res = dict(counts={f"{s}|{k}": v for (s, k), v in sorted(cnt.items())}, examples=examples)
-json.dump(res, open(OUT, "w"), indent=1)
+json.dump(res, open(OUT, "w"), separators=(",", ":"))
 print(json.dumps(res["counts"], indent=1))

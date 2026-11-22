@@ -104,4 +104,4 @@ for cid, (kname, beta, dname, x, q, vi, vf) in meta.items():
     r["B_realcol_abs"] = float(abs(mp.mpf(fromhx(a["B"][4])) - yref[4])); r["M_realcol_abs"] = float(abs(mp.mpf(fromhx(a["M"][4])) - yref[4]))
     r["ref_p_ties_at_half"] = sum(1 for p in pref if (p * 256 - mp.floor(p * 256)) == mp.mpf("0.5"))
     res.append(r)
-json.dump(res, open(OUT, "w"), indent=0)
+json.dump(res, open(OUT, "w"), separators=(",", ":"))

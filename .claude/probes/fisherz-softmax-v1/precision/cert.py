@@ -239,4 +239,4 @@ ye, pe, bits_t, how_t = escalate(gq, qt, Vt, [0])
 neg["rational_midpoint_y"] = dict(code=ye[0] if ye else None, expected=3, how=how_t, bits=bits_t,
                                   p_codes=pe)
 neg["rational_midpoint_ref_code"] = ref_codes(gq["x"], 8.0, qt, Vt, [0])[0][0]
-json.dump(dict(cases=res, negative_controls=neg), open(OUT, "w"), indent=0, default=str)
+json.dump(dict(cases=res, negative_controls=neg), open(OUT, "w"), separators=(",", ":"), default=str)

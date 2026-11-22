@@ -187,4 +187,4 @@ cx["C5_decode_minus128_cos"] = float(np.tanh(g.z32(-128)))
 # C6 FisherZTable::lookup_i8 out-of-range returns code 0, which decodes to:
 cx["C6_decode_code0_cos"] = {k: float(np.tanh(v.z32(0))) for k, v in GAMMAS.items()}
 R["counterexamples"] = cx
-json.dump(R, open(sys.argv[2], "w"), indent=1, default=str)
+json.dump(R, open(sys.argv[2], "w"), separators=(",", ":"), default=str)

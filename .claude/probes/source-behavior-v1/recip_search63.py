@@ -55,5 +55,5 @@ for cal, q in found:
                      recipe=recipe(cal, q)[-2:], exact_reciprocal=recipe(cal, q, ("reciprocal",))[-2:], oracle=o[-2:],
                      recipe_equals_oracle=recipe(cal, q) == o, exact_reciprocal_equals_oracle=recipe(cal, q, ("reciprocal",)) == o))
 json.dump(dict(searched="per calibration: rows [max]*k + [max+d], k=1..511, d=-255..-1; first hit only", hits=rows,
-               rows_searched=searched, rows_where_source_reciprocal_differs=recip_differs), open(RESULT_PATH, "w"), indent=1, default=str)
+               rows_searched=searched, rows_where_source_reciprocal_differs=recip_differs), open(RESULT_PATH, "w"), separators=(",", ":"), default=str)
 print(json.dumps(rows, indent=1, default=str))

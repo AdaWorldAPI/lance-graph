@@ -107,5 +107,5 @@ for x in R:
                digest_softmax_corpus=sha("\n".join(x["softmax"][:len(cases)])))
     summary.append(row)
 json.dump(dict(corpus=dict(tanh_calibrations=len(TCAL), softmax_rows=len(cases), overflow_lengths=OVERFLOW_N),
-               results=summary), open(RESULT_PATH, "w"), indent=1)
+               results=summary), open(RESULT_PATH, "w"), separators=(",", ":"))
 print(json.dumps(summary, indent=1))

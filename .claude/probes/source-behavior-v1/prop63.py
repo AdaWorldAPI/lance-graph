@@ -64,5 +64,5 @@ res = dict(
                 distinct_intermediate_codes=dict(min=min(distinct), median=statistics.median(distinct), max=max(distinct)),
                 largest_single_intermediate_fan_in=dict(min=min(maxfan), median=statistics.median(maxfan), max=max(maxfan))),
     stage1_visible_tanh_cells=stage1)
-json.dump(res, open(RESULT_PATH, "w"), indent=1)
+json.dump(res, open(RESULT_PATH, "w"), separators=(",", ":"))
 print(json.dumps(res, indent=1))

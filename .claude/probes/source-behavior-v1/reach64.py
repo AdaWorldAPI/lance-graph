@@ -74,5 +74,5 @@ res = dict(
     reach63_unknown_now_unreachable=sum((not r["reach63_found_row"]) and r["pair_status"] != "reachable" for r in out),
     calibrations_with_witness=sorted({r["cal"] for r in out if r.get("witness_row")}),
     rows=out)
-json.dump(res, open(RESULT_PATH, "w"), indent=1)
+json.dump(res, open(RESULT_PATH, "w"), separators=(",", ":"))
 print(json.dumps({k: v for k, v in res.items() if k != "rows"}, indent=1))

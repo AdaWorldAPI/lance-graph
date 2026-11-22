@@ -51,6 +51,6 @@ for ci, cands in sorted(by_cal.items()):
 res = dict(candidates_checked=len(out), reachable=sum(r["reachable"] for r in out),
            authentic_witnesses=sum(r.get("authentic_witness", False) for r in out),
            rows=out)
-json.dump(res, open(RESULT_PATH, "w"), indent=1)
+json.dump(res, open(RESULT_PATH, "w"), separators=(",", ":"))
 print(json.dumps({k: v for k, v in res.items() if k != "rows"}, indent=1))
 print(json.dumps(out[:3], indent=1))

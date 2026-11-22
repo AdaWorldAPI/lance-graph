@@ -52,5 +52,5 @@ res = dict(
     exhaustive_s_values=exhaustive_pairs,
     per_calibration={i: {**P[i], "exhaustive_candidates": n_w[i]} for i in cals},
     wall_s=round(wall, 1))
-json.dump(res, open(RESULT_PATH, "w"), indent=1)
+json.dump(res, open(RESULT_PATH, "w"), separators=(",", ":"))
 print(json.dumps({k: v for k, v in res.items() if k != "per_calibration"}, indent=1))

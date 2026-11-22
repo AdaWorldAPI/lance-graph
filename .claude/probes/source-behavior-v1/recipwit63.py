@@ -55,5 +55,5 @@ res = dict(family="rows [max]*k + [max+d]*m, k=1..511, d=-255..-1 (admitted), m=
            nearest_margin_raw=min(v["nearest_margin_raw"] for v in per.values()),
            per_calibration=per, witness_samples=confirmed,
            negative_control_outputs_changed_by_delta=dict(sorted(neg.items())))
-json.dump(res, open(RESULT_PATH, "w"), indent=1)
+json.dump(res, open(RESULT_PATH, "w"), separators=(",", ":"))
 print(json.dumps({k: v for k, v in res.items() if k != "per_calibration"}, indent=1))

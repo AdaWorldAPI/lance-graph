@@ -217,5 +217,5 @@ q_sample = [0, 64, 128, 192, 255, 30, 100, 220]
 res["sampled_vs_exhaustive"] = dict(
     sampled_codes_agree=all(SRC[k0][i] == MATH[k0][i] for i in q_sample),
     exhaustive_codes_agree=SRC[k0] == MATH[k0], calibration=cal[k0][:2])
-json.dump(res, open(OUT, "w"), indent=1, default=str)
+json.dump(res, open(OUT, "w"), separators=(",", ":"), default=str)
 print(json.dumps({k: v for k, v in res.items() if k not in ("discrepancies",)}, indent=1, default=str)[:6000])

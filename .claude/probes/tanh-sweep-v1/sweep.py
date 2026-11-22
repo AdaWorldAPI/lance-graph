@@ -118,5 +118,5 @@ for c in cases:
     k["rows"] += 1; d = c["diffs"].get("tflm_vs_ref_real", 0)
     k["rows_with_tflm_vs_ref_real_diff"] += d > 0; k["cells_tflm_vs_ref_real"] += d
 json.dump(dict(calibrations=len(cal), inventory=inv, by_kind=by_kind, sym_nan_semantics=sem,
-               mismatch_samples=mism[:400], cases=cases), open(OUT, "w"), indent=0)
+               mismatch_samples=mism[:400], cases=cases), open(OUT, "w"), separators=(",", ":"))
 print(json.dumps(dict(calibrations=len(cal), inventory=inv, by_kind=by_kind), indent=1))

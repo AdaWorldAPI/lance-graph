@@ -38,5 +38,5 @@ for e in D:
                     code_source_exp_exact_sum=code_from(w_srcexp), code_source_exp_q12_sum_exact_div=Fraction(w_srcexp[i]) and code_p(w_srcexp[i] / sum(w_srcacc)),
                     code_source_recip_exact_tail=code_p(p_src_recip_exact_tail), code_oracle=e["oracle"],
                     p_math=float(w_math[i] / sum(w_math)), p_source_effective=(e["oracle"] + 128) / 256))
-json.dump(out, open(RESULT_PATH, "w"), indent=1, default=str)
+json.dump(out, open(RESULT_PATH, "w"), separators=(",", ":"), default=str)
 for o in out: print({k: v for k, v in o.items() if k != "example"}, o["example"]["dist"], o["example"]["n"])

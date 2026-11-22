@@ -73,5 +73,5 @@ def mpsm(xs, b=mp.mpf(4)):
 base = mpsm(x)
 R["euler_gamma_common_offset_max_abs_change"] = float(max(abs(a - c) for a, c in zip(base, mpsm([v + EG for v in x]))))
 R["euler_gamma_code_dependent_offset_max_abs_change"] = float(max(abs(a - c) for a, c in zip(base, mpsm([v + EG * i / 3 for i, v in enumerate(x)]))))
-json.dump(R, open(sys.argv[1], "w"), indent=1)
+json.dump(R, open(sys.argv[1], "w"), separators=(",", ":"))
 

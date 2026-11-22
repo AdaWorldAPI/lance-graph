@@ -124,5 +124,5 @@ for k in range(n):
                                      SS=SS, SC=SC, CS=CS, CC=CC))
 res = dict(A_logistic_trace=A, logistic_source_vs_certified_codes=l2_diff,
            B=dict(counts=cnt, classes_of_SS_ne_CC=cls, cancellations=cancel, tanh_cell_examples=examples))
-json.dump(res, open(OUT, "w"), indent=1)
+json.dump(res, open(OUT, "w"), separators=(",", ":"))
 print(json.dumps(res, indent=1)[:6000])

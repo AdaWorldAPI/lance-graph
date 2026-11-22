@@ -297,7 +297,7 @@ for key, g in gens.items():
 json.dump(dict(arms={a: list(v) for a, v in ARMS.items()}, G=G, summary=summary,
                base_reproduces_cert_json=not decision_diff["base"], decision_diff=decision_diff,
                negative_controls=neg, economics=econ, cases=per_case),
-          open(OUT, "w"), indent=0, default=str)
+          open(OUT, "w"), separators=(",", ":"), default=str)
 if FIX:
     Path(FIX).write_text("\n".join(fix_lines) + "\n")
     print("fixture sha256", hashlib.sha256(Path(FIX).read_bytes()).hexdigest())
