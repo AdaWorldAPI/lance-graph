@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-674 entries, 2026-08-06 .. 2026-11-22.
+675 entries, 2026-08-06 .. 2026-11-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-22 | `synergy-fruits-revision-1806-2157` |  | [2026-11-22-synergy-fruits-revision-1806-2157.md](2026-11-22-synergy-fruits-revision-1806-2157.md) |
+| 2026-11-22 | `consumer-synergy-zammad-rs-report-rs` |  | [2026-11-22-consumer-synergy-zammad-rs-report-rs.md](2026-11-22-consumer-synergy-zammad-rs-report-rs.md) |
 | 2026-11-21 | `D-REGC-0` |  | [2026-11-21-d-regc-register-contract-reconciliation.md](2026-11-21-d-regc-register-contract-reconciliation.md) |
 | 2026-11-21 | `D-REGC-1` |  | [2026-11-21-d-regc-bound-read-tiled-cube.md](2026-11-21-d-regc-bound-read-tiled-cube.md) |
 | 2026-11-21 | `D-REGC-14` |  | [2026-11-21-d-regc-14-intake.md](2026-11-21-d-regc-14-intake.md) |

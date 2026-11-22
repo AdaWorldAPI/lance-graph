@@ -14,7 +14,7 @@ Plan: `.claude/plans/d-regc-register-contract-reconciliation-v1.md`. Knowledge: 
 | D-REGC-7 | Keys resolved once per distinct key per frame | Queued (after D-REGC-5) |
 | D-REGC-8 | Cube across several tiles; bijection after `add_edge` / `refold` | In PR: `lance-graph-xlog/tests/cube_tiled_bijection.rs`: 600 ids over 3 tiles, bijective, unchanged through edges and refold; 1 lookup per listed tile per key (1800 for 600 keys) |
 | D-REGC-9 | Consumer intake on shared coordinates; join as an aligned pass | Queued (EXO-140) |
-| D-REGC-10 | PostgreSQL egress: absent text cell → `''` or NULL by column default | In PR: `pg_row::AbsentAs` (contract); zammad-rs adoption queued |
+| D-REGC-10 | PostgreSQL egress: absent text cell → `''` or NULL by column default | Shipped (#2152). zammad-rs adopted it (re-read 2026-11-22 at zammad-rs `d81ac8a`: `quack-shadow/src/bound.rs:14-23`, `:445` `AbsentAs::Null`, `:772` `Reader::open_selected`); `entries/2026-11-22-consumer-synergy-zammad-rs-report-rs.md` |
 | D-REGC-12 | PostgreSQL row polyfill for consumers: `lance_graph_contract::pg_row` + `crates/lance-graph-pg-row` | In PR: `tests/pg_gate.rs` = model oracle = PostgreSQL 16.15 on 4 cases (276 / 139 / 82 / 276 rows); 3 disables red |
 | D-REGC-13 | DR projection descriptor names its row order (Ordinal / Morton); readers refuse a mixed order | Queued (needs DT64 / DR decision) |
 | D-REGC-14 | `lance-graph-intake`: data as config, class as config facade over pg-row / DT64 / DR | In PR: 24 tests; PostgreSQL 16.15 = model on 276 / 139 / 82 / 276 rows; 2 disables red; caveats and open ends in `knowledge/consumer-surface-data-and-class-as-config.md` §6–7 |
