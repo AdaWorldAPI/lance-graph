@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-676 entries, 2026-08-06 .. 2026-11-22.
+677 entries, 2026-08-06 .. 2026-11-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-23 | `stride-positions-carry-no-names` |  | [2026-11-23-stride-positions-carry-no-names.md](2026-11-23-stride-positions-carry-no-names.md) |
 | 2026-11-22 | `synergy-fruits-revision-1806-2157` |  | [2026-11-22-synergy-fruits-revision-1806-2157.md](2026-11-22-synergy-fruits-revision-1806-2157.md) |
 | 2026-11-22 | `rbac-boundary-findings-postponed` |  | [2026-11-22-rbac-boundary-findings-postponed.md](2026-11-22-rbac-boundary-findings-postponed.md) |
 | 2026-11-22 | `consumer-synergy-zammad-rs-report-rs` |  | [2026-11-22-consumer-synergy-zammad-rs-report-rs.md](2026-11-22-consumer-synergy-zammad-rs-report-rs.md) |
