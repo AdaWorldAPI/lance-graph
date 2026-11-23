@@ -379,3 +379,62 @@ fn borrow_all_at_lends_in_place_and_refuses_positions_from_another_frame() {
         Err(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
     ));
 }
+
+/// FAILS IF: a law lane stores or copies a value lane, reads other values
+/// than `law(key)` where the key is present, loses the key's absence, does
+/// not fold a stack of laws to one op, or is lent without the by-reference
+/// check (stale frame) or over a key field the binding did not bind.
+#[test]
+fn a_law_lane_reads_its_values_off_the_key_lane() {
+    use lance_graph_contract::lane_law::{LawOp, LawProgram};
+    use lance_graph_dt64::LawId;
+
+    let view = View::new(CLASS, &["a", "b", "c"]);
+    let (store, route) = store_with(&view, 3);
+    let mut source = Source::new();
+    let mut b = bind(&store, &view, &source, route);
+
+    // Three stacked tables, one pipe each: +5, +5, +5 mod 10 fold to +5.
+    let plus5 = LawProgram::identity(10).then(LawOp::add(5)).unwrap();
+    let stack = plus5.compose(plus5).unwrap().compose(plus5).unwrap();
+    assert_eq!(stack, plus5, "the stack folds to one op");
+    let id = b.bind_law(2, stack).expect("c is bound");
+
+    let (key, plane, law) = b
+        .borrow_law_bound(&store, &source.frames, &source, id)
+        .expect("lent");
+    assert!(
+        std::ptr::eq(key, source.lanes[2].as_slice()),
+        "the key lane itself, not a copy"
+    );
+    let values: Vec<Option<u32>> = key
+        .iter()
+        .enumerate()
+        .map(|(i, &k)| {
+            (plane[i / 64] >> (i % 64) & 1 == 1)
+                .then(|| law.apply(k))
+                .flatten()
+        })
+        .collect();
+    // c = [7, 0, 9] with presence 0b101: row 1 is absent and stays absent.
+    assert_eq!(values, vec![Some(2), None, Some(4)]);
+
+    // Refusals: an unbound key field, an unknown law, a stale frame.
+    assert_eq!(
+        b.bind_law(7, plus5),
+        Err(LaneRefusal::LawSourceUnbound { from: 7 })
+    );
+    assert!(matches!(
+        b.borrow_law_bound(&store, &source.frames, &source, LawId(9)),
+        Err(LaneRefusal::NoSuchLaw { law: 9 })
+    ));
+    source.frames.advance(FrameRevisions {
+        source: 2,
+        relation_map: 1,
+        coordinates: 1,
+    });
+    assert!(matches!(
+        b.borrow_law_bound(&store, &source.frames, &source, id),
+        Err(LaneRefusal::Frame(_))
+    ));
+}

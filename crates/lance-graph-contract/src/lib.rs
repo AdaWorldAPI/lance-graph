@@ -120,6 +120,7 @@ pub mod identity_quad;
 pub mod jit;
 pub mod kanban;
 pub mod lane_codec;
+pub mod lane_law;
 pub mod legacy_outliers;
 pub mod literal_graph;
 pub mod mail;
@@ -142,11 +143,11 @@ pub mod orchestration;
 pub mod orchestration_mode;
 /// D-DIAMOND-1 R2 — the ordered-lane witness (storage-attested, planner-consumed).
 pub mod ordered_lane;
+pub mod pearl_junction;
+pub mod persona;
 /// The PostgreSQL row polyfill contract: admitted types, lane encodings, the
 /// absent spelling and the one cell writer (D-QSP-VROW, D-REGC-10).
 pub mod pg_row;
-pub mod pearl_junction;
-pub mod persona;
 pub mod plan;
 pub mod property;
 pub mod proprioception;

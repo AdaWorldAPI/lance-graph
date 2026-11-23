@@ -17,6 +17,7 @@
 //! is admitted here, so reading one through the other would be a gather.
 
 use lance_graph_contract::class_view::{ClassView, WideFieldMask};
+use lance_graph_contract::lane_law::LawProgram;
 use lance_graph_contract::ontology::FieldRef;
 
 use crate::dr::{
@@ -226,6 +227,23 @@ pub enum LaneRefusal {
     SelectionVanished { sel: u16 },
     /// The source holds no presence plane for the field's lane.
     PresenceUnbound { field: u8 },
+    /// A law lane names a key field the binding did not bind.
+    LawSourceUnbound { from: u8 },
+    /// No law lane has this id in the binding.
+    NoSuchLaw { law: u8 },
+}
+
+/// A law lane's id within its binding, in declaration order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LawId(pub u8);
+
+/// A value lane declared as a law over a bound key field: no lane of its own,
+/// `value[i] = law(key[i])` read where the key sits. Absent keys stay absent:
+/// the law lane shares the key's presence plane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LawLane {
+    pub from: u8,
+    pub law: LawProgram,
 }
 
 impl From<Refusal> for LaneRefusal {
@@ -255,6 +273,8 @@ pub struct LaneBinding {
     /// The witness of the basis the class was bound with when this binding
     /// was made: one `u128`, compared on the hot path without hashing.
     basis: crate::BasisDigest,
+    /// Law lanes over bound key fields, in declaration order ([`LawId`]).
+    laws: Vec<LawLane>,
 }
 
 impl BindStore {
@@ -308,6 +328,7 @@ impl BindStore {
             lanes,
             refs,
             basis,
+            laws: Vec::new(),
         })
     }
 }
@@ -740,6 +761,58 @@ impl LaneBinding {
             lanes: self.lanes.iter(),
             source,
         })
+    }
+
+    /// Declare a law lane: `law` read over the bound key field `from`. The
+    /// law is folded already (a [`LawProgram`] is one op however many laws
+    /// were stacked into it), so reading it costs one multiply-add per
+    /// position, or nothing for the identity. Nothing is stored for the
+    /// value; the lane exists only as this declaration.
+    ///
+    /// Refused when `from` is not a field this binding bound.
+    pub fn bind_law(&mut self, from: u8, law: LawProgram) -> Result<LawId, LaneRefusal> {
+        if !self.lanes.iter().any(|(field, _)| *field == from) {
+            return Err(LaneRefusal::LawSourceUnbound { from });
+        }
+        let id =
+            u8::try_from(self.laws.len()).map_err(|_| LaneRefusal::NoSuchLaw { law: u8::MAX })?;
+        self.laws.push(LawLane { from, law });
+        Ok(LawId(id))
+    }
+
+    /// The law lanes declared on this binding, by [`LawId`].
+    pub fn laws(&self) -> &[LawLane] {
+        &self.laws
+    }
+
+    /// A law lane by reference: one [`LaneBinding::check_bound`], then the
+    /// key lane it reads, that lane's presence plane, and the folded law.
+    /// Value `i` is `law.apply(key[i])` where the key's presence says
+    /// present; nothing is allocated or computed here.
+    pub fn borrow_law_bound<'b, 's, S: PresenceSource>(
+        &'b self,
+        store: &BindStore,
+        frames: &FrameStore,
+        source: &'s S,
+        law: LawId,
+    ) -> Result<(S::Lane<'s>, &'s [u64], &'b LawProgram), LaneRefusal> {
+        let lane = self
+            .laws
+            .get(usize::from(law.0))
+            .ok_or(LaneRefusal::NoSuchLaw { law: law.0 })?;
+        self.check_bound(store, frames, source)?;
+        let (_, addr) = self
+            .lanes
+            .iter()
+            .find(|(field, _)| *field == lane.from)
+            .ok_or(LaneRefusal::LawSourceUnbound { from: lane.from })?;
+        let key = source
+            .borrow(addr)
+            .ok_or(LaneRefusal::Vanished { field: lane.from })?;
+        let plane = source
+            .borrow_presence(addr)
+            .ok_or(LaneRefusal::PresenceUnbound { field: lane.from })?;
+        Ok((key, plane, &lane.law))
     }
 
     /// [`LaneBinding::borrow_all_present_bound`] at positions the caller
