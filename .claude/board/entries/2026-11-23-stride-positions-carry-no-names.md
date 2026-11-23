@@ -15,18 +15,8 @@ over the same positions.
 
 **What this corrects.** In the 2026-11-23 session I named positions:
 `part_of` as the edge tenant's bytes, `is_a` as the key's bytes, OU levels as
-byte indices. The `is_a` zipper and the OU/DN tree are readings a law supplies,
-not properties of the facet.
-
-**Scope of the Rails case.** The zipper and DN readings were worked out on
-zammad-rs and openproject-nexgen-rs. They are the exception, because those
-apps are primitive enough to be hard to get wrong. Rails' own shapes
-(associations, join tables, callbacks) are not a pattern to repeat elsewhere.
-
-**Consequence for xlog.** A relation that a declared law already states is
-read through that law over the rows; it is not stored again as edge rows in the
-cube. The cube's edge rows are for relations no identity law expresses.
-`body_answer` over tiled cubes was framed against stored edge rows and is not
-pursued in that form.
+byte indices. Those are readings a law may supply, not properties of the
+facet. The algebra over the positions commits to no reading, positive or
+negative.
 
 OPEN: none.
