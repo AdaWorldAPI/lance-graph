@@ -1582,28 +1582,55 @@ impl Cube {
 
     /// The joined tuples `(left free, join value, right free)` as global ids:
     /// the one place this module builds rows, for a caller that downloads the
-    /// relation. Restricted to the join's support first, so rows with no
-    /// partner are never visited twice.
+    /// relation. Restricted to the join's support first.
+    ///
+    /// The join is the last step: each side is read as row positions of its
+    /// relation's lanes (`identity[index]`), the right side's positions are
+    /// grouped by join coordinate in one counting pass, and a left row meets
+    /// exactly its bucket. A coordinate is decoded to its key only at the
+    /// edge, through DR's tile view (`tile_ordinal * 256 + local`), so a
+    /// tiled cube answers like a single-tile one. Rows come out in left row
+    /// order, then right row order.
     pub fn materialize_rows(
         &self,
         table: &MapTable,
         join: View,
     ) -> Result<Vec<(u64, u64, u64)>, CubeRefusal> {
         let ((l, lc), (r, rc)) = self.sides(join)?;
-        if self.tiled {
-            return Err(CubeRefusal::Tiled);
-        }
-        let map = self.map(table)?;
         let keep = &self.support(table, join)?;
+        let views = self.views_under(table, &self.frame)?;
         let (rel_l, rel_r) = (self.lanes(l.rel)?, self.lanes(r.rel)?);
-        let rows = side_rows;
+        // Right positions by join coordinate: `start[j]..start[j + 1]` of
+        // `at` (a pointer table over the right relation's rows).
+        let right: Vec<usize> = side_positions(keep, r, rel_r, rc).collect();
+        let jr = &rel_r.cols[rc as usize];
+        let fr = &rel_r.cols[1 - rc as usize];
+        let mut start = vec![0u32; self.n + 1];
+        for &i in &right {
+            start[jr[i] as usize + 1] += 1;
+        }
+        for j in 0..self.n {
+            start[j + 1] += start[j];
+        }
+        let mut fill = start.clone();
+        let mut at = vec![0u32; right.len()];
+        for &i in &right {
+            let slot = &mut fill[jr[i] as usize];
+            at[*slot as usize] = i as u32;
+            *slot += 1;
+        }
+        let key = |x: u32| {
+            let x = x as usize;
+            views[x / BLOCK_POSITIONS]
+                .global((x % BLOCK_POSITIONS) as u8)
+                .expect("coordinate placed under this frame")
+        };
+        let (jl, fl) = (&rel_l.cols[lc as usize], &rel_l.cols[1 - lc as usize]);
         let mut out = Vec::new();
-        for (jl, fl) in rows(keep, l, rel_l, lc) {
-            for (jr, fr) in rows(keep, r, rel_r, rc) {
-                if jl == jr {
-                    let g = |x: u32| map.global(x as u8).expect("local position from intake");
-                    out.push((g(fl), g(jl), g(fr)));
-                }
+        for i in side_positions(keep, l, rel_l, lc) {
+            let j = jl[i] as usize;
+            for &ir in &at[start[j] as usize..start[j + 1] as usize] {
+                out.push((key(fl[i]), key(jl[i]), key(fr[ir as usize])));
             }
         }
         let mut s = self.stats.get();
@@ -1615,19 +1642,21 @@ impl Cube {
 
 /// The `(join value, free value)` pairs of one side's effective lanes whose
 /// join value is in `keep` and which satisfy the side's bound.
-fn side_rows<'a>(
+/// The row positions of one side whose join coordinate is in `keep` (and
+/// whose free column matches a bind): positions into the relation's lanes,
+/// read in place.
+fn side_positions<'a>(
     keep: &'a [u64],
     side: Side,
     rel: &'a Rel,
     jc: u8,
-) -> impl Iterator<Item = (u32, u32)> + 'a {
+) -> impl Iterator<Item = usize> + 'a {
     let fc = 1 - jc as usize;
     let (j, f) = (&rel.cols[jc as usize], &rel.cols[fc]);
     let bound = side.bound.map(|(_, v)| v);
     (0..j.len())
         .filter(move |&i| keep[j[i] as usize / 64] >> (j[i] % 64) & 1 == 1)
         .filter(move |&i| bound.is_none_or(|v| v == Some(f[i])))
-        .map(move |i| (j[i], f[i]))
 }
 
 fn empty_planes(n: usize) -> Vec<OnceCell<PairPlane>> {
