@@ -827,7 +827,18 @@ impl Table {
         let positions = self.positions_for_keys(keys)?;
         let texts = self.texts();
         let specs = self.specs(&texts);
-        Ok(self.reader(&specs)?.rows_at(&positions)?)
+        // The positions were resolved under the owner's current frame; the
+        // read admits them only under that frame.
+        let (reader, at) = Reader::open_at(
+            &self.binding,
+            &self.store,
+            self.owner.table.frames(),
+            &self.owner,
+            &positions,
+            &self.owner.frame,
+            &specs,
+        )?;
+        Ok(reader.rows_at(at)?)
     }
 
     fn read_selection(&self, sel: u16) -> Result<PgRows, IntakeRefusal> {

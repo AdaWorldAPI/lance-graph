@@ -742,6 +742,44 @@ impl LaneBinding {
         })
     }
 
+    /// [`LaneBinding::borrow_all_present_bound`] at positions the caller
+    /// holds: `identity[index].value` for a list of indexes that lives on
+    /// the call (for example the positions of some keys, resolved through
+    /// the source's map) and is never stored in the source.
+    ///
+    /// The witness is the frame: `under` is the frame the positions were
+    /// resolved under, and it must be the source's current seal, the same
+    /// frame [`LaneBinding::check_bound`] admits. Positions resolved before
+    /// an append, a delete or a re-seal are refused as
+    /// [`LaneRefusal::Frame`] before a lane is borrowed. This is the check a
+    /// source-issued selection gets from [`LaneBinding::borrow_all_selected_present_bound`],
+    /// without the source having to hold the list. Nothing is allocated or
+    /// copied; `positions` is handed back as given (order and repeats kept).
+    ///
+    /// What it does not establish: that each position is a row of each lane
+    /// (the reader checks bounds and liveness per position), and
+    /// authorization.
+    pub fn borrow_all_at<'b, 's, 'p, S: PresenceSource>(
+        &'b self,
+        store: &BindStore,
+        frames: &FrameStore,
+        source: &'s S,
+        positions: &'p [u32],
+        under: &Frame,
+    ) -> Result<(PresentLanes<'b, 's, S>, &'p [u32]), LaneRefusal> {
+        self.check_bound(store, frames, source)?;
+        if !cfg!(feature = "disable-borrow-all-at-frame") {
+            frames.check(under).map_err(LaneRefusal::Frame)?;
+        }
+        Ok((
+            PresentLanes {
+                lanes: self.lanes.iter(),
+                source,
+            },
+            positions,
+        ))
+    }
+
     /// [`LaneBinding::borrow_all_selected_present`] by reference: one
     /// [`LaneBinding::check_bound`], the witnessed positions of `sel`, then
     /// every bound lane with its presence plane. Nothing is allocated.

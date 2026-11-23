@@ -98,6 +98,8 @@ use lance_graph_contract::set_rules::{Population, Truth};
 
 #[cfg(all(not(debug_assertions), feature = "disable-bound-digest"))]
 compile_error!("disable-bound-digest is for disable runs in debug builds only");
+#[cfg(all(not(debug_assertions), feature = "disable-borrow-all-at-frame"))]
+compile_error!("disable-borrow-all-at-frame is for disable runs in debug builds only");
 
 pub mod dr;
 

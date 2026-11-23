@@ -63,7 +63,7 @@ compile_error!("disable-pg-row-* features are for disable runs in debug builds o
 use lance_graph_contract::pg_row::{
     write_cell, CellRefusal, CodeText, PgColumn, PgTypeRefusal, Written,
 };
-use lance_graph_dt64::dr::FrameStore;
+use lance_graph_dt64::dr::{Frame, FrameStore};
 use lance_graph_dt64::{
     BindStore, CoordSpace, LaneBinding, LaneRefusal, LaneSource, PresenceSource,
 };
@@ -216,6 +216,35 @@ impl<'s, 'c> Reader<'s, 'c> {
     {
         let (lanes, positions) = binding
             .borrow_all_selected_present_bound(store, frames, source, sel)
+            .map_err(PgRowRefusal::Lane)?;
+        let mut lent = Vec::with_capacity(lanes.len());
+        for item in lanes {
+            let (_, lane, plane) = item.map_err(PgRowRefusal::Lane)?;
+            lent.push((lane.lane_ref(), plane));
+        }
+        Ok((Self::new(binding, source, cols, lent)?, positions))
+    }
+
+    /// One `borrow_all_at` over `binding` at `positions`, which the caller
+    /// resolved under `under` and holds for this read; then the live plane.
+    /// Returns the positions as given, a bag in list order. Positions
+    /// resolved under a frame that is no longer current are refused before
+    /// any lane is lent.
+    pub fn open_at<'p, S>(
+        binding: &LaneBinding,
+        store: &BindStore,
+        frames: &FrameStore,
+        source: &'s S,
+        positions: &'p [u32],
+        under: &Frame,
+        cols: &'c [ColumnSpec<'c>],
+    ) -> Result<(Self, &'p [u32]), PgRowRefusal>
+    where
+        S: PresenceSource + LiveSource,
+        S::Lane<'s>: IntoLaneRef<'s>,
+    {
+        let (lanes, positions) = binding
+            .borrow_all_at(store, frames, source, positions, under)
             .map_err(PgRowRefusal::Lane)?;
         let mut lent = Vec::with_capacity(lanes.len());
         for item in lanes {
