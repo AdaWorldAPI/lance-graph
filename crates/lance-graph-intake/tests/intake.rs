@@ -1721,3 +1721,20 @@ fn fixture_c_declared_types_hold_their_values() {
         panic!("typed: PostgreSQL differs: {diff}");
     }
 }
+
+/// FAILS IF: a read by key or of a kept selection needs `&mut Table`
+/// (`identity[index]` is a read), or two reads through shared references
+/// see different rows. A `&mut self` read does not compile here.
+#[test]
+fn reads_go_through_a_shared_table() {
+    let mut table = small_table(&ShapeConfig::default()).expect("table");
+    let kept = table.select_keys_ref(&[3, 1]).expect("keep");
+    let (a, b): (&Table, &Table) = (&table, &table);
+    let by_key = a.rows_for_keys(&[3, 1]).expect("by key");
+    let by_ref = b.rows_of(&kept).expect("kept");
+    assert_eq!(by_key, by_ref);
+    assert_eq!(
+        by_key.rows,
+        vec![vec![text("3"), None], vec![text("1"), text("10")],]
+    );
+}

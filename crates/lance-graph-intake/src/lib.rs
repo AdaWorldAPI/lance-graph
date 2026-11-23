@@ -238,7 +238,6 @@ struct Owner {
     table: MapTable,
     frame: Frame,
     tiles: Vec<TileId>,
-    selections: Vec<Vec<u32>>,
     /// A kept selection lent as selection [`KEPT_SEL`] while one read is
     /// open: its positions are read from DR's keep log in place, never copied.
     lend: Cell<Option<KeptId>>,
@@ -346,12 +345,7 @@ impl PresenceSource for Owner {
 
 impl SelectionSource for Owner {
     fn selection_of(&self, sel: u16, _frame: &Frame) -> Option<SelAddr> {
-        let issued = if sel == KEPT_SEL {
-            self.lend.get().is_some()
-        } else {
-            usize::from(sel) < self.selections.len()
-        };
-        issued.then_some(SelAddr {
+        (sel == KEPT_SEL && self.lend.get().is_some()).then_some(SelAddr {
             space: self.space,
             sel,
             scope: READER,
@@ -359,16 +353,13 @@ impl SelectionSource for Owner {
     }
 
     fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]> {
-        if addr.sel == KEPT_SEL {
-            let id = self.lend.get()?;
-            return self
-                .table
-                .kept::<Vec<u32>>(&self.frame, id)
-                .ok()
-                .map(Vec::as_slice);
+        if addr.sel != KEPT_SEL {
+            return None;
         }
-        self.selections
-            .get(usize::from(addr.sel))
+        let id = self.lend.get()?;
+        self.table
+            .kept::<Vec<u32>>(&self.frame, id)
+            .ok()
             .map(Vec::as_slice)
     }
 }
@@ -548,7 +539,6 @@ impl Table {
             table: map_table,
             frame,
             tiles: Vec::new(),
-            selections: Vec::new(),
             lend: Cell::new(None),
         };
 
@@ -830,19 +820,14 @@ impl Table {
 
     /// The rows of these keys, in list order, duplicates kept (a bag); an
     /// unknown or deleted key is refused.
-    pub fn rows_for_keys(&mut self, keys: &[u64]) -> Result<PgRows, IntakeRefusal> {
+    ///
+    /// A read: the positions live on this call and are read in place
+    /// (`identity[index]`); nothing is written to the table.
+    pub fn rows_for_keys(&self, keys: &[u64]) -> Result<PgRows, IntakeRefusal> {
         let positions = self.positions_for_keys(keys)?;
-        self.read_positions(positions)
-    }
-
-    /// Hand `positions` to the reader as the owner's selection 0, read, then
-    /// clear. No predicate runs.
-    fn read_positions(&mut self, positions: Vec<u32>) -> Result<PgRows, IntakeRefusal> {
-        self.owner.selections.clear();
-        self.owner.selections.push(positions);
-        let result = self.read_selection(0);
-        self.owner.selections.clear();
-        result
+        let texts = self.texts();
+        let specs = self.specs(&texts);
+        Ok(self.reader(&specs)?.rows_at(&positions)?)
     }
 
     fn read_selection(&self, sel: u16) -> Result<PgRows, IntakeRefusal> {
@@ -912,7 +897,7 @@ impl Table {
 
     /// The rows of a kept selection, in its order. The selection must have
     /// been kept under the current data version; no predicate runs.
-    pub fn rows_of(&mut self, r: &SelectionRef) -> Result<PgRows, IntakeRefusal> {
+    pub fn rows_of(&self, r: &SelectionRef) -> Result<PgRows, IntakeRefusal> {
         self.kept_of(r)?;
         let _lend = Lend::new(&self.owner.lend, r.id);
         self.read_selection(KEPT_SEL)
@@ -987,18 +972,17 @@ impl Table {
             .filter(|&p| bit(&self.owner.live, p))
             .map(|p| p as u32)
             .collect();
-        let fk_keys: Vec<Option<u64>> = left
-            .iter()
-            .map(|&p| {
-                let at = p as usize;
-                bit(&self.owner.presence[f], at)
-                    .then(|| key_of(encoding, self.owner.lanes[f].value(at)))
-                    .flatten()
-            })
-            .collect();
+        // The fk is read in place at each left position (`identity[index]
+        // .value[fk]`); no copy of the column is made.
+        let fk_at = |p: u32| -> Option<u64> {
+            let at = p as usize;
+            bit(&self.owner.presence[f], at)
+                .then(|| key_of(encoding, self.owner.lanes[f].value(at)))
+                .flatten()
+        };
 
         // Each distinct fk value is located once per call; see `rows_for_keys`.
-        let mut distinct: Vec<u64> = fk_keys.iter().flatten().copied().collect();
+        let mut distinct: Vec<u64> = left.iter().filter_map(|&p| fk_at(p)).collect();
         distinct.sort_unstable();
         distinct.dedup();
         let mut resolved: Vec<(u64, Option<u32>)> = Vec::with_capacity(distinct.len());
@@ -1009,8 +993,8 @@ impl Table {
 
         let mut positions = vec![0u32; left.len()];
         let mut present = vec![0u64; left.len().div_ceil(64)];
-        for (i, key) in fk_keys.iter().enumerate() {
-            let found = key
+        for (i, &p) in left.iter().enumerate() {
+            let found = fk_at(p)
                 .and_then(|k| resolved.binary_search_by_key(&k, |&(k, _)| k).ok())
                 .and_then(|at| resolved[at].1);
             if let Some(position) = found {
