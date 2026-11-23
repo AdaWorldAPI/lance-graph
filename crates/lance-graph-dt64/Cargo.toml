@@ -13,3 +13,6 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # Disable run for tests/bound_read.rs: the by-reference check skips its
 # store digest compare. A compile error outside a debug build.
 disable-bound-digest = []
+# Disable run for tests/bound_read.rs: borrow_all_at skips its frame witness.
+# A compile error outside a debug build.
+disable-borrow-all-at-frame = []

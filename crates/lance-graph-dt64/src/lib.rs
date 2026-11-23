@@ -98,6 +98,8 @@ use lance_graph_contract::set_rules::{Population, Truth};
 
 #[cfg(all(not(debug_assertions), feature = "disable-bound-digest"))]
 compile_error!("disable-bound-digest is for disable runs in debug builds only");
+#[cfg(all(not(debug_assertions), feature = "disable-borrow-all-at-frame"))]
+compile_error!("disable-borrow-all-at-frame is for disable runs in debug builds only");
 
 pub mod dr;
 
@@ -109,8 +111,8 @@ pub mod lane;
 pub mod relation;
 use dr::{RouteLog, RouteRefusal};
 pub use lane::{
-    BoundLanes, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource,
-    PresenceSource, PresentLane, PresentLanes, RouteAt, SelAddr, SelectionSource,
+    BoundLanes, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource, LawId,
+    LawLane, PresenceSource, PresentLane, PresentLanes, RouteAt, SelAddr, SelectionSource,
 };
 pub use relation::{
     reach_path, relation_reach, relation_rows, ReachBuf, ReachPart, ReachRefusal, ReachStats,

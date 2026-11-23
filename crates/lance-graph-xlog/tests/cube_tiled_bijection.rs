@@ -144,3 +144,68 @@ fn coordinates_are_a_bijection_across_tiles_and_survive_edges_and_refold() {
     cube.refold(0).unwrap();
     assert_eq!(coordinates(&mut cube, &t, &all), coord, "after refold");
 }
+
+/// Every `(r.free, join value, s.free)` with `r.(jc_r) = s.(jc_s)`, by nested
+/// loops over global ids: an oracle that shares no code with the cube.
+fn join_oracle(r: &[(u32, u32)], rc: u8, s: &[(u32, u32)], sc: u8) -> Vec<(u64, u64, u64)> {
+    let col = |t: (u32, u32), c: u8| if c == 0 { t.0 } else { t.1 };
+    let mut out = Vec::new();
+    for &a in r {
+        for &b in s {
+            if col(a, rc) == col(b, sc) {
+                out.push((
+                    u64::from(col(a, 1 - rc)),
+                    u64::from(col(a, rc)),
+                    u64::from(col(b, 1 - sc)),
+                ));
+            }
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
+/// FAILS IF: `materialize_rows` refuses a cube over several tiles, or its
+/// rows differ from the nested-loop oracle over global ids in any of the four
+/// column orientations (keys decoded through the wrong tile, a coordinate
+/// past the first tile dropped, or a bag multiplicity lost).
+#[test]
+fn materialize_rows_over_three_tiles_equals_the_oracle() {
+    let mut l = Lcg(0xD2E6_0014);
+    let tiles = ids(&mut l);
+    let all: Vec<u64> = tiles.concat();
+    let (t, f) = table(&tiles);
+    // A small pool so joins are dense; it spans all three tiles.
+    let pool: Vec<u32> = [0usize, 1, 2, 255, 256, 300, 511, 512, 540, 599]
+        .iter()
+        .map(|&i| all[i] as u32)
+        .collect();
+    let pick = |l: &mut Lcg| pool[(l.next() % pool.len() as u64) as usize];
+    let mut r: Vec<(u32, u32)> = (0..60).map(|_| (pick(&mut l), pick(&mut l))).collect();
+    r.extend_from_within(..5); // a bag: repeated rows multiply
+    let s: Vec<(u32, u32)> = (0..60).map(|_| (pick(&mut l), pick(&mut l))).collect();
+    let mut cube = Cube::new_tiled(&t, &f, &TILES, &[r.as_slice(), s.as_slice()]).unwrap();
+
+    let mut past_first = false;
+    for rc in 0..2u8 {
+        for sc in 0..2u8 {
+            let a = cube.scan(0).unwrap();
+            let b = cube.scan(1).unwrap();
+            let j = cube.join(a, rc, b, sc).unwrap();
+            let mut got = cube.materialize_rows(&t, j).expect("a tiled cube answers");
+            got.sort_unstable();
+            let want = join_oracle(&r, rc, &s, sc);
+            assert!(!want.is_empty(), "the fixture joins in {rc}/{sc}");
+            assert_eq!(got, want, "r.{rc} = s.{sc}");
+            past_first |= got.iter().any(|&(x, y, z)| {
+                [x, y, z]
+                    .iter()
+                    .any(|id| tiles[1].contains(id) || tiles[2].contains(id))
+            });
+        }
+    }
+    assert!(
+        past_first,
+        "keys from the second and third tile are decoded"
+    );
+}

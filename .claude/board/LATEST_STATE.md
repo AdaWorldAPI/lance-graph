@@ -1,3 +1,13 @@
+## 2026-11-23 — identity[index] reads and law lanes (in PR #2160, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance_graph_contract::lane_law` (new module): `LawOp` (`add`, `mul`), `LawProgram` (`identity`, `then`, `compose`, `apply`, `is_identity`, `modulus`, `op`), `LawRefusal`. Closed affine op set over one modulus; a stack folds to one op; executes (`apply`), kept apart from metadata-only `algebra_law`.
+- `lance-graph-dt64`: `LaneBinding::{borrow_all_at, bind_law, laws, borrow_law_bound}`, `LawId`, `LawLane`; `LaneRefusal::{LawSourceUnbound, NoSuchLaw}`; debug-only feature `disable-borrow-all-at-frame`.
+- `lance-graph-pg-row`: `Reader::open_at`.
+- `lance-graph-intake`: `Table::rows_for_keys` and `rows_of` take `&self`; `Owner::selections` removed; `left_join` reads the fk lane in place.
+- `lance-graph-xlog`: `Cube::materialize_rows` joins last over row positions and answers a tiled cube (signature unchanged).
+
 ## 2026-11-21 — D-INTAKE-2A/B/C/D (in PR, not on main)
 
 ### Current Contract Inventory — net delta

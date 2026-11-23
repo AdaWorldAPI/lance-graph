@@ -323,3 +323,118 @@ fn frame_route_mapping_and_row_order_are_refused() {
         Err(LaneRefusal::SelectionSpace { .. })
     ));
 }
+
+/// FAILS IF: `borrow_all_at` lends other lanes or planes than the bound
+/// read, copies or reorders the caller's positions, or admits positions
+/// resolved under a frame that is no longer the source's current seal.
+#[test]
+fn borrow_all_at_lends_in_place_and_refuses_positions_from_another_frame() {
+    let view = View::new(CLASS, &["a", "b", "c"]);
+    let (store, route) = store_with(&view, 3);
+
+    // Current frame: lent in place, positions handed back as given.
+    let source = Source::new();
+    let b = bind(&store, &view, &source, route);
+    let positions = [2u32, 0, 2];
+    let under = source.frames.seal();
+    let (lanes, at) = b
+        .borrow_all_at(&store, &source.frames, &source, &positions, &under)
+        .expect("current frame");
+    assert!(std::ptr::eq(at, positions.as_slice()));
+    let by_at = lent(lanes);
+    let by_ref = lent(
+        b.borrow_all_present_bound(&store, &source.frames, &source)
+            .unwrap(),
+    );
+    assert_eq!(by_at.len(), 3);
+    for ((f1, l1, p1), (f2, l2, p2)) in by_at.iter().zip(&by_ref) {
+        assert_eq!(f1, f2);
+        assert!(std::ptr::eq(*l1, *l2) && std::ptr::eq(*p1, *p2));
+    }
+
+    // Positions resolved before an advance, then a binding made after it:
+    // the binding is current, the positions are not.
+    let mut source = Source::new();
+    let old = source.frames.seal();
+    source.frames.advance(FrameRevisions {
+        source: 2,
+        relation_map: 1,
+        coordinates: 1,
+    });
+    let b = bind(&store, &view, &source, route);
+    assert!(b.check_bound(&store, &source.frames, &source).is_ok());
+    assert!(matches!(
+        b.borrow_all_at(&store, &source.frames, &source, &positions, &old),
+        Err(LaneRefusal::Frame(FrameRefusal::SourceChanged))
+    ));
+
+    // Positions resolved under another store's frame.
+    let foreign = FrameStore::new(FrameRevisions {
+        source: 2,
+        relation_map: 1,
+        coordinates: 1,
+    });
+    assert!(matches!(
+        b.borrow_all_at(&store, &source.frames, &source, &positions, &foreign.seal()),
+        Err(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
+    ));
+}
+
+/// FAILS IF: a law lane stores or copies a value lane, reads other values
+/// than `law(key)` where the key is present, loses the key's absence, does
+/// not fold a stack of laws to one op, or is lent without the by-reference
+/// check (stale frame) or over a key field the binding did not bind.
+#[test]
+fn a_law_lane_reads_its_values_off_the_key_lane() {
+    use lance_graph_contract::lane_law::{LawOp, LawProgram};
+    use lance_graph_dt64::LawId;
+
+    let view = View::new(CLASS, &["a", "b", "c"]);
+    let (store, route) = store_with(&view, 3);
+    let mut source = Source::new();
+    let mut b = bind(&store, &view, &source, route);
+
+    // Three stacked tables, one pipe each: +5, +5, +5 mod 10 fold to +5.
+    let plus5 = LawProgram::identity(10).then(LawOp::add(5)).unwrap();
+    let stack = plus5.compose(plus5).unwrap().compose(plus5).unwrap();
+    assert_eq!(stack, plus5, "the stack folds to one op");
+    let id = b.bind_law(2, stack).expect("c is bound");
+
+    let (key, plane, law) = b
+        .borrow_law_bound(&store, &source.frames, &source, id)
+        .expect("lent");
+    assert!(
+        std::ptr::eq(key, source.lanes[2].as_slice()),
+        "the key lane itself, not a copy"
+    );
+    let values: Vec<Option<u32>> = key
+        .iter()
+        .enumerate()
+        .map(|(i, &k)| {
+            (plane[i / 64] >> (i % 64) & 1 == 1)
+                .then(|| law.apply(k))
+                .flatten()
+        })
+        .collect();
+    // c = [7, 0, 9] with presence 0b101: row 1 is absent and stays absent.
+    assert_eq!(values, vec![Some(2), None, Some(4)]);
+
+    // Refusals: an unbound key field, an unknown law, a stale frame.
+    assert_eq!(
+        b.bind_law(7, plus5),
+        Err(LaneRefusal::LawSourceUnbound { from: 7 })
+    );
+    assert!(matches!(
+        b.borrow_law_bound(&store, &source.frames, &source, LawId(9)),
+        Err(LaneRefusal::NoSuchLaw { law: 9 })
+    ));
+    source.frames.advance(FrameRevisions {
+        source: 2,
+        relation_map: 1,
+        coordinates: 1,
+    });
+    assert!(matches!(
+        b.borrow_law_bound(&store, &source.frames, &source, id),
+        Err(LaneRefusal::Frame(_))
+    ));
+}
