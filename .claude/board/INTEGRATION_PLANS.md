@@ -1,3 +1,28 @@
+## 2026-11-24 — D-OJC §10a–§10b: a context as a bag over the id lane; DataFusion and Quack side by side as oracle → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. §10a: lance-context's mandatory `id` column as the key lane, a context as a mask over it lent like `borrow_all`, versioned as (frame, snapshot), seen by DR as a dimension table and CSR. §10b: DataFusion's use in lance-context is almost all id lookups; one `IdLookup` seam with the scanner filter as default, a Quack arm outside the workspace, both answering on a pinned version in three phases. Adds D-OJC-18..20 and decisions 8–9.
+**Confidence:** DataFusion call sites read in the fork at `c9a638b` (line numbers in the plan); nothing built or run.
+
+## 2026-11-24 — D-OJC amendment §11: a grounded code reviewer for lance-graph → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. A consumer of §9, §10 and C5 under the Claude Teacher protocol of #2077 / #2078: the code graph as ontology, review history as lance-context rows, repo laws as registered WHEN conditions, a Datalog derivation per finding, the model as untrusted teacher. Every published finding must resolve to frame addresses; it reads and comments only. Adds D-OJC-15..17.
+**Confidence:** #2077 / #2078 read from PR descriptions only; nothing loaded or run.
+
+## 2026-11-24 — D-OJC amendments §9–§10: the frame as retrieval source; lance-context wired through DR → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. §9: the compiled frame as the RAG / RIG retrieval source, exact reads by address, a pinned DR version acting like a token cache. §10: lance-context keeps the durable context rows unchanged; the mapping to class ordinals is one declared codebook table (dimension + CSR), versioned in the `BindStore` as (frame version, lance-context snapshot); no content duplicated, no second registry. lance-context vendors a patched Lance and uses DataFusion, so it stays outside the workspace graph. Adds D-OJC-12..14 and decisions 5–7.
+**Confidence:** lance-context read from README, Cargo.toml and two module headers at the fork's `main`; nothing built or measured.
+
+## 2026-11-24 — D-OJC amendment §7: dimension tables and CSR instead of foreign keys → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. The compiled frame is laid out as dimension tables (attributes by class address, O(1), no FK) and CSR per relation (a subtree is one contiguous `targets` run), bound lazily and immutable; DR reads them in place. Datafrog, Ascent, egglog, Scallop and XLOG read the same frame as procedural memory instead of copying it; agreement across engines is a gate. Adds D-OJC-10, D-OJC-11.
+**Confidence:** engine relation layouts not read; nothing measured.
+
+## 2026-11-24 — D-OJC amendment §6: lazy loading, the ontology as intermediary IR → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. A loaded ontology is the intermediary IR between producers and execution; the ontology cache compiles it just in time, lazily as the general case. Wikidata as the large case, with the runtime left to `wikidata-lazy-spine-hydration-v1.md` (D-LWS). Three constraints for any lazy producer: codes fixed per snapshot, overflow escapes to a registry reference, a lazy entry equals the eager one. Adds D-OJC-9.
+**Confidence:** D-LWS plan read for scope only; nothing measured.
+
 ## 2026-11-24 — D-OJC-0: loading an ontology is the compile step → `.claude/plans/ontology-jit-compile-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. The ontology cache as the just-in-time compile moment: IRIs resolved once to addresses, the hierarchy laid out as a coded path (reference `ogar-dir-core::Dn128`) so a subtree is one prefix mask, readable axioms turned into laws, a frozen frame per version. Producers through the same path: Schematron, OGIT Automation (ON/WHEN/DO), OBO/SNOMED via `ogar-obo`/`ogar-elk`, code graphs, WordNet, EU law. Subordinate to D-DT64-7 and D-OMR §8–§9 (the `BindStore` stays the method registry). Four decisions open, the first being where the DN type lives.

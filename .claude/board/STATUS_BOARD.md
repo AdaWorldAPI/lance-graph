@@ -53,6 +53,18 @@ Plan: `.claude/plans/ontology-jit-compile-v1.md`
 | D-OJC-6 | DOLCE/FIBO/schema.org and Schematron through the compile path | Queued |
 | D-OJC-7 | OGIT, OBO/SNOMED, code graph, WordNet, EU law producers | Queued |
 | D-OJC-8 | Load and read cost | Queued |
+| D-OJC-9 | Lazy compile of one class with its ancestors (amendment §6; runtime is D-LWS) | Queued |
+| D-OJC-10 | Dimension table and CSR lanes in the frame, read in place by DR (amendment §7) | Queued |
+| D-OJC-11 | One external engine (Datafrog first) reading the frame's CSR without copying, compared with XLOG | Queued |
+| D-OJC-12 | Retrieval over the frame (RAG / RIG), pinned version as cache (amendment §9) | Queued |
+| D-OJC-13 | lance-context codebook table bound through DR, versioned in the `BindStore` (amendment §10) | Queued (decisions 5-7) |
+| D-OJC-14 | Dependency fence: lance-context outside the workspace graph | Queued |
+| D-OJC-15 | lance-graph's code graph and review history loaded through the compile path (amendment §11) | Queued |
+| D-OJC-16 | Repo laws as registered WHEN conditions with derivations | Queued |
+| D-OJC-17 | Grounded reviewer under LG-COG-001's four arms (#2077 / #2078) | Queued (their decisions) |
+| D-OJC-18 | `LaneSource` over a lance-context `id` column; a context as a bag; dimension / CSR per snapshot (§10a) | Queued |
+| D-OJC-19 | `IdLookup` seam in lance-context, scanner filter as default (§10b) | Queued (fork needs push access) |
+| D-OJC-20 | DataFusion and Quack side by side as oracle on a pinned version (§10b) | Queued (decision 8) |
 
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
