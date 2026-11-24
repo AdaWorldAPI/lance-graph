@@ -69,7 +69,7 @@ A replayed derivation carries `independent_roots = 0`. It cannot count as new NA
 
 | Seam | What is missing | Smallest honest step | Owner of the blocker |
 |---|---|---|---|
-| S1 receipt → NAL stamp | `Receipt::roots` is a **64-bit bit set** (`receipt.rs:381-383`: "Provenance roots of those sources, as a bit set"). NAL's `Evidence::stamp` is a slice of root **identities** (`&[u64]`, lib.rs:250). The mask is a **local coordinate**, not an evidence identity: two bases can use the same bit for different roots. Its meaning has to come from a witnessed map. | First check whether the existing DR addressing already expresses this, before designing any new table. `lance-graph-dt64::dr::LocalMap` (dr.rs:576) is "the prepared global → local pointer table for one tile under one frame … identity references and local positions only, never values". It is issued under a sealed `Frame` (dr.rs:489, no public constructor) and versioned by `MapTable` (dr.rs:874). Falsifiers: (a) partially overlapping root sets refuse as `OVERLAP` on the shared roots only; (b) a duplicate replay contributes nothing; (c) independent new evidence pools; (d) identical masks under different frames resolve to different identities; (e) a stale root map refuses; (f) ABA reuse of a local position does not alias; (g) a permutation of root order does not change the verdict; (h) more than 64 roots refuses, never truncates, until the existing tiled, wide or sparse addressing is audited. | lab; no contract type |
+| S1 receipt → NAL stamp | `Receipt::roots` is a **64-bit bit set** (`receipt.rs:381-383`: "Provenance roots of those sources, as a bit set"). NAL's `Evidence::stamp` is a slice of root **identities** (`&[u64]`, lib.rs:250). The mask is a **local coordinate**, not an evidence identity: two bases can use the same bit for different roots. Its meaning has to come from a witnessed map. | First check whether the existing DR addressing already expresses this, before designing any new table. `lance-graph-dt64::dr::LocalMap` (dr.rs:576) is "the prepared global → local pointer table for one tile under one frame … identity references and local positions only, never values". It is issued under a sealed `Frame` (dr.rs:489, no public constructor) and versioned by `MapTable` (dr.rs:874). Falsifiers: (a) partially overlapping root sets refuse as `OVERLAP` on the shared roots only; (b) a duplicate replay contributes nothing; (c) independent new evidence pools; (d) identical masks under different frames are **resolved, not assumed**: they may denote the same evidence or different evidence; (e) a stale root map refuses; (f) ABA reuse of a local position does not alias; (g) a permutation of root order does not change the verdict; (h) more than 64 roots refuses, never truncates, until the existing tiled, wide or sparse addressing is audited. | lab; no contract type |
 | S2 rollout witness | there is no typed row for (fixture, arm, stage S0–S5, oracle verdict, receipt identity, `QueryReference`) | an **isolated, single-writer experimental dataset**, written through a cold adapter to `RolloutRecord` (`metadata` / `relationships`), as #2077 and #2078 §5 propose. Test before relying on it: conflicting event ids, flush and read-back, deterministic replay at a pinned `checkout(version)`. If any of these cannot be shown, fall back to temporary append-only artifacts. | lab use and production admission are separate questions; EXO-300 governs only the second |
 | S3 durable base | `BaseRef` stands in for `DurableRef` | none: the mock experiment uses the existing lab `BaseRef` and the sealed-version witnesses (`VersionStore::seal`, `CommitWitness`) | EXO-148 blocks **production only**; it is not a prerequisite for the mock-teacher experiment |
 | S4 Rig caller | the pilot needs a Claude call with a strict output schema and a hard cost cap | a cold caller through the graph-flow `rig` feature or rig-core directly, **only after** the mock teacher and the oracles are accepted | operator: $5 cap, key requested via `request_credential` |
@@ -231,3 +231,25 @@ So a receipt's `u64` root mask is the 64-wide tile of this law. A larger root se
 **Observation.** `Axis::for_survivors` saturates `tiles` at `u32::MAX` (dr.rs:78-82). That is a reservation count, so a saturating value cannot alias evidence. An evidence path that reuses this law must refuse at that bound, not saturate.
 
 **Hypothesis, PROPOSAL only.** The law could be stated once, declaratively (tile = ⌊i / w⌋, local = i mod w for a power-of-two w), and lowered by the existing compiler donors to shifts and masks. Two things to check first: whether XLOG's existing RIR, `crepe_plan!` and the Soufflé-harvested passes already lower such a rule; and whether DT64's method binding can carry it. No new configuration language is to be introduced. The open question for LG-COG-001: can a teacher or `xlog-induce` contribute *configurations* of existing laws (grammar → typed law → method configuration → verified composition → native execution) instead of new runtime code? It is gated like every other PROPOSAL here: oracle, disable control, no hot-path change.
+
+### 13.1 Correction: evidence identity is invariant under lawful coordinate transformations
+
+S1 falsifier (d) once said identical masks under different frames resolve to *different* identities. That is wrong. The same evidence root can survive across versions and coordinate assignments. The invariant to test:
+
+| Transformation | Expected |
+|---|---|
+| same identity, different local position | same evidence |
+| same position, different identity | different evidence |
+| same identity, newer valid frame | same evidence |
+| stale or invalid frame | refusal |
+| permuted coordinates with the matching mask | same verdict |
+| more than 64 roots | tiled representation, or explicit refusal |
+
+### 13.2 Width-parametric addressing (follow-up research seam)
+
+- **Dense ordinals.** `i = W·t + l` with `l = i mod W` is the addressing law. DR implements W = 64 and W = 256 today (`Width`, dr.rs:35). Other widths are conceptual, not admitted.
+- **Sparse identities.** Modulo cannot translate them. DR's witnessed `LocalMap` / `Frame` does.
+- **Codec9 is not a width.** Its 512 codewords are value codes for one lane: 511 values plus the never-touched code. They are not an address width.
+- **The law could be configuration, not code.** It could be stated once as typed configuration. Datafrog would be the relational reference, Ascent BYODS the abstract-relation formalism, and Crepe / Soufflé the compiler donors.
+- **Semantics stay with the consumers.** One law, several physical configurations, and independent semantic consumers: NAL, thought-git, PIR, EIR, DRed, induce.
+- **Scope.** No new grammar engine, and no change to implementation scope.
