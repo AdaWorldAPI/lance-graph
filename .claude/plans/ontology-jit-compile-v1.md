@@ -423,3 +423,54 @@ was built. Whether `GenericStore::get_many` is a zero-copy read is not known
 (`d-rmap-2` flags the same doubt). The fork's vendored Lance is 14.0.2, the
 same line as lance-graph's `14.*`; whether the patches change on-disk format
 was not checked.
+
+## 11. Amendment (2026-11-24): a grounded code reviewer for lance-graph
+
+A consumer of §9, §10 and C5, governed by the Claude Teacher protocol of
+#2077 / #2078 (LG-COG-001; both open and docs only at the time of writing).
+Nothing here adds an executor: Quack / R2IL / mask-RISC stays the only
+execution path, and the model's output is a cold, untrusted, structured
+hypothesis.
+
+**Parts.**
+
+| Part | What it is | From |
+|---|---|---|
+| Code graph | lance-graph's own source loaded as an ontology: items as classes, `childof` / `extends` / `overrides` as hierarchy laws, `calls` / `ref` as relations | C5, D-OJC-7 |
+| Review memory | past PRs, review threads, board entries and decisions as context rows, bound to code-graph classes by the codebook table | §10, D-OJC-13 |
+| Rules | the repo's own laws as WHEN conditions registered on code classes (examples: no tuple materialization; Lance only from upstream; no new DataFusion code; stride positions carry no names) | §1, registration under D-DT64-7 |
+| Derivation | a Datalog pass over the frame derives violations, each with the facts and the rule that produced it | §7 |
+| Teacher | the model proposes findings and explanations over what the frame returned | #2077 / #2078 |
+
+**The rule that keeps it honest.** Every finding the reviewer publishes must
+resolve to addresses in the frame and to a rule or a retrieved fact, at a named
+frame version. A finding that does not resolve is dropped, not posted. Judgement
+calls the frame cannot derive (is this design right?) are labelled as the
+model's hypothesis and are kept apart from derived findings.
+
+**What it may do.** Read, and post review comments. It never approves, merges,
+resolves a thread, or pushes. Reward and rollout events grant no authority
+(#2077).
+
+**Evaluation.** The four arms of #2077: no context; retrieval; retrieval plus
+config; retrieval plus config plus feedback. The oracle is past PRs whose
+review findings were later confirmed by a fix commit: a finding counts as found
+when the reviewer, run on the pre-fix head, names the same defect at the same
+place. Findings with no confirming fix are scored separately as unverified, not
+as false. The API cost limit of #2077 applies.
+
+**Deliverables added.**
+
+| D-id | Deliverable | Gate |
+|---|---|---|
+| D-OJC-15 | lance-graph's code graph and its review history loaded through the compile path and the codebook table | "who calls X" equals an oracle built from the compiler's own output for a fixture crate; a past ruling on a module is returned with its source and version |
+| D-OJC-16 | Rule set: a first handful of repo laws as registered WHEN conditions, with derivations | each rule fires on a known past violation and stays silent on the fixed commit |
+| D-OJC-17 | Reviewer run under LG-COG-001's four arms against the confirmed-findings oracle | every published finding resolves to frame addresses; an unresolvable finding is dropped (can-fire and can-stay-silent); arm results recorded with cost |
+
+**Depends on:** D-OJC-7 (code graph producer), D-OJC-12, D-OJC-13, and the
+owner decisions of #2077 / #2078 (which method and bag references exist to
+reuse, where the thin facade lives).
+
+**Not verified:** #2077 and #2078 were read from their PR descriptions only,
+not their plan files; no code graph of lance-graph has been loaded; no review
+has been run.

@@ -59,6 +59,9 @@ Plan: `.claude/plans/ontology-jit-compile-v1.md`
 | D-OJC-12 | Retrieval over the frame (RAG / RIG), pinned version as cache (amendment §9) | Queued |
 | D-OJC-13 | lance-context codebook table bound through DR, versioned in the `BindStore` (amendment §10) | Queued (decisions 5-7) |
 | D-OJC-14 | Dependency fence: lance-context outside the workspace graph | Queued |
+| D-OJC-15 | lance-graph's code graph and review history loaded through the compile path (amendment §11) | Queued |
+| D-OJC-16 | Repo laws as registered WHEN conditions with derivations | Queued |
+| D-OJC-17 | Grounded reviewer under LG-COG-001's four arms (#2077 / #2078) | Queued (their decisions) |
 
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
