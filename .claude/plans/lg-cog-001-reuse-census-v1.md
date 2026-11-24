@@ -253,3 +253,19 @@ S1 falsifier (d) once said identical masks under different frames resolve to *di
 - **The law could be configuration, not code.** It could be stated once as typed configuration. Datafrog would be the relational reference, Ascent BYODS the abstract-relation formalism, and Crepe / Soufflé the compiler donors.
 - **Semantics stay with the consumers.** One law, several physical configurations, and independent semantic consumers: NAL, thought-git, PIR, EIR, DRed, induce.
 - **Scope.** No new grammar engine, and no change to implementation scope.
+
+### 13.3 Scope of the addressing finding
+
+DR supports multiple tiles. The receipt format does not yet: `Receipt::roots` is one `u64`. A receipt can use DR's multi-tile law only after a witnessed binding from its root tiles to DR `Axis` / `LocalMap`. Until then, more than 64 roots refuses (§13.1).
+
+## 14. Measuring how far the existing algebra reaches (PROPOSAL metric for LG-COG-001)
+
+Each new problem the pilot solves is classed by what it took:
+
+| Level | What is acquired | Runtime change |
+|---|---|---|
+| configuration | parameters and bindings of existing laws | none |
+| composition | new combinations of existing verified methods | none, where already expressible |
+| extension | an operation the algebra cannot express yet | yes; needs its own admission gate |
+
+Report the three counts separately, per knowledge source (Claude, `xlog-induce`, native composition, §8). Most solved problems landing in configuration or composition would be evidence that capability grows without a matching growth in code. A configuration is valid only if every field resolves to an existing typed contract. No new schema or configuration language.
