@@ -14,6 +14,7 @@
 //! at zero allocations.
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
+use lance_graph_contract::lane_codec::{CodeSpace, EpiLaneSpec, LaneWidth};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, Guards, Scope};
@@ -106,6 +107,8 @@ const REVS: FrameRevisions = FrameRevisions {
 struct Views {
     class: Vec<FieldRef>,
     lens: Vec<FieldRef>,
+    /// The class's declared lane layout, if any.
+    lanes: Option<EpiLaneSpec>,
 }
 
 fn refs(labels: &[&str], ns: &str) -> Vec<FieldRef> {
@@ -128,6 +131,9 @@ impl ClassView for Views {
     }
     fn dolce_category_id(&self, _class: ClassId) -> u8 {
         0
+    }
+    fn epi_lanes(&self, class: ClassId) -> Option<EpiLaneSpec> {
+        (class == CLASS_VIEW).then_some(self.lanes).flatten()
     }
 }
 
@@ -232,6 +238,7 @@ fn views() -> Views {
                 .collect::<Vec<_>>(),
             "r2il",
         ),
+        lanes: None,
     }
 }
 
@@ -301,11 +308,16 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_lanes(None)
+    }
+
+    /// A fixture whose class declares `lanes` as its lane layout.
+    fn with_lanes(lanes: Option<EpiLaneSpec>) -> Self {
         let mut store = BindStore::new();
         store
             .declare_algebra(LENS, REV, Extent::DR64_CUBE, arities())
             .unwrap();
-        let views = views();
+        let views = Views { lanes, ..views() };
         store.register(&views, CLASS, schema(), methods()).unwrap();
         let version = store.route(POSITION, CLASS).unwrap();
         Self {
@@ -317,6 +329,10 @@ impl Fixture {
     }
 
     fn prepare(&self, id: u32) -> Prepared {
+        self.try_prepare(id).expect("the fixture's methods prepare")
+    }
+
+    fn try_prepare(&self, id: u32) -> Result<Prepared, ExecRefusal> {
         let r = mref(&self.store, id);
         let g = Guards {
             frame: self.frames.seal(),
@@ -336,7 +352,6 @@ impl Fixture {
             &self.frames,
             NOW,
         )
-        .expect("the fixture's methods prepare")
     }
 }
 
@@ -555,4 +570,98 @@ fn present_and_field_are_different_bindings() {
     let present = digest(Arg::Present(F_PARENT));
     assert_eq!(present, digest(Arg::Present(F_PARENT)), "deterministic");
     assert_ne!(present, digest(Arg::Field(F_PARENT)));
+}
+
+/// A class layout of `width` lanes (the offsets are not read here).
+fn layout(width: LaneWidth) -> EpiLaneSpec {
+    EpiLaneSpec {
+        width,
+        space: CodeSpace::Sym,
+        values: 32,
+        presence: 96,
+        lanes: 4,
+    }
+}
+
+/// Run `ROOT` (`parent IS NULL`) over four rows whose `parent` presence plane
+/// is `p`, the rows' values never read.
+fn root_over(f: &Fixture, p: u64) -> i64 {
+    let n = 4;
+    let p = vec![p];
+    let other = vec![0u64; 1];
+    let i32s = vec![0i32; n];
+    let u32s = vec![0u32; n];
+    let lanes = [
+        LaneRef::I32(&i32s),
+        LaneRef::I32(&i32s),
+        LaneRef::I32(&i32s),
+        LaneRef::U32(&u32s),
+    ];
+    let masks: [&[u64]; 3] = [&other, &other, &p];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let plan = f.prepare(ROOT);
+    let np = prepare_native_present(
+        &plan,
+        &f.store,
+        &f.frames,
+        NOW,
+        FieldLanes { lanes: &LANES },
+        FieldPresence { planes: &PRESENCE },
+        &planes,
+    )
+    .expect("the binding is admitted");
+    let mut scratch = NativeScratch::for_plan(&np);
+    let permit = permit(&f.store, ROOT);
+    let r = run_native(
+        &np,
+        &f.store,
+        &f.frames,
+        NOW,
+        &permit,
+        &planes,
+        &mut scratch,
+    )
+    .expect("runs");
+    r.values()[0].1
+}
+
+/// Codec9 (`ndarray::hpc::codec9`, `lane_codec`): a 9-bit lane's presence bit
+/// is also its sign. Rows `+7, -7, +0, -0` have P = `1, 0, 1, 0` and
+/// magnitude `7, 7, 0, 0`; only `-0` is absent. Read from the plane alone,
+/// `parent IS NULL` would count `-7` too: 2 rows instead of 1. A class that
+/// declares 9-bit lanes is refused at preparation, by name.
+#[test]
+fn a_presence_operand_over_9_bit_lanes_is_refused() {
+    let f = Fixture::with_lanes(Some(layout(LaneWidth::Bits9)));
+    assert_eq!(
+        f.try_prepare(ROOT).unwrap_err(),
+        ExecRefusal::PresenceIsSign {
+            effect: 0,
+            field: F_PARENT
+        }
+    );
+}
+
+/// The twin: 8-bit lanes keep `P = 0 => value 0`, so the plane alone is
+/// absent and the same four planes count as the contract says.
+#[test]
+fn a_presence_operand_over_8_bit_lanes_counts_from_the_plane() {
+    let f = Fixture::with_lanes(Some(layout(LaneWidth::Bits8)));
+    // Rows: present, absent, present, absent.
+    assert_eq!(root_over(&f, 0b0101), 2);
+    assert_eq!(root_over(&f, 0b1111), 0);
+}
+
+/// An undeclared layout is not refused: the binding cannot tell 8-bit from
+/// 9-bit lanes, and reads the plane as the 8-bit rule says. The Codec9 rows
+/// `+7, -7, +0, -0` then count 2, not the 1 their own contract gives. This
+/// pins that reachable misread; declaring the layout is what removes it.
+#[test]
+fn an_undeclared_layout_reads_the_plane_as_8_bit() {
+    let f = Fixture::new();
+    assert_eq!(root_over(&f, 0b0101), 2);
 }

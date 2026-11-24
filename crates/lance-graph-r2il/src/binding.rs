@@ -75,11 +75,13 @@
 use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::ClassView;
+use lance_graph_contract::lane_codec::LaneWidth;
 use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::set_rules::Truth;
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, Effect, GuardWitness, MethodRef, Refusal, RouteVersion, SchemaRev,
+    view_class, AlgebraRef, Arg, BindStore, Effect, GuardWitness, MethodRef, Refusal, RouteVersion,
+    SchemaRev,
 };
 use lance_graph_mask_risc::{LaneKind, LaneRef, Planes};
 use ogar_loco::{FnIndex, Vocabulary};
@@ -320,6 +322,14 @@ pub enum ExecRefusal {
     /// An `Arg::Present` field has no presence plane bound, or the path
     /// that ran the plan takes no presence binding.
     PresenceUnbound { effect: usize, field: u8 },
+    /// An `Arg::Present` names a field of a class whose lanes are 9-bit
+    /// (`ClassView::epi_lanes` says `LaneWidth::Bits9`). There the presence
+    /// bit is also the sign (`lane_codec`, `ndarray::hpc::codec9`): `P = 0`
+    /// with a nonzero magnitude is a negative value, so the plane alone does
+    /// not say absent, and `IS NULL` as `IntNot` of it would count negative
+    /// values. Absent needs `P = 0` and magnitude 0, which this dialect cannot
+    /// read: it binds no 8-bit magnitude lane.
+    PresenceIsSign { effect: usize, field: u8 },
     /// The field's presence plane index is outside `Planes::masks`.
     PresenceUnusable {
         effect: usize,
@@ -392,6 +402,19 @@ fn prepare_with<V: ClassView + ?Sized>(
     }
     if binding.truth == Truth::ThreeValued {
         return Err(ExecRefusal::ThreeValuedNotExecutable);
+    }
+    // A presence operand reads absent from the plane alone: true for 8-bit
+    // lanes, false for 9-bit ones, whose presence bit is the sign.
+    if view
+        .epi_lanes(view_class(r.method.class))
+        .is_some_and(|spec| spec.width == LaneWidth::Bits9)
+    {
+        for (effect, e) in binding.effects.iter().enumerate() {
+            if let Some(&Arg::Present(field)) = e.args.iter().find(|a| matches!(a, Arg::Present(_)))
+            {
+                return Err(ExecRefusal::PresenceIsSign { effect, field });
+            }
+        }
     }
     if lens.lens != POLYFILL_LENS && classid_concept(lens.lens) != CONCEPT_R2IL_FOLD {
         return Err(ExecRefusal::NotR2ilReading { lens: lens.lens });
