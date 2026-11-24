@@ -134,7 +134,22 @@ Every corpus falsifier in the brief is a recursive SCC. None is admitted by P2 a
 - G5 multi-rule head: union terminals (existence, support) pass; `CountOverUnion` pinned.
 - G6 recursion detector: each row of the table above must return `Recursive` with the right SCC members. This is the can-fire test; G1-G5 non-recursive cases are the can-stay-silent twin.
 
-Action for the census: add a column "SCC-recursive through an n-ary head" to the xlog-coverage-probe census so the 68 splits into P2-admissible, P4, P3 and out-of-scope. UNVERIFIED how the 68 splits.
+**The split, MEASURED (2026-11-24, `census-1435111.tsv`).** No new column was needed: the census already has `host_loop`, which is `Scc::is_recursive` (`xlog-coverage-probe/src/lib.rs:105`). Of the 68 candidate rows (n-ary or computed head, n-ary read, n-ary join key):
+
+| bucket | rows | which |
+|---|---:|---|
+| P4: SCC is recursive | 52 | all 49 `refused-on-data` rows (`tri`, `cyc`, `echo`, `e1`, `r1`, `r2`, `p`, `clique5`, `path01`) and 3 join-key rows (`support_2`, `usable` ×2) |
+| out of P2: arithmetic head | 5 | `add_result`, `sub_result`, `mul_result`, `div_result`, `mod_result` |
+| out of P2: non-binary base read | 5 | `user_perm` (`role_perm`/3), `local_order` (`order`/3), `usable` (`external_consumer_commit`/3), `has_internet` ×2 (`gateway`/1, see below) |
+| out of P2: query over a 10-ary fact | 1 | `__xlog_query_0` over `encoded` |
+| out of P2: 3-ary head with filter | 1 | `mutual(X,Y,M)` with `X != Y` |
+| **P2 targets** | **4** | `fof(X,Z) :- friend(X,Y), friend(Y,Z), X != Z.` ×2; `sg_result(X,Y) :- parent(X,P), parent(Y,P).` and `sg_result(W,Z) :- sg_witness(W,X,Y,Z).` |
+
+All four P2 targets are **binary-head projections that drop a variable**, so every one needs the MISSING terminal of §5 (`body_pair`); none is admitted by unfolding alone. `fof` also needs `X != Z`, which on a pair plane is the removal of its diagonal. `sg_result`'s second rule reads `sg_witness`, a 4-ary head over 4 binary atoms that the host path already answers (oracle-agrees, not recursive), so it exercises unfolding plus `body_pair`.
+
+`has_internet(X) :- reachable(X, G), gateway(G).` is refused because `gateway` is unary, not binary. It is not a P2 shape: it is a one-hop preimage of a set, a set-grammar question like EXO-394, and `no_internet` cascades from it.
+
+**Consequence.** P2 is gated on `body_pair` and its cost measurement (§5). Without it the contract admits no corpus rule.
 
 Negative twins (correlation-losing):
 - The `R` fixture of §2 and the 2-triangle twin. Test asserts count 2 (not 8), and for `p(X,Z)` asserts 2 pairs (not 4).
@@ -167,5 +182,5 @@ Also required: stats show no rows built by any non-egress terminal (`rows_materi
 - EXO-108's exact scope (§7).
 - Whether any atom-count cap exists in `Plan::new` beyond the lines read (§6).
 - `body_pair` cost (§5): no measurement exists.
-- How the 68 split into P2-admissible, P4, P3 and out-of-scope (§8): needs the new census column.
+- ~~How the 68 split~~ MEASURED in §8: 52 P4, 12 out of P2, 4 P2 targets, all needing `body_pair`.
 - Whether the board accepts row-enumerating oracles for the cube comparison (§8).
