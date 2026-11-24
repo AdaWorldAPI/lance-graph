@@ -452,6 +452,16 @@ Lance stable row ids if the vendored Lance supports them; not checked).
 
 ### 10b. Migration path: DataFusion and Quack side by side as oracle
 
+> **lance-context half (2026-11-24):** the seam and the comparing wrapper are
+> proposed in `AdaWorldAPI/lance-context` PR #1,
+> `docs/design/id-lookup-seam-and-quack-oracle.md`
+> (https://github.com/AdaWorldAPI/lance-context/pull/1). The call-site line
+> numbers below were read at `c9a638b`; that document re-reads them at
+> `5adf73f`, where `annotation_staging.rs` is 712 / 777 and `document_store.rs`
+> 204 / 229 / 246. It also finds `enable_stable_row_ids` in use in that crate's
+> tests, which bears on the open point in §10a about row addresses surviving
+> compaction.
+
 **Where DataFusion is used in lance-context** (25 lines, two crates):
 
 | Role | Where | Plan |
