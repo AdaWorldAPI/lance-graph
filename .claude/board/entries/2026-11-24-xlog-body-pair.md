@@ -44,7 +44,12 @@ runs fails: no clear (2), support of `u` (6), leaves ignore distinctness
 | 8192 | 86.0 | 96.1 | 724.1 | 722.2 | 743.0 | 80.3 |
 
 The projection costs about the same as the count. The densest four-cycle
-is about 0.74 ms, under the gate but close.
+is 743 µs, the largest number in the table.
+
+`materialize_distinct_witnesses` serves heads that keep every variable
+(`mutual(X, Y, M) :- friend(X, M), friend(Y, M), X != Y`): the same Plan,
+the pairs cleared in the emit path. `materialize_witnesses` delegates to it
+with no pairs. Disable run (pairs ignored): 2 tests red.
 
 OPEN:
 - Wiring `body_pair` into xlog-cube for `sg_result` and `fof`.
@@ -52,3 +57,8 @@ OPEN:
   `add_relation` (pairs). A presence plane handed over without decoding is
   not built.
 - One tile only, as `body_answer`.
+- A distinctness pair is the identity law's image: within a tile, row x of
+  the identity map is bit x, which is what `clear_distinct` clears. A body
+  needing `X != f(Z)` for an affine `f` would read a law lane (#2160,
+  `contract::lane_law`) and clear the bit at `f(bound)`. No such body exists
+  yet, so no law-lane reader is built.
