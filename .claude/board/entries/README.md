@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-682 entries, 2026-08-06 .. 2026-11-24.
+683 entries, 2026-08-06 .. 2026-11-24.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-11-24 | `xlog-body-pair` |  | [2026-11-24-xlog-body-pair.md](2026-11-24-xlog-body-pair.md) |
 | 2026-11-24 | `lg-cog-001-reuse-census` |  | [2026-11-24-lg-cog-001-reuse-census.md](2026-11-24-lg-cog-001-reuse-census.md) |
 | 2026-11-24 | `D-XLOG-COV-3` |  | [2026-11-24-d-xlog-cov-3-census-097c351.md](2026-11-24-d-xlog-cov-3-census-097c351.md) |
+| 2026-11-24 | `codec9-presence-operand` |  | [2026-11-24-codec9-presence-operand.md](2026-11-24-codec9-presence-operand.md) |
 | 2026-11-23 | `stride-positions-carry-no-names` |  | [2026-11-23-stride-positions-carry-no-names.md](2026-11-23-stride-positions-carry-no-names.md) |
 | 2026-11-22 | `synergy-fruits-revision-1806-2157` |  | [2026-11-22-synergy-fruits-revision-1806-2157.md](2026-11-22-synergy-fruits-revision-1806-2157.md) |
 | 2026-11-22 | `rbac-boundary-findings-postponed` |  | [2026-11-22-rbac-boundary-findings-postponed.md](2026-11-22-rbac-boundary-findings-postponed.md) |

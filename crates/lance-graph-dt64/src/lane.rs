@@ -789,6 +789,13 @@ impl LaneBinding {
     /// key lane it reads, that lane's presence plane, and the folded law.
     /// Value `i` is `law.apply(key[i])` where the key's presence says
     /// present; nothing is allocated or computed here.
+    ///
+    /// The presence bit alone says present only for a lane whose presence
+    /// bit is not also a sign: 8-bit and wider lanes. A 9-bit lane's
+    /// presence bit is its sign ([`PresenceSource`]): `P = 0` with a nonzero
+    /// magnitude is a negative value, not absent. No [`LaneSource`] lends a
+    /// 9-bit lane today, so no law reads one; a source that does must not
+    /// hand its sign plane over as presence here.
     pub fn borrow_law_bound<'b, 's, S: PresenceSource>(
         &'b self,
         store: &BindStore,
