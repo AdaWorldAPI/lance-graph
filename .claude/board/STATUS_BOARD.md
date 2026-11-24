@@ -53,6 +53,7 @@ Plan: `.claude/plans/ontology-jit-compile-v1.md`
 | D-OJC-6 | DOLCE/FIBO/schema.org and Schematron through the compile path | Queued |
 | D-OJC-7 | OGIT, OBO/SNOMED, code graph, WordNet, EU law producers | Queued |
 | D-OJC-8 | Load and read cost | Queued |
+| D-OJC-9 | Lazy compile of one class with its ancestors (amendment §6; runtime is D-LWS) | Queued |
 
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 

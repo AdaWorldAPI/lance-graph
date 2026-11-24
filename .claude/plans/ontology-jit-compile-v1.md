@@ -147,3 +147,52 @@ Checking a proposed action is two existing reads:
   way. Arithmetic in DO (tax amounts, dosage, depreciation) needs declared
   laws beyond `lane_law`'s affine ops or a written `ActionDef`; how much of a
   business system that leaves is the measurement this plan should produce.
+
+## 6. Amendment (2026-11-24): lazy loading, the ontology as intermediary IR
+
+**The pattern, stated once.** A loaded ontology is an intermediary IR between
+its sources (OWL / RDF files, Schematron, OGIT Knowledge Items, SNOMED, OBO,
+WordNet, EU law, a code graph) and execution: the producers lower into it, and
+registration and reads consume it. The ontology cache is where this IR is
+compiled just in time. Compiling it lazily is the general case; compiling a
+whole ontology at once is the special case where every class is referenced.
+
+**Why lazy compilation is sound here.** A class's compiled form (its address,
+its hierarchy code path, its laws) depends only on its own ancestor path and its
+own axioms, not on the rest of the graph. So a class can be compiled on first
+reference, together with any ancestors not yet compiled, and frozen from then
+on. What is never referenced is never compiled.
+
+**Wikidata is the large case.** The ~115M-entity load is not run whole; classes
+are compiled as they are reached. This plan does not design the runtime for
+that. It already exists as a plan:
+`wikidata-lazy-spine-hydration-v1.md` (D-LWS-*, the `NiblePath`-keyed tiered
+hydration manager, I/P/B frames over Lance versioning), with its design in
+`.claude/knowledge/agnostic-lazy-world-spine.md` and
+`.claude/knowledge/delta-card-addressing-integration-map.md`. What this section
+adds is the compile view of it, as three constraints any lazy producer must
+meet:
+
+1. **Codes are fixed per snapshot, never by load order.** A child's code under
+   its parent must come from a rule fixed for the snapshot (for example derived
+   from its identifier), not from the order in which classes were first asked
+   for. Otherwise the same class gets a different address depending on query
+   history, and the determinism falsifier A4 fails.
+2. **Overflow escapes, it does not hash or truncate.** More than 256 children
+   under one parent, or a path deeper than 16 levels, becomes an explicit
+   reference to the registry (OGAR: depth beyond the native levels is "the
+   hierarchy's job (registry resolve + ref-escape)"), the same refusal rule as
+   `Dn128::from_ou_hhtl`.
+3. **A lazily compiled class equals the eagerly compiled one.** Compiling class
+   C on first reference must give the same frame entry as compiling the whole
+   snapshot and reading C.
+
+**Deliverable added.**
+
+| D-id | Deliverable | Gate |
+|---|---|---|
+| D-OJC-9 | Lazy compile of one class with its ancestors, against the D-LWS manager | constraint 3: lazy entry equals eager entry for every class of a fixture, in every reference order tried; constraint 1: two reference orders give byte-identical entries; constraint 2: the 257th child yields a registry reference, not a code |
+
+**Not verified:** the D-LWS plan and its two knowledge docs were read for scope
+only (the plan's header and sections), not in full; no lazy load exists to
+measure.

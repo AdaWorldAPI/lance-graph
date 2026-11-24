@@ -1,3 +1,8 @@
+## 2026-11-24 — D-OJC amendment §6: lazy loading, the ontology as intermediary IR → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. A loaded ontology is the intermediary IR between producers and execution; the ontology cache compiles it just in time, lazily as the general case. Wikidata as the large case, with the runtime left to `wikidata-lazy-spine-hydration-v1.md` (D-LWS). Three constraints for any lazy producer: codes fixed per snapshot, overflow escapes to a registry reference, a lazy entry equals the eager one. Adds D-OJC-9.
+**Confidence:** D-LWS plan read for scope only; nothing measured.
+
 ## 2026-11-24 — D-OJC-0: loading an ontology is the compile step → `.claude/plans/ontology-jit-compile-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. The ontology cache as the just-in-time compile moment: IRIs resolved once to addresses, the hierarchy laid out as a coded path (reference `ogar-dir-core::Dn128`) so a subtree is one prefix mask, readable axioms turned into laws, a frozen frame per version. Producers through the same path: Schematron, OGIT Automation (ON/WHEN/DO), OBO/SNOMED via `ogar-obo`/`ogar-elk`, code graphs, WordNet, EU law. Subordinate to D-DT64-7 and D-OMR §8–§9 (the `BindStore` stays the method registry). Four decisions open, the first being where the DN type lives.
