@@ -277,13 +277,19 @@ B's paths as prefixes, so a prefix read alone misses C under one of them.
 - Every other `subClassOf` parent is a **secondary edge**, stored as a CSR
   relation (§7) from the class to each secondary parent, and the reverse
   direction from each parent to its secondary children.
-- A subtree read under A is the prefix mask of A's path **OR** the classes
-  reached from A through secondary edges, closed under the prefix rule (each
-  reached class brings its own subtree). With a frozen frame this closure is
-  computed once per class at compile time and stored as one more mask, so the
-  read stays one mask.
-- Lazy compilation (§6) is unchanged in kind: compiling C also compiles its
-  secondary parents' entries, as it does its ancestors.
+- A subtree read under A is the least set S with: every class under A's prefix
+  is in S; every secondary child of a class in S is in S; every class under the
+  prefix of a class in S is in S. The two steps repeat **to a fixed point**:
+  if D is a primary child of A and C a secondary child of D, C and C's own
+  subtree are under A. With a frozen frame this set is computed once per class
+  at compile time and stored as one mask, so the read stays one mask.
+- **Secondary edges are indexed for the whole snapshot at ingest**, in the same
+  ordering pass that assigns the dense ordinals below: one CSR of
+  `parent ordinal → secondary children` built from identifiers and
+  `subClassOf` statements alone, without compiling any class. Compiling A
+  lazily (§6) therefore finds A's secondary descendants in that index even
+  when none of them has been compiled; computing A's subtree mask needs only
+  ordinals and that index, not the descendants' compiled entries.
 
 **Dense ordinals.** `dim[addr]` and `offsets[addr]` (§7) index arrays, so `addr`
 must be a dense ordinal, distinct from the coded path:
@@ -302,7 +308,7 @@ must be a dense ordinal, distinct from the coded path:
 
 **Gate changes.** D-OJC-10 is checked against these ordinals: a primary
 subtree's ordinals form one run, every class including registry-reference ones
-has exactly one `dim` row, and the diamond of A3 is found under both parents.
+has exactly one `dim` row, the diamond of A3 is found under both parents, and a chained case (D a primary child of A, C a secondary child of D, E a primary child of C) returns C and E under A, with A compiled first and C, D, E not yet compiled.
 
 ## 9. Amendment (2026-11-24): the frame as retrieval source (RAG / RIG)
 
