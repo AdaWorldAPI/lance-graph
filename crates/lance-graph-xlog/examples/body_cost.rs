@@ -11,6 +11,9 @@ use lance_graph_xlog::cube::{Atom, Cube};
 
 const TILE: u32 = 5;
 
+/// A body, its variable count, its distinctness pairs and the demanded pair.
+type Demand = (&'static str, Vec<Atom>, usize, Vec<[u8; 2]>, [u8; 2]);
+
 /// Witnesses of `atoms` by walking relation 0's edges and extending through
 /// adjacency lists; every atom is checked on the full binding.
 fn oracle(rels: &[Vec<(u32, u32)>], atoms: &[Atom], k: usize) -> u64 {
@@ -87,7 +90,7 @@ fn main() {
         }
         // Cube::body_pair: the demanded two-column projection as presence.
         // Checked against the witnesses projected at the edge.
-        let pairs: [(&str, Vec<Atom>, usize, Vec<[u8; 2]>, [u8; 2]); 4] = [
+        let pairs: [Demand; 4] = [
             (
                 "tri→XZ",
                 vec![a(0, 0, 1), a(1, 1, 2), a(2, 0, 2)],
