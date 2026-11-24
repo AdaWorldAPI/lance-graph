@@ -11,6 +11,9 @@ use lance_graph_xlog::cube::{Atom, Cube};
 
 const TILE: u32 = 5;
 
+/// A body, its variable count, its distinctness pairs and the demanded pair.
+type Demand = (&'static str, Vec<Atom>, usize, Vec<[u8; 2]>, [u8; 2]);
+
 /// Witnesses of `atoms` by walking relation 0's edges and extending through
 /// adjacency lists; every atom is checked on the full binding.
 fn oracle(rels: &[Vec<(u32, u32)>], atoms: &[Atom], k: usize) -> u64 {
@@ -84,6 +87,62 @@ fn main() {
             assert_eq!(count, oracle(&rels, &atoms, k), "{name} at {m} edges");
             ts.sort_by(f64::total_cmp);
             println!("{m:<10} {name:<6} {count:<6} {:.1}", ts[15]);
+        }
+        // Cube::body_pair: the demanded two-column projection as presence.
+        // Checked against the witnesses projected at the edge.
+        let pairs: [Demand; 4] = [
+            (
+                "tri→XZ",
+                vec![a(0, 0, 1), a(1, 1, 2), a(2, 0, 2)],
+                3,
+                vec![],
+                [0, 2],
+            ),
+            (
+                "cyc→WY",
+                vec![a(0, 0, 1), a(1, 1, 2), a(2, 2, 3), a(3, 3, 0)],
+                4,
+                vec![],
+                [0, 2],
+            ),
+            (
+                "sg2→WZ",
+                vec![a(0, 0, 1), a(1, 1, 2), a(2, 2, 3), a(3, 3, 0)],
+                4,
+                vec![],
+                [0, 3],
+            ),
+            (
+                "fof→XZ",
+                vec![a(0, 0, 1), a(0, 1, 2)],
+                3,
+                vec![[0, 2]],
+                [0, 2],
+            ),
+        ];
+        for (name, atoms, k, distinct, demand) in pairs {
+            let mut ts = Vec::new();
+            let mut got = 0;
+            for _ in 0..31 {
+                let t0 = Instant::now();
+                got =
+                    std::hint::black_box(cube.body_pair(&t, &atoms, k, &distinct, demand).unwrap())
+                        .pairs();
+                ts.push(t0.elapsed().as_nanos() as f64 / 1e3);
+            }
+            let w = cube.materialize_witnesses(&t, &atoms, k).unwrap();
+            let want: BTreeSet<(u64, u64)> = w
+                .chunks(k)
+                .filter(|r| {
+                    distinct
+                        .iter()
+                        .all(|&[x, y]| r[x as usize] != r[y as usize])
+                })
+                .map(|r| (r[demand[0] as usize], r[demand[1] as usize]))
+                .collect();
+            assert_eq!(got, want.len() as u64, "{name} at {m} edges");
+            ts.sort_by(f64::total_cmp);
+            println!("{m:<10} {name:<6} {got:<6} {:.1}", ts[15]);
         }
     }
 }

@@ -29,7 +29,7 @@
 //! built per call, as [`Cube::reach`] builds its edge rows), at most
 //! [`MAX_BODY_VARS`] variables, no repeated variable inside one atom.
 
-use lance_graph_dt64::dr::{MapTable, PairDir};
+use lance_graph_dt64::dr::{Frame, MapTable, PairDir};
 use ndarray::simd::{mask_and, mask_or_assign, mask_ternlog_popcount, ternlog, U64x4};
 
 use super::{Cube, CubeRefusal, RelId};
@@ -60,6 +60,14 @@ pub enum BodyRefusal {
     Unused(u8),
     /// The witness count does not fit a `u64`.
     CountOverflow,
+    /// A distinctness pair names one variable twice.
+    SameDistinct { pair: usize },
+    /// A demanded projection names one variable twice.
+    SameDemand,
+    /// Two answers were combined that were not taken under the same frame
+    /// issue, or over different extents: their positions are not one
+    /// coordinate domain.
+    ForeignAnswer,
 }
 
 impl From<CubeRefusal> for BodyRefusal {
@@ -101,8 +109,15 @@ struct Plan<'c> {
     /// variable's candidates; the selectivity is that block's mean nonzero
     /// row popcount over `n`.
     adj: Vec<Vec<(usize, usize, f64)>>,
-    /// Per variable, the variables it shares an atom with.
+    /// Per variable, the variables it shares an atom with, or must differ
+    /// from: a distinctness pair couples its two variables, so a split must
+    /// not separate them.
     nbr: [u8; MAX_BODY_VARS],
+    /// Per variable, the variables it must differ from. The constraint is
+    /// against the implicit diagonal of the two axes: once the partner is
+    /// bound at `p`, bit `p` is cleared from this variable's candidates.
+    /// Nothing is stored for it.
+    distinct: [u8; MAX_BODY_VARS],
     /// The count's step for each `(unbound, bound)` state, indexed
     /// `rem | bound << k`, chosen once by [`Plan::optimize`].
     steps: Vec<Step>,
@@ -130,9 +145,27 @@ impl<'c> Plan<'c> {
         &self.blocks[b][x * w..(x + 1) * w]
     }
 
-    fn new(cube: &'c Cube, atoms: &[Atom], k: usize) -> Result<Self, BodyRefusal> {
+    fn new(
+        cube: &'c Cube,
+        atoms: &[Atom],
+        k: usize,
+        distinct_pairs: &[[u8; 2]],
+    ) -> Result<Self, BodyRefusal> {
         if k == 0 || k > MAX_BODY_VARS {
             return Err(BodyRefusal::Arity(k));
+        }
+        let mut distinct = [0u8; MAX_BODY_VARS];
+        for (i, &[a, b]) in distinct_pairs.iter().enumerate() {
+            for v in [a, b] {
+                if usize::from(v) >= k {
+                    return Err(BodyRefusal::VarOutOfRange { atom: i, var: v });
+                }
+            }
+            if a == b {
+                return Err(BodyRefusal::SameDistinct { pair: i });
+            }
+            distinct[usize::from(a)] |= 1 << b;
+            distinct[usize::from(b)] |= 1 << a;
         }
         let mut used = [false; MAX_BODY_VARS];
         for (i, a) in atoms.iter().enumerate() {
@@ -169,7 +202,7 @@ impl<'c> Plan<'c> {
         let mut col = vec![0u64; words];
         let mut checks: Vec<Vec<Check>> = vec![Vec::new(); k];
         let mut adj: Vec<Vec<(usize, usize, f64)>> = vec![Vec::new(); k];
-        let mut nbr = [0u8; MAX_BODY_VARS];
+        let mut nbr = distinct;
         for (i, a) in atoms.iter().enumerate() {
             let rel = cube.lanes(a.rel)?;
             let (c0, c1) = (&rel.cols[0], &rel.cols[1]);
@@ -238,6 +271,7 @@ impl<'c> Plan<'c> {
             checks,
             adj,
             nbr,
+            distinct,
             steps: vec![Step::Bind(0); states],
             cost: vec![-1.0; states],
         };
@@ -329,6 +363,20 @@ impl<'c> Plan<'c> {
                 cand.copy_from_slice(&tmp[..w]);
             }
         }
+        self.clear_distinct(v, bound, vals, cand);
+    }
+
+    /// Clear, from `v`'s candidates, the position of every bound variable
+    /// `v` must differ from.
+    #[inline]
+    fn clear_distinct(&self, v: usize, bound: u8, vals: &[usize], cand: &mut [u64]) {
+        let mut partners = self.distinct[v] & bound;
+        while partners != 0 {
+            let o = partners.trailing_zeros() as usize;
+            partners &= partners - 1;
+            let p = vals[o];
+            cand[p / 64] &= !(1 << (p % 64));
+        }
     }
 
     /// `cand[v] = proj[v] ∧ rows of every check at the bound positions`.
@@ -341,6 +389,9 @@ impl<'c> Plan<'c> {
             mask_and(cand, row, &mut tmp[..w]);
             cand.copy_from_slice(&tmp[..w]);
         }
+        // `emit` binds in order, so every earlier variable is bound.
+        let earlier = if v == 0 { 0 } else { u8::MAX >> (8 - v) };
+        self.clear_distinct(v, earlier, bound, cand);
     }
 }
 
@@ -480,6 +531,11 @@ impl<'p> Walk<'p> {
                     for &base in &at_v[span[i].0..span[i].1] {
                         t &= U64x4::from_slice(plan.row(base, x));
                     }
+                    if plan.distinct[var[i]] >> v & 1 == 1 {
+                        let mut a = t.to_array();
+                        a[x / 64] &= !(1 << (x % 64));
+                        t = U64x4::from_array(a);
+                    }
                     let c = t.popcnt().reduce_sum();
                     if c == 0 {
                         continue 'x;
@@ -540,7 +596,7 @@ impl Cube {
             return Err(CubeRefusal::Tiled.into());
         }
         self.check_frame(table)?;
-        let plan = Plan::new(self, atoms, k)?;
+        let plan = Plan::new(self, atoms, k, &[])?;
         let mut support = vec![0u64; k * plan.words];
         let count = if plan.n == 0 {
             0
@@ -572,11 +628,29 @@ impl Cube {
         atoms: &[Atom],
         k: usize,
     ) -> Result<Vec<u64>, BodyRefusal> {
+        self.materialize_distinct_witnesses(table, atoms, k, &[])
+    }
+
+    /// [`Cube::materialize_witnesses`] under distinctness pairs: a witness
+    /// binding both variables of a pair to one position is never emitted.
+    /// The pair is cleared inside the walk, as in [`Cube::body_pair`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Cube::body_answer`]; [`BodyRefusal::SameDistinct`] for a pair
+    /// naming one variable twice.
+    pub fn materialize_distinct_witnesses(
+        &self,
+        table: &MapTable,
+        atoms: &[Atom],
+        k: usize,
+        distinct: &[[u8; 2]],
+    ) -> Result<Vec<u64>, BodyRefusal> {
         if self.tiled {
             return Err(CubeRefusal::Tiled.into());
         }
         let map = self.map(table)?;
-        let plan = Plan::new(self, atoms, k)?;
+        let plan = Plan::new(self, atoms, k, distinct)?;
         let mut locals = Vec::new();
         if plan.n > 0 {
             Walk::new(&plan).emit(0, &mut locals);
@@ -589,5 +663,217 @@ impl Cube {
         s.rows_materialized += (out.len() / k) as u64;
         self.stats.set(s);
         Ok(out)
+    }
+}
+
+/// What [`Cube::body_pair`] returns: the demanded two-column projection of a
+/// body as presence over the tile's local positions. Row `x` (`words` words)
+/// holds the `v` positions that occur in a witness with `u` at `x`.
+///
+/// The answer keeps the frame issue it was taken under, as [`Closure`]
+/// reuse does: two answers combine only when their positions are one
+/// coordinate domain.
+///
+/// [`Closure`]: super::Closure
+#[derive(Clone, Debug)]
+pub struct PairAnswer {
+    positions: usize,
+    words: usize,
+    rows: Vec<u64>,
+    pairs: u64,
+    frame: Frame,
+}
+
+impl PairAnswer {
+    /// Positions per axis: the tile's local positions at the time of the call.
+    pub fn positions(&self) -> usize {
+        self.positions
+    }
+
+    /// Words per row.
+    pub fn words(&self) -> usize {
+        self.words
+    }
+
+    /// `positions` rows of `words` words, LSB-first.
+    pub fn rows(&self) -> &[u64] {
+        &self.rows
+    }
+
+    /// Distinct `(u, v)` pairs: the popcount of `rows`.
+    pub fn pairs(&self) -> u64 {
+        self.pairs
+    }
+
+    /// Whether `(x, y)` is in the projection. A coordinate outside
+    /// `0..positions` is never in it: it must not alias the padding of its
+    /// row or the next row.
+    pub fn contains(&self, x: usize, y: usize) -> bool {
+        x < self.positions
+            && y < self.positions
+            && self.rows[x * self.words + y / 64] >> (y % 64) & 1 == 1
+    }
+
+    /// `self |= other` on the planes: the union of two projections over one
+    /// coordinate domain. Nothing is decoded.
+    ///
+    /// # Errors
+    ///
+    /// [`BodyRefusal::ForeignAnswer`] when `other` was taken under another
+    /// frame issue or over another extent; `self` is left unchanged.
+    pub fn or_assign(&mut self, other: &PairAnswer) -> Result<(), BodyRefusal> {
+        if self.positions != other.positions || !self.frame.same_issue(&other.frame) {
+            return Err(BodyRefusal::ForeignAnswer);
+        }
+        mask_or_assign(&mut self.rows, &other.rows);
+        self.pairs = self.rows.iter().map(|w| u64::from(w.count_ones())).sum();
+        Ok(())
+    }
+}
+
+impl Cube {
+    /// The demanded projection `(u, v)` of a conjunctive body under
+    /// distinctness pairs, as presence over existing coordinates: no tuple
+    /// is built. For each position `x` of `u`'s candidates the walk runs with
+    /// `u` bound at `x`, and row `x` is the support of `v` under that
+    /// binding: `{ y : ∃ the other variables. body ∧ u = x ∧ v = y }`.
+    /// Variables other than `u` and `v` are existential.
+    ///
+    /// # Errors
+    ///
+    /// As [`Cube::body_answer`]; [`BodyRefusal::SameDemand`] when `u == v`.
+    pub fn body_pair(
+        &self,
+        table: &MapTable,
+        atoms: &[Atom],
+        k: usize,
+        distinct: &[[u8; 2]],
+        [u, v]: [u8; 2],
+    ) -> Result<PairAnswer, BodyRefusal> {
+        if self.tiled {
+            return Err(CubeRefusal::Tiled.into());
+        }
+        self.check_frame(table)?;
+        let mut plan = Plan::new(self, atoms, k, distinct)?;
+        for x in [u, v] {
+            if usize::from(x) >= k {
+                return Err(BodyRefusal::VarOutOfRange {
+                    atom: atoms.len(),
+                    var: x,
+                });
+            }
+        }
+        if u == v {
+            return Err(BodyRefusal::SameDemand);
+        }
+        let (u, v) = (usize::from(u), usize::from(v));
+        let w = plan.words;
+        let out = plan.n.div_ceil(64);
+        let mut rows = vec![0u64; plan.n * out];
+        let mut pairs = 0u64;
+        if plan.n > 0 {
+            let all = if k == 8 { u8::MAX } else { (1u8 << k) - 1 };
+            let ubit = 1u8 << u;
+            // The planner reached only the states below `(all, 0)`; the walk
+            // here starts from `(all - u, {u})`.
+            plan.optimize(all & !ubit, ubit);
+            let mut cand = [0u64; 4];
+            cand[..w].copy_from_slice(&plan.proj[u * w..(u + 1) * w]);
+            let mut support = vec![0u64; k * w];
+            let mut scratch = vec![0u64; k * MAX_BODY_VARS * k * w];
+            let mut walk = Walk::new(&plan);
+            for (wi, &word) in cand[..w].iter().enumerate() {
+                let mut bits = word;
+                while bits != 0 {
+                    let x = wi * 64 + bits.trailing_zeros() as usize;
+                    bits &= bits - 1;
+                    walk.bound[u] = x;
+                    support.fill(0);
+                    if walk.count(all & !ubit, ubit, &mut support, &mut scratch)? > 0 {
+                        let row = &support[v * w..v * w + out];
+                        pairs += row.iter().map(|b| u64::from(b.count_ones())).sum::<u64>();
+                        rows[x * out..(x + 1) * out].copy_from_slice(row);
+                    }
+                }
+            }
+        }
+        Ok(PairAnswer {
+            positions: plan.n,
+            words: out,
+            rows,
+            pairs,
+            frame: self.frame.clone(),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lance_graph_dt64::dr::{LocalMap, Width};
+
+    /// A cube over the 256 ids `0..256` (local position = id) with one
+    /// relation, so a plan can be built over a full tile.
+    fn full_tile() -> (MapTable, Cube) {
+        let ids: Vec<u64> = (0..256).collect();
+        let mut t = MapTable::new(1, 1);
+        t.advance(
+            1,
+            1,
+            vec![(0, Some(LocalMap::prepare(Width::W256, &ids).unwrap()))],
+        );
+        let rel: Vec<(u32, u32)> = (0..256).map(|i| (i, (i + 1) % 256)).collect();
+        let cube = Cube::new(&t, &t.seal(), 0, &[&rel]).unwrap();
+        (t, cube)
+    }
+
+    fn atom(a: u8, b: u8) -> Atom {
+        Atom {
+            rel: 0,
+            vars: [a, b],
+        }
+    }
+
+    /// Variable 3 must differ from 0, 1 and 2. With 0, 1 and 2 bound at the
+    /// word boundaries 63, 64 and 255, exactly those three bits are cleared.
+    #[test]
+    fn clear_distinct_at_word_boundaries_with_several_partners() {
+        let (_t, cube) = full_tile();
+        let atoms = [atom(0, 1), atom(1, 2), atom(2, 3)];
+        let plan = Plan::new(&cube, &atoms, 4, &[[3, 0], [3, 1], [3, 2]]).unwrap();
+        assert_eq!(plan.words, 4, "a full tile is four words per row");
+        let mut cand = [u64::MAX; 4];
+        plan.clear_distinct(3, 0b0111, &[63, 64, 255, 0], &mut cand);
+        for p in 0..256 {
+            let set = cand[p / 64] >> (p % 64) & 1 == 1;
+            assert_eq!(set, ![63, 64, 255].contains(&p), "position {p}");
+        }
+    }
+
+    /// A partner that is not yet bound clears nothing, even if its slot
+    /// holds a stale position.
+    #[test]
+    fn clear_distinct_ignores_unbound_partners() {
+        let (_t, cube) = full_tile();
+        let atoms = [atom(0, 1), atom(1, 2)];
+        let plan = Plan::new(&cube, &atoms, 3, &[[2, 0], [2, 1]]).unwrap();
+        let mut cand = [u64::MAX; 4];
+        // Only variable 1 is bound (at 64); variable 0's slot says 63.
+        plan.clear_distinct(2, 0b010, &[63, 64, 0], &mut cand);
+        assert_eq!(cand, [u64::MAX, !1, u64::MAX, u64::MAX]);
+    }
+
+    /// The pair is symmetric: either side, bound first, clears the other.
+    #[test]
+    fn clear_distinct_is_symmetric_for_the_identity() {
+        let (_t, cube) = full_tile();
+        let atoms = [atom(0, 1)];
+        let plan = Plan::new(&cube, &atoms, 2, &[[0, 1]]).unwrap();
+        let mut a = [u64::MAX; 4];
+        plan.clear_distinct(1, 0b01, &[255, 0], &mut a);
+        let mut b = [u64::MAX; 4];
+        plan.clear_distinct(0, 0b10, &[0, 255], &mut b);
+        assert_eq!(a, b);
+        assert_eq!(a[3], !(1u64 << 63));
     }
 }
