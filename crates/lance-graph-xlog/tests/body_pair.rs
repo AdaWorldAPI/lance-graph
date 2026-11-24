@@ -424,12 +424,14 @@ fn a_bad_distinct_pair_is_refused_by_materialize() {
 /// not alias the next row.
 #[test]
 fn contains_refuses_coordinates_outside_the_extent() {
-    let (t, cube) = cube_of(&[vec![(1, 2)]]);
+    // Row 1 has bit 0 set, so an unchecked (0, 64) would read it as present.
+    let (t, cube) = cube_of(&[vec![(1, 2), (2, 1)]]);
     let body = [atom(0, 0, 1)];
     let a = cube.body_pair(&t, &body, 2, &[], [0, 1]).unwrap();
     assert_eq!(a.positions(), 2);
     assert!(a.contains(0, 1));
-    assert!(!a.contains(1, 0));
+    assert!(a.contains(1, 0));
+    assert!(!a.contains(0, 0));
     for (x, y) in [
         (0, 2),
         (2, 0),
