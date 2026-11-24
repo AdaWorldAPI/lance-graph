@@ -19,13 +19,13 @@ description = "Reconciles XLOG's compiled rules on lance-graph's cube against XL
 [workspace]
 
 # Pinned by rev: the committed census is named after the xlog tree it was
-# taken over (`007bb19` = merge of xlog#9, one-column routing). A
+# taken over (`097c351` = merge of xlog#10, arrow 58; refreshed from `007bb19`). A
 # branch dependency would let the input move under a fixed file name.
 [dependencies]
-xlog-cube = { git = "https://github.com/AdaWorldAPI/xlog", rev = "007bb197256cf070db26897c7c6028aecfdd80f8" }
-xlog-logic = { git = "https://github.com/AdaWorldAPI/xlog", rev = "007bb197256cf070db26897c7c6028aecfdd80f8" }
-xlog-ir = { git = "https://github.com/AdaWorldAPI/xlog", rev = "007bb197256cf070db26897c7c6028aecfdd80f8" }
-xlog-core = { git = "https://github.com/AdaWorldAPI/xlog", rev = "007bb197256cf070db26897c7c6028aecfdd80f8" }
+xlog-cube = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
+xlog-logic = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
+xlog-ir = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
+xlog-core = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
 # Independent Datalog comparator (D-XLOG-KNOWLEDGE-G1), test-side only; the AdaWorldAPI fork, per the fork-first rule.
 datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", rev = "edd7cfc0f5ad3b93ce5bbe6a17848db9376b13c0" }
 
