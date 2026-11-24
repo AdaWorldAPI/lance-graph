@@ -1,3 +1,8 @@
+## 2026-11-24 — D-OJC-0: loading an ontology is the compile step → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. The ontology cache as the just-in-time compile moment: IRIs resolved once to addresses, the hierarchy laid out as a coded path (reference `ogar-dir-core::Dn128`) so a subtree is one prefix mask, readable axioms turned into laws, a frozen frame per version. Producers through the same path: Schematron, OGIT Automation (ON/WHEN/DO), OBO/SNOMED via `ogar-obo`/`ogar-elk`, code graphs, WordNet, EU law. Subordinate to D-DT64-7 and D-OMR §8–§9 (the `BindStore` stays the method registry). Four decisions open, the first being where the DN type lives.
+**Confidence:** registry internals read in `lance-graph-ontology/src/registry.rs`; `Dn128`, `ogar-elk`, `ogar-obo` and OGIT Automation entities read at OGAR `ed1dd04` / OGIT `cb94c6f`; nothing measured.
+
 ## 2026-11-21 — D-REGC-0: the register contract's contradictions, with a resolution and falsifier each → `.claude/plans/d-regc-register-contract-reconciliation-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. Nine contradictions (C1–C9) between plans, code and the owner's statements, found by measuring zammad-rs against PostgreSQL 16.15: the schema store (Decision J vs EXO-199), the one-lens read, absent vs deleted (−0), the dead position, bijective coordinates vs bag relations, joins at intake, the selection issuer, `LaneRef::Strided` coverage, and the consumer's own store. Four decisions are listed; code rows D-REGC-1..11 are queued behind them.

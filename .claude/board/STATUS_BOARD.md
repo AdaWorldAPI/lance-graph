@@ -38,6 +38,22 @@ Plan: `.claude/plans/global-pattern-words-v1.md`. Documentation only.
 | D-GPW-5 | zammad-rs: `under` and `LIKE` replaced by the word, own paths kept as oracle | Queued (zammad-rs side) |
 | D-GPW-6 | `lance-graph-metta` front end lowering `match` onto the word | Queued (metta-polyfill-v1) |
 
+## D-OJC — loading an ontology is the compile step (2026-11-24)
+
+Plan: `.claude/plans/ontology-jit-compile-v1.md`
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-OJC-0 | Plan and four owner decisions (DN type home, axioms as laws, callcenter `dn_path`, name-keyed lookups) | In PR, docs only; decisions open |
+| D-OJC-1 | Phase A tests (oracle, no-alloc read, prefix subtree, determinism, silence twins) | Queued |
+| D-OJC-2 | Frozen positional dictionary | Queued |
+| D-OJC-3 | Hierarchy layout | Queued (decision 1) |
+| D-OJC-4 | Axiom → law | Queued |
+| D-OJC-5 | Frame and version | Queued |
+| D-OJC-6 | DOLCE/FIBO/schema.org and Schematron through the compile path | Queued |
+| D-OJC-7 | OGIT, OBO/SNOMED, code graph, WordNet, EU law producers | Queued |
+| D-OJC-8 | Load and read cost | Queued |
+
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
 Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291. Subordinate to D-DT64-7 (plan §9); the remaining rows are consumers of it.
