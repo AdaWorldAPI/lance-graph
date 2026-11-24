@@ -1,3 +1,8 @@
+## 2026-11-24 — XLOG P2: virtual correlated n-ary relations (contract) → `.claude/plans/xlog-p2-virtual-correlated-relations-v1.md`
+
+**Status:** CONTRACT / DOCS ONLY (EXO-395 under EXO-377). A derived n-ary relation is a recipe (binary atoms, ≤ 8 variable classes, a head selection), bound to one cube and frame, holding no ids, rows or masks. Readers unfold it. Terminals: existence, all-variable count and one-variable support exist in `Cube::body_answer`; a dropped-variable count and a two-variable (binary head) projection are MISSING. Every corpus falsifier named for P2 is a recursive SCC through an n-ary head, so it belongs to P4; P2's gates G1–G6 use the non-recursive base steps.
+**Confidence:** `body.rs` / `cube.rs` read at the cited lines; 128 / 68 from `census-097c351.tsv` and inventory §6 (PR #2168); `body_pair` cost unmeasured; nothing built.
+
 ## 2026-11-24 — D-OJC §10a–§10b: a context as a bag over the id lane; DataFusion and Quack side by side as oracle → `.claude/plans/ontology-jit-compile-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. §10a: lance-context's mandatory `id` column as the key lane, a context as a mask over it lent like `borrow_all`, versioned as (frame, snapshot), seen by DR as a dimension table and CSR. §10b: DataFusion's use in lance-context is almost all id lookups; one `IdLookup` seam with the scanner filter as default, a Quack arm outside the workspace, both answering on a pinned version in three phases. Adds D-OJC-18..20 and decisions 8–9.
