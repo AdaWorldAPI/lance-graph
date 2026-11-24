@@ -69,10 +69,10 @@ A replayed derivation carries `independent_roots = 0`. It cannot count as new NA
 
 | Seam | What is missing | Smallest honest step | Owner of the blocker |
 |---|---|---|---|
-| S1 receipt → NAL stamp | `Receipt::roots` and `Replayed::{inherited, independent}_roots` are not mapped onto `Evidence::stamp`. `Revision` would then refuse replayed evidence as `OVERLAP`, which is the desired behaviour. | a lab-only test adapter in a probe crate, with a falsifier: replayed evidence pooled with its origin must refuse | lab; no contract type |
-| S2 rollout witness | there is no typed row for (fixture, arm, stage S0–S5, oracle verdict, receipt identity, `QueryReference`) | a cold adapter to `RolloutRecord` (`metadata` / `relationships`), as #2077 and #2078 §5 propose | lance-context admission (EXO-300) for anything beyond lab |
-| S3 durable base | `BaseRef` stands in for `DurableRef` | none in this pilot: run against the in-memory `VersionStore` | EXO-148 |
-| S4 Rig caller | the pilot needs a Claude call with a strict output schema and a hard cost cap | a cold caller through the graph-flow `rig` feature or rig-core directly, with the mock teacher first | operator: $5 cap, key requested via `request_credential` |
+| S1 receipt → NAL stamp | `Receipt::roots` is a **64-bit bit set** (`receipt.rs:381-383`: "Provenance roots of those sources, as a bit set"). NAL's `Evidence::stamp` is a slice of root **identities** (`&[u64]`, lib.rs:250). A bit position is not an identity: two bases can reuse the same bit for different roots, and a set holds at most 64 roots. So the translation needs a root-identity table per base, not a numeric cast. | a lab-only adapter in a probe crate, mapping bit to root id through a per-`BaseRef` table. Falsifiers: (a) partially overlapping root sets refuse as `OVERLAP` on the shared roots only; (b) a duplicate replay contributes nothing (`independent_roots = 0`); (c) independent new evidence pools; (d) the same bit under two bases with different root ids does **not** collide; (e) a root that overflows 64 bits refuses instead of aliasing. | lab; no contract type |
+| S2 rollout witness | there is no typed row for (fixture, arm, stage S0–S5, oracle verdict, receipt identity, `QueryReference`) | an **isolated, single-writer experimental dataset**, written through a cold adapter to `RolloutRecord` (`metadata` / `relationships`), as #2077 and #2078 §5 propose. Test before relying on it: conflicting event ids, flush and read-back, deterministic replay at a pinned `checkout(version)`. If any of these cannot be shown, fall back to temporary append-only artifacts. | lab use and production admission are separate questions; EXO-300 governs only the second |
+| S3 durable base | `BaseRef` stands in for `DurableRef` | none: the mock experiment uses the existing lab `BaseRef` and the sealed-version witnesses (`VersionStore::seal`, `CommitWitness`) | EXO-148 blocks **production only**; it is not a prerequisite for the mock-teacher experiment |
+| S4 Rig caller | the pilot needs a Claude call with a strict output schema and a hard cost cap | a cold caller through the graph-flow `rig` feature or rig-core directly, **only after** the mock teacher and the oracles are accepted | operator: $5 cap, key requested via `request_credential` |
 
 ## 4. Pilot order (unchanged from the operator decisions)
 
@@ -106,3 +106,24 @@ These are open, not absent:
 - Codegraph coverage of the fixture domains;
 - lance-context `ContextStore` retrieval fixtures;
 - the #1800/#1801 branches themselves (only the D-TFLP table was read).
+
+## 8. Three sources of acquired knowledge (proposed comparison)
+
+The census adds a non-LLM rule-discovery baseline to the pilot design. XLOG `xlog-induce` does bounded exact induction over the chain, star, fan-out and fan-in topologies, plus n-ary induction, with scoring and provenance. Its module doc says it is behaviourally equivalent to the Python reference `pyxlog/python/pyxlog/ilp/exact_induce.py`.
+
+| Source | Produces | Verified by |
+|---|---|---|
+| Claude (teacher) | method plans | the same thought-git / independent-oracle conditions |
+| `xlog-induce` | rules discovered from relational observations | the same |
+| native composition | recombinations of already verified methods | the same |
+
+All three run under identical verification. Comparing them under teacher withdrawal on held-out problems separates three things: imitation (Claude only), induction (`xlog-induce`) and compositional discovery (recombination). PROPOSAL only: nothing here is wired, and the production path of `xlog-induce` is a GPU kernel, so a lab baseline would use its CPU reference.
+
+## 9. Independent gates
+
+These three stay independently gated:
+- the full XLOG Reactor Swap (seven reasoning tracks, EXO-377);
+- the cognitive-architecture census (EXO-390, Track A);
+- the small teacher pilot (§4).
+
+None is a prerequisite for another.
