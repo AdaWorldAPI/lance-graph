@@ -167,7 +167,7 @@ fn every_demand_of_the_four_cycle_equals_the_oracle() {
         (3, 5),
     ];
     let cyc = [atom(0, 0, 1), atom(0, 1, 2), atom(0, 2, 3), atom(0, 3, 0)];
-    check(&[e.clone()], &cyc, 4, &[], "cyc");
+    check(std::slice::from_ref(&e), &cyc, 4, &[], "cyc");
     check(&[e], &cyc, 4, &[[0, 2], [1, 3]], "cyc distinct");
 }
 
@@ -175,8 +175,8 @@ fn every_demand_of_the_four_cycle_equals_the_oracle() {
 fn a_chain_with_distinctness_equals_the_oracle() {
     let r = vec![(1, 2), (2, 1), (2, 3), (3, 4), (4, 2), (3, 3), (1, 1)];
     let chain = [atom(0, 0, 1), atom(0, 1, 2), atom(0, 2, 3)];
-    check(&[r.clone()], &chain, 4, &[], "chain");
-    check(&[r.clone()], &chain, 4, &[[0, 2]], "chain 0!=2");
+    check(std::slice::from_ref(&r), &chain, 4, &[], "chain");
+    check(std::slice::from_ref(&r), &chain, 4, &[[0, 2]], "chain 0!=2");
     check(&[r], &chain, 4, &[[0, 3], [1, 2]], "chain two pairs");
 }
 
