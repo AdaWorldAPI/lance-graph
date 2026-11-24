@@ -2,6 +2,7 @@
 name = "lance-graph-onnx"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "ONNX mathematical compatibility facade: ONNX operator names and semantics over existing native ndarray functions. Aliases where the contract is identical, minimal adapters where it is not, typed refusals otherwise. No graph, interpreter, dispatcher or runtime initialization."
 

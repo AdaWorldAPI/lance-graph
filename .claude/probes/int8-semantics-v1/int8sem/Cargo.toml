@@ -2,6 +2,7 @@
 name = "int8sem"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 # Amendment 6.4 lab probe: numerical meaning of 8-bit codes (TFLM vs ndarray scalar/SIMD vs exact).

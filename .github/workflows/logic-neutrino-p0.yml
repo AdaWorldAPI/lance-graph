@@ -27,7 +27,7 @@ jobs:
           path: ndarray
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
 
       - name: Execute P0/P1 no-skip differential tests
         run: cargo test --manifest-path lance-graph/crates/grammar-constraints-probe/Cargo.toml --test logic_neutrino_p0 -- --nocapture

@@ -6,6 +6,7 @@
 name = "dt64-admission-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "Decides whether an admitted DT64 method may execute, from D-SAG-6 evidence rows: proven pure, witnessed effect under an explicit DO grant, POSSIBLE, or UNKNOWN. BindStore::admit authenticates; this policy authorizes."

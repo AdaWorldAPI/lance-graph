@@ -2,6 +2,7 @@
 name = "template-runtime"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 license = "Apache-2.0"
 description = "Deterministic executor for Elixir-shaped compiled templates. Each template step binds to an OGAR action; the runtime never interprets free text. This is Lance-Graph's reflex memory — the hot path that runs cognition without the LLM. Standalone, zero-dep scaffold (logic deferred); see .claude/plans/cognitive-compilation-v1.md."
 

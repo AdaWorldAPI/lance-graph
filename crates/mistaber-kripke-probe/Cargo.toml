@@ -5,6 +5,7 @@
 name = "mistaber-kripke-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "Mistaber's Kripke holding rules as a least fixpoint over the existing DR64 Boolean relation register (dr-math-binding-probe::relcomp::compose), checked against Clingo golden files exported by AdaWorldAPI/mistaber-rs."

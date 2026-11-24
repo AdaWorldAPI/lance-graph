@@ -2,6 +2,7 @@
 name = "lance-graph-cypher-quack"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "EXPERIMENTAL, routed nowhere. Cypher over tabular inputs lowered to lance-graph-quack: the upstream parser, semantic analysis and logical plan read-only through their public API, a demand classifier choosing the carrier, and typed refusals for every other shape. No DataFusion on its call path."
 

@@ -2,6 +2,7 @@
 name = "family-join-probe"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS falsifier: does 'shared prefix by family' denote the same quantity under NodeGuid's v2 tail and under CascadeKey? Links BOTH real types — no reimplementation."
 

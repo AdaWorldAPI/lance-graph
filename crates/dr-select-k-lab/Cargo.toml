@@ -2,6 +2,7 @@
 name = "dr-select-k-lab"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "LAB (D-DR-SELECT-K-1). One versioned selection of K rows, bound once, read through four existing physical views (index order, sparse positions, K-bit mask, implicit ALL) by three operations. Measures which admissible view is cheaper per operation and reuse count. No strategy selector, cache, mapper, executor or writer."
 

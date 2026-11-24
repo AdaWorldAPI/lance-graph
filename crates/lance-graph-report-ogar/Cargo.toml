@@ -20,6 +20,7 @@
 name = "lance-graph-report-ogar"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "A lance-graph ReportResult as an addressed OGAR ObjectSlot source: implements ogar-doc-ir's DocObjectSource (grid_of) over any existing object source, so reports compose, rotate, pin (Live / Revision) and render through OGAR's existing composition + renderer path — no report-specific rendering ontology."
 license = "Apache-2.0"

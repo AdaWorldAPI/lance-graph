@@ -21,7 +21,7 @@ jobs:
           ref: master
           path: ndarray
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: rustfmt, clippy
       - name: Record tested substrate

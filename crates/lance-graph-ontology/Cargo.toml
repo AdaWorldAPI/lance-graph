@@ -2,6 +2,7 @@
 name = "lance-graph-ontology"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "OGIT-canonical ontology spine: TTL hydration, runtime dictionary cache, and tenant namespace bridges over the lance-graph contract surface."
 license = "Apache-2.0"
 keywords = ["ontology", "ogit", "ttl", "rdf", "lance"]

@@ -5,6 +5,7 @@
 name = "lance-graph-arm-discovery"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "Deterministic codebook-probe association-rule discovery (Aerial+ transcode) → NARS-truth SPO candidates"
 license = "Apache-2.0"
 

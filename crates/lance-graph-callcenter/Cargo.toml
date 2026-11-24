@@ -2,6 +2,7 @@
 name = "lance-graph-callcenter"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "External callcenter membrane over Lance + DataFusion (Supabase-shape API)"
 build = "build.rs"
 

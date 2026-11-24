@@ -2,6 +2,7 @@
 name = "lance-graph-lane-fold"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "Map and teleport for the 64k u16 lane. Lowers a query to one borrowed aperture and one terminal per homomorphism. Does not execute."
 license = "Apache-2.0"
 

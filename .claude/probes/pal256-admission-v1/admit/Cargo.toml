@@ -2,6 +2,7 @@
 name = "admit"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 # D-TFLP Amendment 6.5 P0 lab adapter: semantic admission of 8-bit artifacts against a consumer

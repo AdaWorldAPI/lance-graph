@@ -51,6 +51,7 @@
 name = "lance-graph-ogar"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "OGAR (Open Graph of Active Record) activation crate: re-exports ogar-vocab Class/codebook + ogar-class-view (impl lance_graph_contract::ClassView) + ogar-ontology, with a codebook parity-guard against the contract's zero-dep ogar_codebook mirror. Auto-activates the real OGAR AR surface wherever it is compiled into the build (golden image / AR-aware consumers)."
 license = "Apache-2.0"

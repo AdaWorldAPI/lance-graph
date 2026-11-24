@@ -13,6 +13,7 @@
 name = "cg-defuse-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "CG-5 probe: def-use rows from Charon LLBC, closed cold by egglog with proofs, classify division sites as scalar threshold or per-element quotient. Results only; no production path."
 

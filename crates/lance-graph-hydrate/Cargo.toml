@@ -21,6 +21,7 @@
 name = "lance-graph-hydrate"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "Generic SoA -> S3 -> local volume -> Lance hydration lifecycle: hydrate-aside/publish-by-rename, warm-marker skip-rehash, idle release, and lifecycle-state transition guards. Minted in lance-graph; consumed plug-and-play by any downstream crate (OGAR, q2, ...)."
 license = "Apache-2.0"
 

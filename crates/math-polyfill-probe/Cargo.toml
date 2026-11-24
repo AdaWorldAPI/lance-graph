@@ -2,6 +2,7 @@
 name = "math-polyfill-probe"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "D-MPF-1 lab probe: a small mathematical expression submitted through the existing R2IL procedures (lance-graph-r2il::procs) and relalg, lowered onto mask-risc, checked against an independent row-loop oracle, with typed refusals and a per-stage cost split. Adds no primitive, AST or executor."
 

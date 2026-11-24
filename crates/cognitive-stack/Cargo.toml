@@ -22,6 +22,7 @@
 name = "cognitive-stack"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "Cognitive Compilation golden image: the Elixir-template stack (elixir-template + template-runtime + template-equivalence + cognitive-compiler) linked on top of the full Ada old-stack forks (lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb kv-lance + OGAR) in ONE binary."
 

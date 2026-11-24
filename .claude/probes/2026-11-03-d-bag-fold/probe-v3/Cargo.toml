@@ -4,6 +4,7 @@
 name = "d-bag-fold-probe-v3"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 [dependencies]

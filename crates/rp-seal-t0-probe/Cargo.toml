@@ -2,6 +2,7 @@
 name = "rp-seal-t0-probe"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = """
 X-C2-1 injection harness (RP-SEAL Tier 0). Fault injection over a synthetic

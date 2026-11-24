@@ -2,6 +2,7 @@
 name = "lance-graph-supervisor"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "ractor-supervised actor tree for the callcenter membrane (PR-G2, TD-RACTOR-SUPERVISOR-5)"
 
 # Implementation worker: S7-W3 (sprint-log-7)

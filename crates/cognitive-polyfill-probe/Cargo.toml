@@ -2,6 +2,7 @@
 name = "cognitive-polyfill-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "D-COGNITIVE-POLYFILL P0 lab falsifier: the relational subset common to MORK, MeTTa, Narsese and Atomese (a scoped two-hop existential over ground facts) run through existing DR addressing (lance-graph-dt64) and one mask-risc program. Lab only; nothing here is wired into Quack, R2IL or production."
 

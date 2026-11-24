@@ -6,6 +6,7 @@
 name = "dt64-hotplug-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "A consumer class activated through OGAR's HotPlug reaches a DT64 binding; a classid the plug did not activate is refused before DT64 sees it. No contract, builtin or register change."

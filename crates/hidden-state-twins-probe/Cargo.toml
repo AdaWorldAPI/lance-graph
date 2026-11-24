@@ -2,6 +2,7 @@
 name = "hidden-state-twins-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "D-TWINS-0 lab falsifier: one guarded-candidate rule shape applied to two unrelated domains (chess state, Rust source sites), each judged by an authority that shares no code with the rules. Lab only; no production path."
 

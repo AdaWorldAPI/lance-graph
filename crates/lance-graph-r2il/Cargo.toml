@@ -2,6 +2,7 @@
 name = "lance-graph-r2il"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "The fold reading of R2IL executed over mask-risc: FoldDialect, an ogar-loco Dialect that turns R2IL calls into mask-risc Programs and runs them at each fold boundary. Extracted from r2il-mask-abi-probe (D-SQLP-1)."
 

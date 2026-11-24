@@ -8,6 +8,7 @@
 name = "vrl-recipe-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "Compiles a read/rename/filter subset of VRL into a stored late-materialization recipe and checks it against a naive VRL interpreter."

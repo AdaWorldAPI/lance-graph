@@ -5,6 +5,7 @@
 name = "xlog-relcomp-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "Lowers a restricted, XLOG-compiled RIR (BrainyBlaze/xlog, CPU-only crates) onto the existing DR64 Boolean relation register and compose kernel (dr-math-binding-probe), and checks it against independent references."

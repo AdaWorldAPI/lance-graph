@@ -7,6 +7,7 @@
 name = "drisa-register-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "D-DRISA-1 lab: does a sealed DR frame bind typed register operands to borrowed SoA planes, reused across operations without rerouting, copying payload, or answering stale?"

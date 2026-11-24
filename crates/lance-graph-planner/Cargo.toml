@@ -2,6 +2,7 @@
 name = "lance-graph-planner"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "Unified query planner: MUL+Compass -> Thinking Orchestration -> Graph Query Planning"
 license = "Apache-2.0"
 

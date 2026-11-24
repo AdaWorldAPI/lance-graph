@@ -15,6 +15,7 @@
 name = "egglog-r2il-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "Stage B probe: egglog as a cold, bounded, proof-producing compiler for exact-integer substitution, lowered onto existing R2IL scalar arithmetic and checked against an i128 oracle. Results only; no production path."
 

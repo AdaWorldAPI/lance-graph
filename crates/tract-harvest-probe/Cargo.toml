@@ -12,6 +12,7 @@
 name = "tract-harvest-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "Lab probe D-TRACT-HARVEST-0: ONNX graph as a DR#3 graph resolved through a DT64 ON x WHEN x DO registry onto existing native methods; Tract as cold typing frontend; ORT parity. Results only; no production path."
 

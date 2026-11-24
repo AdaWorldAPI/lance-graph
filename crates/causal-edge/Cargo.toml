@@ -2,6 +2,7 @@
 name = "causal-edge"
 version = "0.2.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "CausalEdge64: 64-bit causal neuron with SPO palette, NARS truth, Pearl hierarchy, v2 W/truth/mantissa layout"
 license = "MIT"
 repository = "https://github.com/AdaWorldAPI/lance-graph"

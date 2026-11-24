@@ -3,6 +3,7 @@
 name = "dr-math-binding-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "Borrowed DR64 / ClassView-style typed structure and source witness admission probe; never executes population rows."
 

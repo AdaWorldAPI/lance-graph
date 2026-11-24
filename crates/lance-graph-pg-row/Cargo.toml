@@ -2,6 +2,7 @@
 name = "lance-graph-pg-row"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "The PostgreSQL row polyfill for consumers: one DT64 lane check per table, WHERE lowered through Quack and run by mask-risc, rows read in place at positions or under a kept mask, and a virtual tuple bag for joins. Cells are spelled only at the end, by lance-graph-contract::pg_row. Adds no store, owner or evaluator."
 

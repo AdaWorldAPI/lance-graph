@@ -7,6 +7,7 @@
 name = "ogar-behavior-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "Measures what the existing OGAR structures can express about method behaviour: a body revision over ogar-loco::Program, a cold projection of ActionDef onto the DT64 MethodBinding contract, and a coverage census. Adds no type outside this crate."

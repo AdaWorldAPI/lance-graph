@@ -2,6 +2,7 @@
 name = "quasicryth-research"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 license = "Apache-2.0"
 publish = false
 description = "Direct Rust transcode of Quasicryth (Tacconelli 2026, arxiv 2603.14999) — Fibonacci quasicrystal tilings + substitution hierarchy + deep n-gram position detection + arithmetic coding + tokenization + codebook construction (FlatCodebook + CowRadixCodebook variants) + end-to-end compress/decompress pipeline. Research/testing crate, NOT byte-compatible with the upstream .qm56 production format."

@@ -2,6 +2,7 @@
 name = "lance-graph-xlog"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "XLOG's admitted chain query (support and bag count) over the lance-graph substrate: described in Quack, evaluated by mask-risc, addressed by DT64/DR, run from an admitted bind-store method. No XLOG or arrow dependency; admission of an XLOG plan stays with the caller."
 
