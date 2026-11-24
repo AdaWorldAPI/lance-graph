@@ -101,3 +101,7 @@ The two are never interchanged. **Commit authorization uses `{T}` and must never
 ## Coordination
 
 Main PR: [ClassView/Quack PostgreSQL parity plan](d-qsp-classview-quack-postgresql-parity-v1.md). Priority companion: [relalg × thought-git frontier](d-rft-relalg-thought-git-frontier-v1.md). Existing source: '.claude/plans/thought-git-basics-v1.md' and EXO-98; '.claude/plans/relalg-v1.md' and EXO-86; EXO-50 messages. Any code handoff needs an explicit owner/claim and separate implementation PR. This PR changes plans only.
+
+## Correction 2026-11-24 (LG-COG-001 census, EXO-389)
+
+The "Oracle" bullet above says the D-TGB-4 receipt "does not exist in code yet". At `main` 855d051 it does exist, as lab code: `crates/thought-git-probe/src/receipt.rs` (`Receipt`, `capture`, `replay`, `MetadataTable`, `CommitWitness`), with `tests/receipt.rs` 15/15 passing. It is not production-admitted. `BaseRef` still stands in for `DurableRef` (EXO-148). D-LFA-2 may compare against these receipts now. See `lg-cog-001-reuse-census-v1.md`.
