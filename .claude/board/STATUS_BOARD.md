@@ -63,7 +63,7 @@ Plan: `.claude/plans/ontology-jit-compile-v1.md`
 | D-OJC-16 | Repo laws as registered WHEN conditions with derivations | Queued |
 | D-OJC-17 | Grounded reviewer under LG-COG-001's four arms (#2077 / #2078) | Queued (their decisions) |
 | D-OJC-18 | `LaneSource` over a lance-context `id` column; a context as a bag; dimension / CSR per snapshot (§10a) | Queued |
-| D-OJC-19 | `IdLookup` seam in lance-context, scanner filter as default (§10b) | Queued (fork needs push access) |
+| D-OJC-19 | `IdLookup` seam in lance-context, scanner filter as default (§10b) | Proposed in lance-context PR #1 (docs only); code queued |
 | D-OJC-20 | DataFusion and Quack side by side as oracle on a pinned version (§10b) | Queued (decision 8) |
 
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
