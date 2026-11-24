@@ -22,10 +22,10 @@ description = "Reconciles XLOG's compiled rules on lance-graph's cube against XL
 # taken over (`097c351` = merge of xlog#10, arrow 58; refreshed from `007bb19`). A
 # branch dependency would let the input move under a fixed file name.
 [dependencies]
-xlog-cube = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
-xlog-logic = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
-xlog-ir = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
-xlog-core = { git = "https://github.com/AdaWorldAPI/xlog", rev = "097c351bf1c7d3191808f9db9635d04bce5af825" }
+xlog-cube = { git = "https://github.com/AdaWorldAPI/xlog", rev = "1435111804339896b3c81f31a59ff80684179348" }
+xlog-logic = { git = "https://github.com/AdaWorldAPI/xlog", rev = "1435111804339896b3c81f31a59ff80684179348" }
+xlog-ir = { git = "https://github.com/AdaWorldAPI/xlog", rev = "1435111804339896b3c81f31a59ff80684179348" }
+xlog-core = { git = "https://github.com/AdaWorldAPI/xlog", rev = "1435111804339896b3c81f31a59ff80684179348" }
 # Independent Datalog comparator (D-XLOG-KNOWLEDGE-G1), test-side only; the AdaWorldAPI fork, per the fork-first rule.
 datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", rev = "edd7cfc0f5ad3b93ce5bbe6a17848db9376b13c0" }
 
