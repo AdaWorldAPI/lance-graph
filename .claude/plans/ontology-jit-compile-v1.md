@@ -53,8 +53,9 @@ Checking a proposed action is two existing reads:
       and takes no lock (counting allocator; `RwLock` absent from the read
       path type).
 - [ ] A3. Falsifier for layout: "every class under C" equals the oracle and is
-      read as one prefix mask; a 257th child under one parent is refused, not
-      hashed or truncated.
+      read as one prefix mask plus the secondary-parent edges (§8); a 257th
+      child under one parent is refused, not hashed or truncated; a diamond
+      (C subclass of incomparable A and B) is found under both A and B.
 - [ ] A4. Falsifier for determinism: two loads of the same file give
       byte-identical frames; reordering the triples in the file gives the same
       frame.
@@ -177,7 +178,10 @@ meet:
    its parent must come from a rule fixed for the snapshot (for example derived
    from its identifier), not from the order in which classes were first asked
    for. Otherwise the same class gets a different address depending on query
-   history, and the determinism falsifier A4 fails.
+   history, and the determinism falsifier A4 fails. The rule must also give
+   **distinct codes to siblings**: two children of one parent never share a
+   code, so they never share a hierarchy address. A rule that would collide is
+   refused for that snapshot, not resolved by arrival order.
 2. **Overflow escapes, it does not hash or truncate.** More than 256 children
    under one parent, or a path deeper than 16 levels, becomes an explicit
    reference to the registry (OGAR: depth beyond the native levels is "the
@@ -191,7 +195,7 @@ meet:
 
 | D-id | Deliverable | Gate |
 |---|---|---|
-| D-OJC-9 | Lazy compile of one class with its ancestors, against the D-LWS manager | constraint 3: lazy entry equals eager entry for every class of a fixture, in every reference order tried; constraint 1: two reference orders give byte-identical entries; constraint 2: the 257th child yields a registry reference, not a code |
+| D-OJC-9 | Lazy compile of one class with its ancestors, against the D-LWS manager | constraint 3: lazy entry equals eager entry for every class of a fixture, in every reference order tried; constraint 1: two reference orders give byte-identical entries; constraint 2: the 257th child yields a registry reference, not a code; sibling collision: two siblings whose rule would give the same code are refused, and no two siblings in the fixture share a code or address |
 
 **Not verified:** the D-LWS plan and its two knowledge docs were read for scope
 only (the plan's header and sections), not in full; no lazy load exists to
@@ -258,3 +262,44 @@ only as an oracle, not as the execution path.
 relation layouts were not read in this session; "sorted relation = CSR with
 implicit offsets" is stated from memory and is the first thing D-OJC-11 must
 check.
+
+## 8. Amendment (2026-11-24): multiple inheritance and dense ordinals
+
+Two gaps in §1, §6 and §7, raised in review on #2163.
+
+**Multiple inheritance.** OWL allows a class C to subclass both A and B where
+neither is an ancestor of the other. One coded path cannot have both A's and
+B's paths as prefixes, so a prefix read alone misses C under one of them.
+
+- Each class gets one **primary parent**, chosen by a rule fixed for the
+  snapshot (the same kind of rule as §6 constraint 1, never arrival order). Its
+  coded path runs through that parent.
+- Every other `subClassOf` parent is a **secondary edge**, stored as a CSR
+  relation (§7) from the class to each secondary parent, and the reverse
+  direction from each parent to its secondary children.
+- A subtree read under A is the prefix mask of A's path **OR** the classes
+  reached from A through secondary edges, closed under the prefix rule (each
+  reached class brings its own subtree). With a frozen frame this closure is
+  computed once per class at compile time and stored as one more mask, so the
+  read stays one mask.
+- Lazy compilation (§6) is unchanged in kind: compiling C also compiles its
+  secondary parents' entries, as it does its ancestors.
+
+**Dense ordinals.** `dim[addr]` and `offsets[addr]` (§7) index arrays, so `addr`
+must be a dense ordinal, distinct from the coded path:
+
+- The ordinal is the class's rank in a depth-first walk of the primary-parent
+  tree, children visited in code order. It is fixed per snapshot and
+  independent of load and reference order, and a subtree under the primary tree
+  is one contiguous ordinal run.
+- The ordinals are assigned from the snapshot's class list once, at ingest of
+  the snapshot (an ordering pass over identifiers and primary parents, without
+  compiling any class); lazy compilation then fills `dim` rows and CSR blocks
+  at those fixed ordinals.
+- A class whose path escaped to a registry reference (§6 constraint 2) still
+  has an ordinal, a `dim` row and a CSR offset. Only its coded path is replaced
+  by the reference; its place in the arrays is the same as for any class.
+
+**Gate changes.** D-OJC-10 is checked against these ordinals: a primary
+subtree's ordinals form one run, every class including registry-reference ones
+has exactly one `dim` row, and the diamond of A3 is found under both parents.
