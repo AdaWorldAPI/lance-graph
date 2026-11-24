@@ -32,3 +32,8 @@ OPEN:
 - `keep` and `dry` stay refused (negation over a join-shaped body).
 - The census TSV is not committed: it pins unmerged revisions. Regenerate it
   once both PRs merge and the probe's xlog rev is bumped.
+
+**Update 2026-11-24:** lance-graph#2171 and xlog#11 merged. The census was regenerated at
+xlog `1435111` against lance-graph `2075f7b` and committed as
+`crates/xlog-coverage-probe/census-1435111.tsv`. Once the revision label is removed it is
+identical to the branch run above.

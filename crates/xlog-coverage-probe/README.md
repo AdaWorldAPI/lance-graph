@@ -144,7 +144,17 @@ no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
 datafrog, datafrog_reason, reference, reference_nonempty, reference_reason,
 route (empty, `set` or `reach`).
-The census is committed as `census-097c351.tsv` (2026-11-24, EXO-390). It was re-taken at XLOG
+The census is committed as `census-1435111.tsv` (2026-11-24, EXO-394). It was taken at XLOG
+`1435111` (xlog#11: stratified negation over one-column sets) against the native Cube at
+lance-graph `2075f7b` (#2171: `SetExpr::Column`). Against `census-097c351.tsv` (now in git
+history), exactly 16 rows changed and nothing else moved: 109 oracle-agrees (was 102),
+72 refused (was 79), 49 refused-on-data, 0 oracle-disagrees. Seven rules moved from refused
+to oracle-agrees, all with Datafrog agreeing: `isolated` ×2, `no_in` ×2, `leaf_part`, and
+the two `__xlog_query_0` rules that read `no_in`. Nine rules that already agreed moved onto
+the set route (`has_in` ×2, `part` ×2, `has_children`, `dummy_e1`/`e2`/`e3`); set routes went
+from 13 to 29. `keep` and `dry` stay refused (negation over a join-shaped body).
+
+The previous census, `census-097c351.tsv` (2026-11-24, EXO-390), was re-taken at XLOG
 `097c351` (xlog#10, arrow 58) against the native Cube at lance-graph `855d051`. It is
 byte-identical to the previous census `census-007bb19.tsv` (now in git history) once the
 revision label is removed: same rungs, reasons, Datafrog, reference and route columns on all
