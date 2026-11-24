@@ -61,15 +61,26 @@ pub type RelId = u32;
 pub type SetId = u32;
 
 /// An expression over stored sets, the input of [`Cube::reach`]
-/// (D-XLOG-W5-B, decision D2). The leaves are stored sets and the only
-/// operators are and, or and and-not: there are no constants and no
-/// complement of the universe. It is plain data; building one runs nothing,
+/// (D-XLOG-W5-B, decision D2). The leaves are stored sets and relation
+/// columns ([`SetExpr::Column`]). The only operators are and, or and and-not:
+/// there are no constants and no complement of the universe. It is plain data; building one runs nothing,
 /// and [`Cube::reach`] evaluates it inside the terminal, so no mask computed
 /// by one program is handed to another.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SetExpr {
     /// A set [`Cube::add_set`] stored.
     Set(SetId),
+    /// The distinct values of column `col` of relation `rel` (EXO-394): the
+    /// positions that occur in that column of the relation's effective edges.
+    /// XLOG's `h(X) :- r(_, X).` is `Column { rel: r, col: 1 }`. It is read by
+    /// the same fold as [`Cube::support`], inside the terminal that evaluates
+    /// the expression, so no computed mask is handed between terminals.
+    Column {
+        /// A relation of the cube.
+        rel: RelId,
+        /// 0 or 1.
+        col: u8,
+    },
     /// Both.
     And(Box<SetExpr>, Box<SetExpr>),
     /// Either.
@@ -91,6 +102,10 @@ pub enum SetExpr {
 }
 
 impl SetExpr {
+    /// Column `col` of relation `rel` as a set.
+    pub fn column(rel: RelId, col: u8) -> Self {
+        Self::Column { rel, col }
+    }
     /// `a ∧ b`.
     pub fn and(a: SetExpr, b: SetExpr) -> Self {
         Self::And(Box::new(a), Box::new(b))
@@ -547,7 +562,8 @@ impl Cube {
         Ok((self.sets.len() - 1) as SetId)
     }
 
-    /// The mask of `e` over `words` words. Every leaf must be a stored set.
+    /// The mask of `e` over `words` words. A leaf is a stored set or a
+    /// relation column.
     fn eval(&self, e: &SetExpr, words: usize) -> Result<Vec<u64>, CubeRefusal> {
         Ok(match e {
             SetExpr::Set(id) => {
@@ -557,6 +573,16 @@ impl Cube {
                     .ok_or(CubeRefusal::UnknownSet(*id))?;
                 let mut m = vec![0u64; words];
                 m[..set.len()].copy_from_slice(set);
+                m
+            }
+            SetExpr::Column { rel, col } => {
+                check_col(*col)?;
+                let side = Side {
+                    rel: *rel,
+                    bound: None,
+                };
+                let mut m = self.reached(side, *col)?;
+                m.resize(words, 0);
                 m
             }
             SetExpr::And(a, b) | SetExpr::Or(a, b) | SetExpr::AndNot(a, b) => {
