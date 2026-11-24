@@ -424,6 +424,90 @@ was built. Whether `GenericStore::get_many` is a zero-copy read is not known
 same line as lance-graph's `14.*`; whether the patches change on-disk format
 was not checked.
 
+### 10a. A context is a bag over the id lane
+
+Read at `AdaWorldAPI/lance-context` `c9a638b`. Every lance-context store
+carries a mandatory `id: Utf8` column (its LSM merge key). That column is the
+key lane:
+
+- **Key lane.** `identity[index].key` is the store's `id`, through an exact
+  dictionary `id → ordinal` built once per snapshot. Exact, never a hash: a
+  collision would return the wrong row.
+- **A context is a bag.** "This session", "the turns relevant to this question"
+  is a selection of ordinals over the key lane: one mask under one frame, lent
+  in place the way `LaneBinding::borrow_all` lends (there is no separate bag
+  type; the bag is what `borrow_all` lends). An id lookup returns a bag; row
+  content is fetched from Lance last, by row address, for the positions in the
+  mask.
+- **Version.** A bag is valid under one frame, and the frame names the pair
+  (ontology frame version, lance-context snapshot). A bag presented under
+  another frame is refused, the witness rule of `borrow_all_at`.
+- **Two forms of one table in DR.**
+  - Dimension: `ordinal → (row address, class ordinal, session ordinal)`.
+  - CSR: `session → its turns`, `class → its context rows`, each one run.
+
+Missing today: a `LaneSource` over lance-context's `id` column; and row
+addresses that survive compaction (rebuild the dimension per snapshot, or use
+Lance stable row ids if the vendored Lance supports them; not checked).
+
+### 10b. Migration path: DataFusion and Quack side by side as oracle
+
+**Where DataFusion is used in lance-context** (25 lines, two crates):
+
+| Role | Where | Plan |
+|---|---|---|
+| Lookup by id: `id = x`, `id IN (…)` | `generic_store.rs` (373, 423, 636), `rollout_append.rs` (868), `annotation_staging.rs` (710, 756), `document_store.rs` (198, 222) | route through the seam below |
+| Caller-supplied filter | `generic_store.rs` (561, 876–888) | stays on DataFusion until an expression → Quack lowering exists |
+| Merge-key read (`ScalarValue`) | `store_base.rs` (3211) | not a query; unchanged |
+| A query engine: SQL parser, `SessionContext`, `MemTable`, `SortExec`, `GlobalLimitExec` | `rollout_store.rs` `query_sql()` | not called from our side; filter / sort / limit go to Quack, joins to the XLOG cube |
+| Ingest materializer | `lance-context-ingest`, optional feature `materializer` | left off |
+
+DataFusion cannot leave the binary while Lance is used: Lance depends on it
+and re-exports it (`lance::deps::datafusion`). "No DataFusion" here means none
+of our query logic runs on it.
+
+**The seam.** One small trait in lance-context, roughly
+`IdLookup: ids → row addresses`, with today's scanner filter as the default
+implementation, so behaviour is unchanged. It is additive and could go
+upstream. The Quack implementation lives in the wiring crate outside the
+workspace, because lance-context cannot depend on lance-graph crates (§10
+boundary).
+
+**Two tables.**
+
+- DataFusion side: the Lance dataset with its scalar index on `id`, as today.
+- Quack side: the key lane and dimension table of §10a. An id match gives a
+  mask; rows are taken from Lance by address.
+
+**Oracle run (Parallelbetrieb).** Both sides answer every id lookup on the same
+pinned dataset version. Phase 1: DataFusion's answer is served, Quack's is
+compared, and every difference is recorded with the ids and the version.
+Phase 2, after agreement has held over a stated number of lookups and
+snapshots: Quack is served and DataFusion is the shadow. Phase 3: the
+DataFusion arm is kept only as a test oracle.
+
+**What makes the comparison fair.**
+
+- lance-context reads through its write-ahead log, so recent rows may not be
+  in the base dataset. Compare at a pinned version, or build the key lane over
+  the unmerged generations too; otherwise the oracle reports false differences.
+- Both arms must return the same row set, compared as sets of ids, not as
+  ordered row lists.
+
+**Deliverables added.**
+
+| D-id | Deliverable | Gate |
+|---|---|---|
+| D-OJC-18 | `LaneSource` over a lance-context `id` column; exact `id → ordinal` dictionary and the dimension / CSR forms per snapshot | an id lookup returns a mask with no row fetched; two distinct ids never share an ordinal; a bag under another frame is refused |
+| D-OJC-19 | `IdLookup` seam in lance-context with the scanner filter as default | lance-context's own test suite unchanged with the default; the seam is called at every id-lookup site listed above |
+| D-OJC-20 | Oracle run: both arms on a pinned version, differences recorded | a planted wrong ordinal is reported (can fire); a clean snapshot reports none (can stay silent); unmerged WAL rows cause no false difference |
+
+**Decisions needed (added to §4).**
+
+8. How long agreement must hold (lookups and snapshots) before phase 2.
+9. Whether the `IdLookup` seam is offered upstream to `lance-format/lance-context`
+   or kept on the fork.
+
 ## 11. Amendment (2026-11-24): a grounded code reviewer for lance-graph
 
 A consumer of §9, §10 and C5, governed by the Claude Teacher protocol of

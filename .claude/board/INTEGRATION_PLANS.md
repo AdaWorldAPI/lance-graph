@@ -1,3 +1,8 @@
+## 2026-11-24 — D-OJC §10a–§10b: a context as a bag over the id lane; DataFusion and Quack side by side as oracle → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. §10a: lance-context's mandatory `id` column as the key lane, a context as a mask over it lent like `borrow_all`, versioned as (frame, snapshot), seen by DR as a dimension table and CSR. §10b: DataFusion's use in lance-context is almost all id lookups; one `IdLookup` seam with the scanner filter as default, a Quack arm outside the workspace, both answering on a pinned version in three phases. Adds D-OJC-18..20 and decisions 8–9.
+**Confidence:** DataFusion call sites read in the fork at `c9a638b` (line numbers in the plan); nothing built or run.
+
 ## 2026-11-24 — D-OJC amendment §11: a grounded code reviewer for lance-graph → `.claude/plans/ontology-jit-compile-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. A consumer of §9, §10 and C5 under the Claude Teacher protocol of #2077 / #2078: the code graph as ontology, review history as lance-context rows, repo laws as registered WHEN conditions, a Datalog derivation per finding, the model as untrusted teacher. Every published finding must resolve to frame addresses; it reads and comments only. Adds D-OJC-15..17.
