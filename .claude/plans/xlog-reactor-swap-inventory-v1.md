@@ -41,7 +41,7 @@ Paths are under `xlog/crates/` (X) or `lance-graph/crates/` (L). "Candidate" mea
 ### 2.2 PIR / xlog-prob (provenance and exact/MC inference)
 - **XLOG.** `PirNode` has `Const`, `Lit`, `NegLit`, `And`, `Or`, `Decision` (`pir.rs:55-85`). Provenance extraction (`provenance.rs:475,661`), CNF (`cnf.rs`), the d-DNNF CPU evaluator (`kc/ddnnf.rs:1`), the XGCF CPU evaluator (`xgcf.rs:1`) and WFS (`wfs.rs`) show 0 CUDA references. Exact inference (`exact.rs:1`, "GPU-native Decision-DNNF") and `mc/resident.rs` are GPU.
 - **Lance-graph.** No weighted model counting or semiring evaluation was found (search not exhaustive). The Boolean skeleton of provenance maps to the same masks as RIR.
-- **Gap.** Mathematics: no native weighted fold over a circuit. Do not map PIR onto NAL truth values without a proof; the spine says "no automatic numeric mapping" (§2).
+- **Gap.** UNVERIFIED, candidate mathematics: no native weighted fold over a circuit was found, but the search was not exhaustive. Do not map PIR onto NAL truth values without a proof; the spine says "no automatic numeric mapping" (§2).
 
 ### 2.3 EIR and WFS (xlog-prob, xlog-logic)
 - **XLOG.** `EirProgram` (`xlog-ir/src/eir.rs:169`). Recursive epistemic classification and FAEEL/G91 handling in `xlog-logic/src/epistemic.rs:1202-1267`; planning at `:663`, `:2235`. WFS returns `TruthValue::{True, False, Undefined}` (`wfs.rs:84`, `evaluate_wfs_rules` at `:501`) on CPU. The GPU epistemic path is `xlog-prob/src/epistemic_production.rs:1`.
@@ -50,7 +50,7 @@ Paths are under `xlog/crates/` (X) or `lance-graph/crates/` (L). "Candidate" mea
 
 ### 2.4 xlog-solve
 - **XLOG.** `Solver::new_cpu` (`solver.rs:401`) is a heuristic continuous local search, CPU. `GpuCdclSolver::new` (`gpu_cdcl.rs:333`) takes `Arc<CudaKernelProvider>`: complete SAT/UNSAT, GPU only. Callers: `xlog-prob/src/compilation/validation.rs:766,898`; `xlog-cli/src/bin/xlog-epistemic-evidence.rs:23`.
-- **Gap.** Mathematics: a native CDCL is not an algebra word. Not a candidate for early assimilation. Tier 3 of Amendment E (CubeCL residue) at most.
+- **Gap.** UNVERIFIED, candidate mathematics: no complete SAT procedure was found, but the search was not exhaustive. A native CDCL is not an algebra word. Not a candidate for early assimilation. Tier 3 of Amendment E (CubeCL residue) at most.
 
 ### 2.5 xlog-induce
 See §3. In short: GPU scoring kernel (`score.rs:1-5`), CPU n-ary reference (`nary_reference.rs:1-12`), four topologies (`types.rs:14-23`).
@@ -136,5 +136,5 @@ So the measured result **falsifies "the remaining RIR gap is mostly wiring" for 
 | 3 | aggregate (`GroupBy`) | 3 / 0 | bag/aggregate semantics (EXO-108) |
 
 **What follows (not implemented here):**
-- **P2 (virtual correlated relations)** is the main lever for at least 68 rules: 39 + 25 + 4, before counting cascades.
+- **P2 (virtual correlated relations)** is the main candidate lever for up to 68 rules (39 + 25 + 4), before counting cascades. This is not a lower bound: the 39-rule class also holds computed and arithmetic heads, which P2 alone does not admit. A per-rule split is OPEN (#2169 §8).
 - **The smaller clusters** (comparison filters, 16; negation, 8) are the next candidates for "missing wiring". Each needs its own claim, its own oracle gate, and a proof that the existing `Cmp` / `AndNot` semantics match XLOG's. Stratified negation is the key point.
