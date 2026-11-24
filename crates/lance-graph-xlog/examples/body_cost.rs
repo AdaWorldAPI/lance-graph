@@ -127,7 +127,7 @@ fn main() {
                 let t0 = Instant::now();
                 got =
                     std::hint::black_box(cube.body_pair(&t, &atoms, k, &distinct, demand).unwrap())
-                        .pairs;
+                        .pairs();
                 ts.push(t0.elapsed().as_nanos() as f64 / 1e3);
             }
             let w = cube.materialize_witnesses(&t, &atoms, k).unwrap();

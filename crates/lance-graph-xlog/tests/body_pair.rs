@@ -125,7 +125,11 @@ fn check(rels: &[Vec<(u32, u32)>], atoms: &[Atom], k: usize, distinct: &[[u8; 2]
             let want = oracle(rels, atoms, k, distinct, [u, v]);
             let got = cube.body_pair(&t, atoms, k, distinct, [u, v]).unwrap();
             assert_eq!(decode(&t, &got), want, "{what}: demand ({u},{v})");
-            assert_eq!(got.pairs, want.len() as u64, "{what}: pair count ({u},{v})");
+            assert_eq!(
+                got.pairs(),
+                want.len() as u64,
+                "{what}: pair count ({u},{v})"
+            );
         }
     }
 }
@@ -251,11 +255,8 @@ fn sg_result_is_two_demanded_projections_ored() {
     let rule2 = [atom(0, 0, 1), atom(1, 1, 2), atom(2, 2, 3), atom(3, 3, 0)];
     let b = cube.body_pair(&t, &rule2, 4, &[], [0, 3]).unwrap();
     assert_eq!(decode(&t, &b), BTreeSet::from([(1, 7), (6, 1), (7, 1)]));
-    let ored = PairAnswer {
-        words: a.words,
-        rows: a.rows.iter().zip(&b.rows).map(|(x, y)| x | y).collect(),
-        pairs: 0,
-    };
+    let mut ored = a.clone();
+    ored.or_assign(&b).unwrap();
     let want = BTreeSet::from([
         (1, 1),
         (1, 6),
@@ -286,12 +287,12 @@ fn bad_demands_and_pairs_are_refused() {
     let tri = [atom(0, 0, 1), atom(1, 1, 2), atom(2, 0, 2)];
     let (t, cube) = cube_of(&triangle_rels());
     assert_eq!(
-        cube.body_pair(&t, &tri, 3, &[], [1, 1]),
-        Err(BodyRefusal::SameDemand)
+        cube.body_pair(&t, &tri, 3, &[], [1, 1]).err(),
+        Some(BodyRefusal::SameDemand)
     );
     assert_eq!(
-        cube.body_pair(&t, &tri, 3, &[[2, 2]], [0, 1]),
-        Err(BodyRefusal::SameDistinct { pair: 0 })
+        cube.body_pair(&t, &tri, 3, &[[2, 2]], [0, 1]).err(),
+        Some(BodyRefusal::SameDistinct { pair: 0 })
     );
     assert!(matches!(
         cube.body_pair(&t, &tri, 3, &[], [0, 7]),
@@ -305,7 +306,7 @@ fn an_empty_body_has_an_empty_projection() {
     let chain = [atom(0, 0, 1), atom(1, 1, 2)];
     let (t, cube) = cube_of(&rels);
     let got = cube.body_pair(&t, &chain, 3, &[], [0, 2]).unwrap();
-    assert_eq!(got.pairs, 0);
+    assert_eq!(got.pairs(), 0);
     assert!(decode(&t, &got).is_empty());
 }
 
@@ -417,4 +418,70 @@ fn a_bad_distinct_pair_is_refused_by_materialize() {
     assert!(cube
         .materialize_distinct_witnesses(&t, &body, 2, &[[0, 5]])
         .is_err());
+}
+
+/// Two positions, one word per row: a coordinate at or past the extent must
+/// not alias the next row.
+#[test]
+fn contains_refuses_coordinates_outside_the_extent() {
+    let (t, cube) = cube_of(&[vec![(1, 2)]]);
+    let body = [atom(0, 0, 1)];
+    let a = cube.body_pair(&t, &body, 2, &[], [0, 1]).unwrap();
+    assert_eq!(a.positions(), 2);
+    assert!(a.contains(0, 1));
+    assert!(!a.contains(1, 0));
+    for (x, y) in [
+        (0, 2),
+        (2, 0),
+        (0, 63),
+        (0, 64),
+        (0, 65),
+        (usize::MAX, 0),
+        (0, usize::MAX),
+    ] {
+        assert!(!a.contains(x, y), "({x},{y})");
+    }
+    // Empty domain: no position is in range.
+    let (t0, c0) = cube_of(&[vec![]]);
+    let e = c0.body_pair(&t0, &body, 2, &[], [0, 1]).unwrap();
+    assert_eq!(e.positions(), 0);
+    assert!(!e.contains(0, 0));
+}
+
+/// OR of two answers under one frame is the union of their pairs, taken on
+/// the planes; nothing is decoded.
+#[test]
+fn or_of_two_answers_is_their_union() {
+    let r = vec![(1, 2), (2, 3)];
+    let s = vec![(1, 3), (3, 1)];
+    let (t, cube) = cube_of(&[r, s]);
+    let mut a = cube
+        .body_pair(&t, &[atom(0, 0, 1)], 2, &[], [0, 1])
+        .unwrap();
+    let b = cube
+        .body_pair(&t, &[atom(1, 0, 1)], 2, &[], [0, 1])
+        .unwrap();
+    a.or_assign(&b).unwrap();
+    assert_eq!(
+        decode(&t, &a),
+        BTreeSet::from([(1, 2), (2, 3), (1, 3), (3, 1)])
+    );
+    assert_eq!(a.pairs(), 4);
+    // Idempotent: OR with itself adds nothing.
+    let c = a.clone();
+    a.or_assign(&c).unwrap();
+    assert_eq!(a.pairs(), 4);
+}
+
+/// An answer from another table's frame is refused, even at equal extent.
+#[test]
+fn or_across_frames_is_refused() {
+    let rel = vec![(1, 2)];
+    let (t1, c1) = cube_of(std::slice::from_ref(&rel));
+    let (t2, c2) = cube_of(std::slice::from_ref(&rel));
+    let body = [atom(0, 0, 1)];
+    let mut a = c1.body_pair(&t1, &body, 2, &[], [0, 1]).unwrap();
+    let b = c2.body_pair(&t2, &body, 2, &[], [0, 1]).unwrap();
+    assert_eq!(a.or_assign(&b), Err(BodyRefusal::ForeignAnswer));
+    assert_eq!(a.pairs(), 1, "a refused OR leaves the answer unchanged");
 }

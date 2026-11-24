@@ -29,7 +29,7 @@
 //! built per call, as [`Cube::reach`] builds its edge rows), at most
 //! [`MAX_BODY_VARS`] variables, no repeated variable inside one atom.
 
-use lance_graph_dt64::dr::{MapTable, PairDir};
+use lance_graph_dt64::dr::{Frame, MapTable, PairDir};
 use ndarray::simd::{mask_and, mask_or_assign, mask_ternlog_popcount, ternlog, U64x4};
 
 use super::{Cube, CubeRefusal, RelId};
@@ -64,6 +64,10 @@ pub enum BodyRefusal {
     SameDistinct { pair: usize },
     /// A demanded projection names one variable twice.
     SameDemand,
+    /// Two answers were combined that were not taken under the same frame
+    /// issue, or over different extents: their positions are not one
+    /// coordinate domain.
+    ForeignAnswer,
 }
 
 impl From<CubeRefusal> for BodyRefusal {
@@ -665,22 +669,65 @@ impl Cube {
 /// What [`Cube::body_pair`] returns: the demanded two-column projection of a
 /// body as presence over the tile's local positions. Row `x` (`words` words)
 /// holds the `v` positions that occur in a witness with `u` at `x`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// The answer keeps the frame issue it was taken under, as [`Closure`]
+/// reuse does: two answers combine only when their positions are one
+/// coordinate domain.
+///
+/// [`Closure`]: super::Closure
+#[derive(Clone, Debug)]
 pub struct PairAnswer {
-    /// Words per row.
-    pub words: usize,
-    /// `n` rows of `words` words, LSB-first.
-    pub rows: Vec<u64>,
-    /// Distinct `(u, v)` pairs: the popcount of `rows`.
-    pub pairs: u64,
+    positions: usize,
+    words: usize,
+    rows: Vec<u64>,
+    pairs: u64,
+    frame: Frame,
 }
 
 impl PairAnswer {
-    /// Whether `(x, y)` is in the projection.
+    /// Positions per axis: the tile's local positions at the time of the call.
+    pub fn positions(&self) -> usize {
+        self.positions
+    }
+
+    /// Words per row.
+    pub fn words(&self) -> usize {
+        self.words
+    }
+
+    /// `positions` rows of `words` words, LSB-first.
+    pub fn rows(&self) -> &[u64] {
+        &self.rows
+    }
+
+    /// Distinct `(u, v)` pairs: the popcount of `rows`.
+    pub fn pairs(&self) -> u64 {
+        self.pairs
+    }
+
+    /// Whether `(x, y)` is in the projection. A coordinate outside
+    /// `0..positions` is never in it: it must not alias the padding of its
+    /// row or the next row.
     pub fn contains(&self, x: usize, y: usize) -> bool {
-        self.rows
-            .get(x * self.words + y / 64)
-            .is_some_and(|w| w >> (y % 64) & 1 == 1)
+        x < self.positions
+            && y < self.positions
+            && self.rows[x * self.words + y / 64] >> (y % 64) & 1 == 1
+    }
+
+    /// `self |= other` on the planes: the union of two projections over one
+    /// coordinate domain. Nothing is decoded.
+    ///
+    /// # Errors
+    ///
+    /// [`BodyRefusal::ForeignAnswer`] when `other` was taken under another
+    /// frame issue or over another extent; `self` is left unchanged.
+    pub fn or_assign(&mut self, other: &PairAnswer) -> Result<(), BodyRefusal> {
+        if self.positions != other.positions || !self.frame.same_issue(&other.frame) {
+            return Err(BodyRefusal::ForeignAnswer);
+        }
+        mask_or_assign(&mut self.rows, &other.rows);
+        self.pairs = self.rows.iter().map(|w| u64::from(w.count_ones())).sum();
+        Ok(())
     }
 }
 
@@ -751,9 +798,82 @@ impl Cube {
             }
         }
         Ok(PairAnswer {
+            positions: plan.n,
             words: out,
             rows,
             pairs,
+            frame: self.frame.clone(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lance_graph_dt64::dr::{LocalMap, Width};
+
+    /// A cube over the 256 ids `0..256` (local position = id) with one
+    /// relation, so a plan can be built over a full tile.
+    fn full_tile() -> (MapTable, Cube) {
+        let ids: Vec<u64> = (0..256).collect();
+        let mut t = MapTable::new(1, 1);
+        t.advance(
+            1,
+            1,
+            vec![(0, Some(LocalMap::prepare(Width::W256, &ids).unwrap()))],
+        );
+        let rel: Vec<(u32, u32)> = (0..256).map(|i| (i, (i + 1) % 256)).collect();
+        let cube = Cube::new(&t, &t.seal(), 0, &[&rel]).unwrap();
+        (t, cube)
+    }
+
+    fn atom(a: u8, b: u8) -> Atom {
+        Atom {
+            rel: 0,
+            vars: [a, b],
+        }
+    }
+
+    /// Variable 3 must differ from 0, 1 and 2. With 0, 1 and 2 bound at the
+    /// word boundaries 63, 64 and 255, exactly those three bits are cleared.
+    #[test]
+    fn clear_distinct_at_word_boundaries_with_several_partners() {
+        let (_t, cube) = full_tile();
+        let atoms = [atom(0, 1), atom(1, 2), atom(2, 3)];
+        let plan = Plan::new(&cube, &atoms, 4, &[[3, 0], [3, 1], [3, 2]]).unwrap();
+        assert_eq!(plan.words, 4, "a full tile is four words per row");
+        let mut cand = [u64::MAX; 4];
+        plan.clear_distinct(3, 0b0111, &[63, 64, 255, 0], &mut cand);
+        for p in 0..256 {
+            let set = cand[p / 64] >> (p % 64) & 1 == 1;
+            assert_eq!(set, ![63, 64, 255].contains(&p), "position {p}");
+        }
+    }
+
+    /// A partner that is not yet bound clears nothing, even if its slot
+    /// holds a stale position.
+    #[test]
+    fn clear_distinct_ignores_unbound_partners() {
+        let (_t, cube) = full_tile();
+        let atoms = [atom(0, 1), atom(1, 2)];
+        let plan = Plan::new(&cube, &atoms, 3, &[[2, 0], [2, 1]]).unwrap();
+        let mut cand = [u64::MAX; 4];
+        // Only variable 1 is bound (at 64); variable 0's slot says 63.
+        plan.clear_distinct(2, 0b010, &[63, 64, 0], &mut cand);
+        assert_eq!(cand, [u64::MAX, !1, u64::MAX, u64::MAX]);
+    }
+
+    /// The pair is symmetric: either side, bound first, clears the other.
+    #[test]
+    fn clear_distinct_is_symmetric_for_the_identity() {
+        let (_t, cube) = full_tile();
+        let atoms = [atom(0, 1)];
+        let plan = Plan::new(&cube, &atoms, 2, &[[0, 1]]).unwrap();
+        let mut a = [u64::MAX; 4];
+        plan.clear_distinct(1, 0b01, &[255, 0], &mut a);
+        let mut b = [u64::MAX; 4];
+        plan.clear_distinct(0, 0b10, &[0, 255], &mut b);
+        assert_eq!(a, b);
+        assert_eq!(a[3], !(1u64 << 63));
     }
 }
