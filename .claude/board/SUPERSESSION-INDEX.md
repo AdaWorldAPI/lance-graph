@@ -62,9 +62,9 @@ coverage instead.
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
 | `BindSpace` | RETIRE | — | 71 | 49 | 42 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
-| `ThinkingStyle` | RETIRE-toward-contract | — | 53 | 28 | 24 |
+| `ThinkingStyle` | RETIRE-toward-contract | — | 53 | 29 | 25 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (77)
+## Table 2 — plans naming a ruled symbol without citing the ruling (78)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -144,6 +144,7 @@ a licence to act on it.
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `lance-graph-as-the-modelgraph-v1` | `BindSpace` | PROPOSAL (operator-set endgame, 2026-09-16). | 4/8 |
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
+| **RESCOPE** | `lg-cog-001-reuse-census-v1` | `ThinkingStyle` | CENSUS, docs only. **Date:** 2026-11-24. **P | 11/19 |
 | **RESCOPE** | `lite-unified-surrealql-lance-v1` | `BindSpace` | CONJECTURE / design. **Test via feature gate | 0/0 |
 | **RESCOPE** | `ogit-cascade-supabase-callcenter-v1` | `BindSpace` | plan, not implementation. | 0/16 |
 | **RESCOPE** | `q2-foundry-integration-v1` | `BindSpace` | Proposed (2026-04-24) | 0/0 |
@@ -158,6 +159,6 @@ a licence to act on it.
 | **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 1/8 |
 
 - **ARCHIVE?**: 0
-- **RESCOPE**: 56
+- **RESCOPE**: 57
 - **READ**: 21
 - ruled symbols tracked: 14

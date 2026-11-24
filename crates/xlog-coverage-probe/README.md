@@ -144,7 +144,15 @@ no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
 datafrog, datafrog_reason, reference, reference_nonempty, reference_reason,
 route (empty, `set` or `reach`).
-The census is committed as `census-007bb19.tsv`. It was taken over the XLOG fork at
+The census is committed as `census-097c351.tsv` (2026-11-24, EXO-390). It was re-taken at XLOG
+`097c351` (xlog#10, arrow 58) against the native Cube at lance-graph `855d051`. It is
+byte-identical to the previous census `census-007bb19.tsv` (now in git history) once the
+revision label is removed: same rungs, reasons, Datafrog, reference and route columns on all
+438 rows. The XLOG test corpus and xlog-cube are unchanged since `007bb19`, and the
+adapter consumes none of the Cube additions made since then (`body_answer`, `closure_wide`,
+`base_closure`, tiled construction, the delta lifecycle; see
+`.claude/plans/xlog-reactor-swap-inventory-v1.md`), so the result stays the same. The rest
+of this paragraph describes the `007bb19` census, which still holds. It was taken over the XLOG fork at
 `007bb19` (AdaWorldAPI/xlog#9: one-column heads routed to cube sets), with
 the test corpus unchanged since `c9bd9dc`. Every compiled rule has a verdict:
 102 oracle-agrees, 79 refused, 49 refused-on-data, 0 oracle-disagrees,
