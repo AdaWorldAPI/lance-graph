@@ -308,3 +308,20 @@ fn an_empty_body_has_an_empty_projection() {
     assert_eq!(got.pairs, 0);
     assert!(decode(&t, &got).is_empty());
 }
+
+/// Two independent components, `r(X, Y), s(Z, W)`, demanded across them:
+/// the projection is the full product of the two supports, a Cartesian law
+/// held as presence. The top state splits, so the walk pinned at `X` starts
+/// from a state the first plan never reached.
+#[test]
+fn a_demand_across_independent_components_is_their_product() {
+    let rels = vec![vec![(1, 2), (3, 4)], vec![(5, 6), (7, 8), (7, 9)]];
+    let body = [atom(0, 0, 1), atom(1, 2, 3)];
+    check(&rels, &body, 4, &[], "split");
+    let (t, cube) = cube_of(&rels);
+    let got = cube.body_pair(&t, &body, 4, &[], [0, 2]).unwrap();
+    assert_eq!(
+        decode(&t, &got),
+        BTreeSet::from([(1, 5), (1, 7), (3, 5), (3, 7)])
+    );
+}
