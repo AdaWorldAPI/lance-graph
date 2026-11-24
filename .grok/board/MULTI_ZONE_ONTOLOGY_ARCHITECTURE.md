@@ -27,7 +27,7 @@ The system is intentionally split into three performance and serialization zones
 - **Spear's role (bridges Zone 2 ↔ Zone 3)**: **spear** repository (AdaWorldAPI/Spear) **clicks into both Zone 2 and Zone 3**.
   - It interfaces with **Zone 2** via `lance-graph-callcenter` for zero-copy, high-performance access to the inner ontology (`BindSpace`, OGIT-hydrated views, CausalEdge64, etc.).
   - It owns **Zone 3** responsibilities for all serialized outbound/inbound integrations: JSON, gRPC, MySQL Parallelbetrieb, mail (Stalwart), SharePoint, external APIs, etc.
-  - Harbors the **future HubSpot reverse-engineered operational surface** + ticket orchestration (Hiro/datagroup/almato).
+  - Harbors the **future HubSpot reverse-engineered operational surface** + ticket orchestration (Hiro/almato).
   - Already contains stubs to Stalwart Mailserver.
   - Intended to absorb transcodes of AdaWorldAPI/SharePoint (ShareGate-like soft-pull QoS + OGIT messaging ontology).
   - **Why spear must span both**: HubSpot-like CRM, ticket systems, workorder/billing workflows, and external integrations inherently require serialization and I/O with the outside world. We deliberately keep this business logic **out of lance-graph / core engine** (and even out of pure Zone 2 transcode) so the hot path and callcenter stay lean, focused on cognition and zero-copy ontology access.
@@ -71,7 +71,7 @@ All consumer repositories are compiled into the **same binary** as the core engi
 | **spear** (AdaWorldAPI/Spear) | HubSpot-like + ticket orchestration (bridges Zone 2 ↔ Zone 3) | In design / Stubs present             | Bridges Zone 2 (zero-copy via callcenter + OGIT) and Zone 3 (serialized external I/O) | **Must span both zones** because HubSpot CRM, tickets (Hiro), mail, SharePoint, MySQL etc. require serialization. Keeps hubspot/ticket logic **out of lance-graph core**. Stubs to Stalwart; will absorb SharePoint + Hiro transcodes. |
 | **Stalwart Mailserver** | Email / communication                            | External (stubbed in spear)           | Hydrate mail events into OGIT                   | Emails as first-class entities in spear |
 | **SharePoint**      | Documents, invoices, workflows                    | C# (ShareGate-like 3-layer cache + soft-pull QoS) | Needs Rust transcode into spear crate           | Invoices use same DTO family as emails. OGIT messaging ontology. |
-| **Hiro**            | Ticket orchestration (datagroup/almato)           | External                              | Transcode into spear                            | Workflow / ticket domain |
+| **Hiro**            | Ticket orchestration (almato)           | External                              | Transcode into spear                            | Workflow / ticket domain |
 | **MedCare-rs**      | Clinical studies, patients, diagnostics           | Active                                | Strong cross-domain contributor                 | ViT + FMA + SNOMED → graph reasoning + diagnostics. High cross-domain potential. |
 | **Smb-office-rs**   | Small business logic                              | Active (from C#)                      | Business entities + workflows                   | Overlap with Woa-rs. Core SMB domain. |
 | **Woa-rs**          | Work orders / billing                             | Active (WIP — transcode from Python website) | Operational workflows + billing                 | Strong OGIT candidate. Overlap with Smb-office-rs. |
@@ -92,7 +92,7 @@ All consumer repositories are compiled into the **same binary** as the core engi
 2. **SharePoint + Hiro transcoding into spear remains high priority**
    - C# 3-layer cache + soft-pull QoS logic needs clean Rust port.
    - Must preserve invoice/email DTO unification and OGIT messaging ontology.
-   - Hiro ticket orchestration (datagroup/almato) should follow the same pattern.
+   - Hiro ticket orchestration (almato) should follow the same pattern.
 
 3. **L1–L4 shader surfaces + SPO-G/W need explicit implementation plan**
    - 64×64 CausalEdge64, 256×256 attention, 4096×4096 Coca CAM, + optional 4096 OGIT layer are well-defined conceptually.
