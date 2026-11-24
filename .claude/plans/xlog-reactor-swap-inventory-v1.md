@@ -108,3 +108,33 @@ Coverage `positives_covered` would be a popcount of the head-example mask ANDed 
 - Callers of `xlog-induce` and `xlog-neural` inside `pyxlog` beyond the cited lines: not enumerated. `xlog-integration` callers not enumerated.
 - `xlog-stats` runtime consumers beyond the three file names: not read.
 - The lowering hypothesis in §3 is untested.
+
+## 6. P1 admission check against the corpus (2026-11-24, EXO-393)
+
+**Question.** How many of the 128 refused rules in `census-097c351.tsv` can `Cube::body_answer` admit within its existing contract? That contract gives: the witness count, one independent support mask per variable, binary atoms, one tile, at most 8 variables, and no repeated variable within an atom.
+
+**Answer: 0.** Every refused conjunctive rule needs one of the following:
+
+- **A correlated head of arity ≥ 2.** For example `tri(X,Y,Z)`, `cyc(W,X,Y,Z)` and `clique5(…)`.
+- **A binary projection of an n-ary derived relation.** For example `e1(X,Y) :- tri(X,Z,Y)`, `r1(X,Y) :- tri(X,Y,Z)` and `path01(A,C) :- clique5(…)`. The support masks cannot answer these (§4.2 of the mandate: independent masks lose correlation).
+- **Something outside the conjunctive fragment.** `fof` and `mutual` carry `X != Z` filters. `isolated`, `no_in` and `keep` use negation. `user_perm` reads a ternary relation. `sg_result`'s SCC also contains `sg_result(W,Z) :- sg_witness(W,X,Y,Z)`, which reads a 4-ary relation and so refuses the whole SCC. The census found no rule with a 0- or 1-column head over a multi-atom binary body without filters or negation.
+
+So the measured result **falsifies "the remaining RIR gap is mostly wiring" for the conjunctive cluster**. Wiring `body_answer` alone would admit no corpus rule. P1 is therefore not implemented. A native route that the census cannot exercise would only add untested surface.
+
+**The 128 refused rules by class.** This table maps the census reasons to classes. It is a coarse reading of reason strings, not a per-rule proof:
+
+| Rules | Class | Refused / on-data | Gap reading |
+|---:|---|---|---|
+| 39 | n-ary or computed head column | 11 / 28 | grammar/representation (P2), plus arithmetic heads (`add_result`…) |
+| 25 | n-ary relation read or produced | 4 / 21 | grammar/representation (P2) |
+| 23 | cascade: reads a refused head | 23 / 0 | follows its producer |
+| 16 | comparison filter beyond `col == const` | 16 / 0 | candidate wiring/grammar: Quack already has `Cmp`. UNVERIFIED |
+| 8 | negation, nullary or join-shaped body | 8 / 0 | candidate wiring/grammar: mask `AndNot` exists. UNVERIFIED for stratified negation |
+| 5 | nested projection / arithmetic | 5 / 0 | UNVERIFIED |
+| 5 | behaviour lens (`0xFFFF :: 0xF100`) | 5 / 0 | refused by design (no word executes yet) |
+| 4 | n-ary join key | 4 / 0 | P2 |
+| 3 | aggregate (`GroupBy`) | 3 / 0 | bag/aggregate semantics (EXO-108) |
+
+**What follows (not implemented here):**
+- **P2 (virtual correlated relations)** is the main lever for at least 68 rules: 39 + 25 + 4, before counting cascades.
+- **The smaller clusters** (comparison filters, 16; negation, 8) are the next candidates for "missing wiring". Each needs its own claim, its own oracle gate, and a proof that the existing `Cmp` / `AndNot` semantics match XLOG's. Stratified negation is the key point.
