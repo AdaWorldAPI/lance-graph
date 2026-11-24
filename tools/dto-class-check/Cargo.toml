@@ -2,6 +2,7 @@
 name = "dto-class-check"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "D-PARITY-V2-10: CI gate that asserts every workspace *Dto/*Row/*Filter/*Step/*Slot/*Bridge/*Intent/*Event type carries a `// classification:` doc comment matching the soa-dto-dependency-ledger."
 

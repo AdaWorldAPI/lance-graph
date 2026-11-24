@@ -2,6 +2,7 @@
 name = "lance-graph-act-r"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "Experimental ACT-R cognitive production arbitration"
 

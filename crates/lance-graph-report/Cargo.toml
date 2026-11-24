@@ -2,6 +2,7 @@
 name = "lance-graph-report"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "The reporting plan both Quack and z8run lower into. A ReportPlan is control plane (selection, axes, measures, a coordinate view); it lowers into lance-graph-quack's Query and is executed by lance-graph-mask-risc's one evaluator over resident SoA lanes. Pivot is a change of coordinate system, never a transpose: never transpose data to pivot — transpose meaning."
 

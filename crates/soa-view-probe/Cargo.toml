@@ -2,6 +2,7 @@
 name = "soa-view-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "D-NFR-6 lab probe: native ndarray operations over a SoaEnvelope borrow (NodeRowPacket, 512-byte rows, 16-byte facets). Mutation safety is the borrow; no runtime guard. Lab only: no production contract or ABI."
 

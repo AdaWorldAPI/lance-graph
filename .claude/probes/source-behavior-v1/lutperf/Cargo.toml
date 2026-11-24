@@ -2,6 +2,7 @@
 name = "lutperf63"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 # Lab probe (Amendment 6.3 addendum): a 256-byte SourceParity table applied by scalar lookup vs the

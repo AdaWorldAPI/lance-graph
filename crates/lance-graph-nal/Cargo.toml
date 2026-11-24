@@ -2,6 +2,7 @@
 name = "lance-graph-nal"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "NAL over the fold path: Narsese statements as sealed facet coordinates, NAL operations as R2IL procedures compiled once into mask-risc programs (D-NALP-1/2)."
 

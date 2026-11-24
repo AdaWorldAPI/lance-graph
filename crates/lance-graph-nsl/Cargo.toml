@@ -2,6 +2,7 @@
 name = "lance-graph-nsl"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 license = "Apache-2.0"
 publish = false
 description = "NSL neighbor selection over interned IDs and one feature table, checked against a frozen NSL oracle."

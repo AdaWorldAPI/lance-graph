@@ -10,6 +10,7 @@
 name = "foundry-parity-lab"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "D-FOUNDRY-PARITY-1 lab: can source-owned planes, a DT64 lane binding and mask-RISC programs answer CanCook / CanFulfill / NetworkCapacity over 64 stores with exact oracle parity and correct refusals?"

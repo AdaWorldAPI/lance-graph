@@ -2,6 +2,7 @@
 name = "lance-graph-metta"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "MeTTa (Hyperon) as a declaration front end over the masking-algebra polyfill: the Datalog subset lowers through lance-graph-quack into mask-risc; everything else stays in Hyperon's interpreter. Plan: .claude/plans/metta-polyfill-v1.md."
 

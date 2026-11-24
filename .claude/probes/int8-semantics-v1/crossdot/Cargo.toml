@@ -2,6 +2,7 @@
 name = "crossdot64"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 # Lab probe (D-TFLP Amendment 6.4): int8 dot products of ndarray's per-target paths against a widened

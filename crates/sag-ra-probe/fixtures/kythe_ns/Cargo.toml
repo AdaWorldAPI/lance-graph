@@ -2,6 +2,7 @@
 name = "kythe_ns"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 [workspace]

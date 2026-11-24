@@ -9,6 +9,7 @@
 name = "cg-beh-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "D-CG-BEH-2 lab: ON / WHEN / DO facts of registered DT64 methods, a change query over them, and its falsifiers."

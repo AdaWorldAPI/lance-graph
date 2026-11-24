@@ -2,6 +2,7 @@
 name = "replay"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 # D-TFLP Amendment 6.5 P2: replay of the committed softmax reciprocal fixtures without TFLM.

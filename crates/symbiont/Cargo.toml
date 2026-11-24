@@ -21,6 +21,7 @@
 name = "symbiont"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "Golden-image probe: the full Ada stack (lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb kv-lance + OGAR) compiled into ONE binary. Portable git-deps build for any session + Railway/CI."
 

@@ -2,6 +2,7 @@
 name = "lance-graph-codegraph"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "Codegraph queries and structural diagnostics (D-CODEGRAPH-0 slice C) over the ruff_charon store artifacts, folded through the xlog cube; no dependency on ruff_charon."
 

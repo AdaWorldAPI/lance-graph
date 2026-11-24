@@ -2,6 +2,7 @@
 name = "virtual-address-lab"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "LAB. D-VIRTUAL-ADDRESS-ALGEBRA-1: a geometric address recipe (the eight symmetries of a square tile, three bits) normalised before the EXISTING selection path is called (SelectionSource, LaneBinding::selected, fold_bound_selection, execute_sel). No owner, store, operand form or executor is added."
 

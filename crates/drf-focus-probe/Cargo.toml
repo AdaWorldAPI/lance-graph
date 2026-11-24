@@ -8,6 +8,7 @@
 name = "drf-focus-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "Lab probe D-DRF-P1: sealed 64x64 u16 map, full-witness FocusKey, OnceLock-leased gathered facet column, direct prefetch arm. Results only; no production path."
 

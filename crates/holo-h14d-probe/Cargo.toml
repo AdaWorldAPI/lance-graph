@@ -2,6 +2,7 @@
 name = "holo-h14d-probe"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "D-HOLO-H14d: C's own operation in four stages: logic, address mask, masked read, terminal (plan d-holo-h14d-logic-mask-read-v1)"
 

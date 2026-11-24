@@ -2,6 +2,7 @@
 name = "onebrc-probe"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 license = "Apache-2.0"
 publish = false
 description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3 SoA/mailbox substrate's groupby-aggregate throughput at container scale (100M rows). Lane A (single-thread scalar baseline), Lane C (std::thread parallel baseline), Lane B (ndarray SIMD, feature lane-b), Lane D (ractor actors, feature lane-d) and Lane E (kanban-scheduled batches, feature lane-e) ship here — see README.md."

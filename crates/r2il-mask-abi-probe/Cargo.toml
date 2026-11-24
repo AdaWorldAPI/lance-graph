@@ -2,6 +2,7 @@
 name = "r2il-mask-abi-probe"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "W0B: the mask-ABI differential at the R2IL seam. Proves ogar-r2il's CallMask algebra and lance-graph-mask-risc's agree BIT-IDENTICALLY over the same borrowed words — and nothing more. NOT a Quack<->R2IL bridge: CallMask indexes call slots inside ONE body (<=180), mask-risc indexes rows of a projection (~64K). Same algebra, different index spaces; the row bridge is W0C — `tests/row_bridge.rs`, which carries a factored join predicate as loco program data under its own vocabulary, lets loco INTERPRET it into a mask-risc Program, and executes that fused. No population crosses; the result is bit-identical to quack's lowering."
 

@@ -2,6 +2,7 @@
 name = "lance-graph-quack"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "A columnar query surface whose OPERATORS ARE MASKING OPS over the V3 SoA. DuckDB's shape — scan, filter, aggregate — with every operator lowering to a lance-graph-mask-risc Program and, under it, ndarray::simd's masking algebra. No expression interpreter, no row iterator, no second evaluator."
 

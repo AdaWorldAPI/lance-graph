@@ -2,6 +2,7 @@
 name = "lance-graph-glove-parity"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "Cross-glove parity probe (D-XGP): canonical attribute names from OntologyRegistry resolved through a glove's Quack Binder"
 

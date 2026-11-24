@@ -2,6 +2,7 @@
 name = "gkat-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "D-GKAT-0 PROBE: a bounded research fixture for Guarded Kleene Algebra with Tests (Smolka et al., POPL 2020). Decides equivalence of structured guarded flows over a declared atom set of at most 256 atoms, checks a separate RequestCommit safety property, and refuses constructs outside the admitted fragment. Not a production verifier, runtime or executor."
 

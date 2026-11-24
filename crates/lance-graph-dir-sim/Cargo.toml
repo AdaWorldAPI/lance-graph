@@ -22,6 +22,7 @@
 name = "lance-graph-dir-sim"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "Apache-2.0"
 description = "Versioned directory graph over SoA lanes: observed snapshots shared structurally across simulated versions (parent + delta), pure population rules, invariants as Quack semijoin / GroupReduce programs, semantic diff and a side-effect-free ExecutionPlan. No AD / Graph / Exchange / LDAP / PowerShell I/O."

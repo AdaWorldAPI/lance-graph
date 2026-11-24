@@ -2,6 +2,7 @@
 name = "grammar-constraints-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "D-GRAMMAR-CONSTRAINTS-0 lab falsifier: German dative role candidates (recipient / experiencer / direction-purpose) as typed constraints over UD-annotated tokens, evaluated by one mask-risc program per rule over a DR-addressed token population. Lab only; no parser, no production path."
 

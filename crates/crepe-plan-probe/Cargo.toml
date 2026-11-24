@@ -2,6 +2,7 @@
 name = "crepe-plan-probe"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.99.0"
 publish = false
 description = "Lab spike: Crepe's rule analysis as a cold optimizer in front of relalg. crepe_plan! reports the rules as data; binding propagation and set-only dedup rewrite them; a MORK query_multi pattern carries them; relalg ANDs the D-MPS-8 presence planes through mask-risc. Results only; no production path."
 

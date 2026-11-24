@@ -2,6 +2,7 @@
 name = "duckdb-selvec-compat"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "LAB (D-DR-SELECT-K-SV-3). The three DuckDB C-API SelectionVector functions (create, destroy, get_data_ptr) as declared at DuckDB v1.5.6, as an owned writable buffer. Opt-in symbol export; compared against the real libduckdb in separately linked processes. No executor, no DR binding, no authorization."
 

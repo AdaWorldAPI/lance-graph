@@ -2,6 +2,7 @@
 name = "lance-graph-intake"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 description = "Data as config, class as config: rows handed in as PostgreSQL prints them (column names, cells as text or NULL) have their column shapes detected, a class built and registered from them, the rows placed in source-owned lanes with a DR key map, and are answered through lance-graph-pg-row. Hand config wins over detection and every column gets a diff verdict."
 

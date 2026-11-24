@@ -2,6 +2,7 @@
 name = "lance-graph-archetype"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 description = "Archetype transcode scaffold (ECS-style types transcoded to Arrow/Lance). Per ADR-0001 Decision 1: defines its OWN Rust interface (not a mirror of upstream Python). Inside-BBB only — types in this crate never cross the CognitiveEventRow membrane."
 license = "Apache-2.0"
 keywords = ["lance", "graph", "archetype", "ecs", "transcode"]

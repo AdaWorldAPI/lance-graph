@@ -2,6 +2,7 @@
 name = "weather-poc"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.99.0"
 license = "Apache-2.0"
 publish = false
 description = "Zarr -> NodeRow: the ERA5 0.25-degree global grid baked onto the canonical 512-byte SoA row. One cell = one node (HEEL = 16-degree tile, HIP = within-tile), one timestep = one Lance version. Plan: .claude/plans/weather-soa-bake-v1.md"

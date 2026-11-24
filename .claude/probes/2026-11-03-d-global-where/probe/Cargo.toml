@@ -5,6 +5,7 @@
 name = "d-global-where-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 
 [dependencies]

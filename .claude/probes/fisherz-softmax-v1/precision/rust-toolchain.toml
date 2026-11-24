@@ -32,6 +32,10 @@ channel = "1.99.0"
 #                    `clippy::manual_contains` x3 (blas-mock-tests),
 #                    deprecated `std::f64::NAN` via `use std::f64;` x4
 #                    (tests/numeric.rs).
+#   rust-version 1.98.1 → 1.99.0  (2026-11-24) every lance-graph manifest now
+#                    declares 1.99.0, so the channel and rust-version move
+#                    together again. Quack's dependency on the ndarray fork
+#                    already required rustc 1.99.
 #
 # Never auto-track `stable` — bump explicitly when a future version is
 # reviewed and the workspace clippy passes clean.

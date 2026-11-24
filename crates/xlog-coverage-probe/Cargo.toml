@@ -9,6 +9,7 @@
 name = "xlog-coverage-probe"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "Reconciles XLOG's compiled rules on lance-graph's cube against XLOG's own CPU reference fixpoint evaluator, over non-empty base relations, and places each rule on an evidence ladder."
