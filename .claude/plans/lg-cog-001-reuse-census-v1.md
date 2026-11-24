@@ -1,4 +1,4 @@
-# LG-COG-001 reuse census: capability and admission matrix (v1)
+# LG-COG-001 reuse census: capability and admission matrix (v1, with v2 §10)
 
 **Status:** CENSUS, docs only. **Date:** 2026-11-24. **Pinned at:** lance-graph `main` 855d051, ndarray `master` (`src/hpc/codec9.rs`, `src/hpc/abakus/`), lance-context `main` (after #3/#4), rs-graph-llm `main` 71450cc.
 **Basis:** #2077 is the canonical LG-COG-001 plan. #2078 is harvested here, not merged as a second plan (§5).
@@ -158,3 +158,62 @@ Hypothesis, to be tested before any lowering is built:
 | n-ary | factorised conjunctive body evaluation (`Cube::body_answer`) |
 
 The open question: can candidate rules be scored over resident relations without building candidate tuple populations? A candidate oracle is the Python reference `pyxlog/python/pyxlog/ilp/exact_induce.py`, provided its independence from the native path is checked first.
+
+## 10. Cognitive-architecture reconciliation (v2)
+
+Grades: CODE (in the tree, with tests), LAB-MEASURED (probe with a recorded measurement), DOC (a plan or design only), ABSENT (nothing found). Paths are under the lance-graph repository root unless marked external. Only D-SAG-3 and `rubicon-volition-v1.md` name OpenPsi. No Rust file under `crates/` mentions it (checked 2026-11-24).
+
+### 10.1 Who owns what
+
+| Concern | Question it answers | Existing code | Grade | Existing doc | Missing | Must NOT be read as |
+|---|---|---|---|---|---|---|
+| OpenPsi (demand, intrinsic priority) | Which open question deserves scarce budget now? | none | ABSENT | `.claude/plans/sag-wisdom-frontier-ona-hyperon-v1.md` §3 (:77-93), §4 EIG priority (:95-114); marked "RESEARCH / FALSIFIABLE DESIGN ONLY" (:5) | Everything: demand signals, calibrated EIG, a pre-registered scheduler | Evidence (:79-88 keeps demand separate); a commitment; a permit (:93) |
+| Heckhausen/Gollwitzer Rubicon | Is thinking broad (deliberative) or narrow and shielded (implemental)? Is an intention committed? Is there a cue-to-action plan? | `crates/lance-graph-contract/src/rubicon_witness.rs` (`read_crossing` :228, `breadth_drop` :209, `persistence_gain` :211, `RubiconVerdict` :183); flow probe `crates/gkat-probe/src/rubicon.rs` (`decide_reference` :74, no tests in file) | CODE for the attention reading; LAB for the decision flow; ABSENT for commitment state and conditional intentions | `.claude/plans/rubicon-volition-v1.md` (state machine D-RV-1 :24-63, `IfThenPolicy` D-RV-2 :73-75, "PROPOSAL ONLY" :4); `docs/architecture/FLOW_COG_RUBICON_ONA_CONVERGENCE.md` (:75-88) | Commitment record, revocation, cue-matched plan, persisted traces | A scheduler or command: the witness only reads (`rubicon_witness.rs` :26-32); `RequestCommit` is an intent (`gkat-probe/src/rubicon.rs` :15) |
+| ACT-R (procedural arbitration) | Of the eligible rules, which one is proposed? | `crates/lance-graph-act-r/src/lib.rs` (`arbitrate` :66, `witness_matches` :103) | CODE (own workspace, local experimental types :11-12) | none beyond the crate docs; `FLOW_COG_...md` does not mention it | Canonical contract types, utility learning, buffer timing (:9), a real eligibility source | Truth (`utility` :27) or evidence or permission (`activation` :29); `Decision` is not an authorized effect (:36) |
+| Hyperon / MeTTa (method vocabulary) | How are compositional queries and rules declared? | `crates/lance-graph-metta/examples/{join_probe,join_range_probe,wcoj_probe}.rs`; `src/lib.rs` has no items ("Nothing is shipped here yet", :2) | LAB-MEASURED (probes vs datafrog, `.claude/plans/metta-polyfill-v1.md` §6b, §6d) | `metta-polyfill-v1.md` (§4 :109-132, D-MTP table :386-395); `FLOW_COG_...md` crate gate (:41) | `Space` adapter D-MTP-2, recursion D-MTP-3, any binder from MeTTa text | An execution engine: MeTTa is a front end; mask-risc is the only engine (`metta-polyfill-v1.md` :123-125) |
+| NAL (evidence revision) | How strongly is a statement supported, by independent roots? | `crates/lance-graph-nal/src/lib.rs` (W3 revision with evidence classes :52-64) | CODE for W3; W4 truth laws, W5 syllogisms, W6 text front end are "Not here yet" (:66-67) | `.claude/plans/nal-polyfill-v1.md` (named in `metta-polyfill-v1.md` :9; not read for this section) | Per-row truth laws, syllogisms, temporal inference | Utility, calibrated probability, or authorization (`FLOW_COG_...md` :83; D-SAG-3 :34) |
+| NSL (learned ranking) | Which neighbors does a seed use, and what graph loss applies? | `crates/lance-graph-nsl/src/lib.rs` (neighbor selection, :1-3), `loss.rs`, `eval.rs` | CODE, checked against NSL's own golden file (`lib.rs` :16-17; README) | `crates/lance-graph-nsl/README.md`; plan lives in the external NSL repo | Any link from NSL output to goals or priorities. The crate reproduces `pack_nbrs` and the loss; it does not learn a ranking itself | Evidence, utility, or a goal source |
+| thought-git (counterfactual worlds, receipts) | What would this thought change, on a branch, before landing? | `crates/thought-git-probe/` (`oracle`, `slots`, `squash`, `receipt` modules; `lib.rs` :1-9 "no production land, rebase or persistence pipeline") | LAB-MEASURED: 58/58 tests pass at 855d051 (§1); D-TGB-4 receipts exist in `receipt.rs` | `.claude/plans/thought-git-basics-v1.md`, `thought-git-api-v1.md`, `thought-git-lifecycle-contract-v1.md` | Land, rebase, persistence, a durable receipt store (EXO-148) | A committed state or an observed outcome |
+| temporal.rs (hindsight-blind horizon) | What may a reader at this rung see? | `crates/lance-graph-planner/src/temporal.rs` (`EpistemicMode::for_rung` :87-97: 0..=4 Strict, 5..=8 Aware, 9 Retro) | CODE | `.claude/plans/rubicon-loco-rung-cognitive-fabric-v1.md` §B (:67-108), gate `F-RLR-1` (:583) | A demonstrated non-rung-4 horizon end to end (:106-108) | Attention breadth, or the right to think at a rung |
+| RolloutStore (experiential feedback) | What actually happened after acting? | external: lance-context `crates/lance-context-core/src/rollout.rs` (`RolloutRecord`: `reward`, `grader_id`, `policy_version`, `relationships`) and `rollout_store.rs` (§1); no consumer in lance-graph `crates/` | CODE (external repo) | `.claude/plans/ontology-jit-compile-v1.md` (:344-346, :472; "Reward and rollout events grant no authority" :546) | Any in-repo consumer of outcome receipts; D-SAG-3 needs one (:89); production admission (EXO-300) | Authority, or predicted self-confirmation (D-SAG-3 :89) |
+| Codec9 (compact numerical state) | How is a magnitude plus a presence bit stored? | ndarray `src/hpc/codec9.rs` (`EpiLane9`, `Codec9`, `Codec9Runtime`, batch encode/decode, §1); layout spec `crates/lance-graph-contract/src/lane_codec.rs` (:55-62); a 9-bit mirror in `crates/lance-graph-nsl/src/eval.rs` ("Not a production codec") | CODE | `.claude/plans/d-codegraph-0-binary-lanes-v1.md` (:55-72) | Nothing for cognition; it is storage | Truth, confidence, or priority. Presence 0 means untouched, not false; codec9.rs says presence is "NOT a source-write or alpha-claim authorization" |
+
+### 10.2 Separations
+
+- **Utility** is owned by ACT-R's `Candidate.utility` (`lance-graph-act-r/src/lib.rs` :27) and, for goals, a proposed `utility_basis` (D-RV-2). It must not be read as truth.
+- **Motivation** would be owned by OpenPsi demand (D-SAG-3 §3). Nothing implements it. It must not be read as utility or as a commitment.
+- **Confidence** is owned by NAL `f/c` (`lance-graph-nal`). It must not be read as calibrated probability or as the `p_i` in EIG (D-SAG-3 :34, :103).
+- **Epistemic certification** is the CE64 59..63 reading (D-SAG-3 :33), outside this section's code. It must not carry desire, entropy or a commit bit.
+- **Numerical presence** is the lane presence plane (`lane_codec.rs` :55-62). It must not be read as truth: unobserved is not false (D-SAG-3 :67-70).
+- **Execution authority** is the action gate and a live permit (`FLOW_COG_...md` :27, :80; D-RV-1 :50-62). It must not be read from a Rubicon verdict, an ACT-R `Decision`, a NAL confidence or a model reply.
+
+### 10.3 Extended ladder: L6 and L7 (PROPOSAL, no wired code)
+
+Neither level exists in code. The oracles below exist; the loop that would use them does not.
+
+- **L6, identify worthwhile unresolved questions.**
+  - Oracle to reuse: D-SAG-3 EIG, `H(Theta|D)` minus expected posterior entropy (:97-103), and its priority hypothesis (:105-108). It applies only over a pre-registered calibrated distribution; otherwise it abstains (:103).
+  - Falsifiers to carry unchanged: noisy-TV vs learnable cause (ID 7, :146), refuted vs unknown conflation (ID 5, :144), whole-work accounting (ID 15, :154).
+  - Withdrawal test: remove the external question feed. The chosen set must still beat FIFO and smallest-popcount-debt (:161-162) on unique oracle-supported discoveries per total work (:165), on the same snapshot and budget (ID 0, :139), and must not promote the noisy-TV item.
+- **L7, regulate exploration, commitment and disengagement.**
+  - Oracle to reuse: `rubicon_witness::read_crossing` on a pre-commitment and a post-commitment `FocusTrace`, giving `breadth_drop`, `persistence_gain` and a verdict (`rubicon_witness.rs` :209, :211, :228). Tests already pin forced-single-candidate silence and the Inverted case (:373, :397).
+  - What the witness cannot judge: whether a release was correct. For that, reuse D-RV-4 fixture RV-E4 (justified vs premature release, :130) and RV-E2 (zero actions after revoke, :127).
+  - Withdrawal test: remove the externally supplied commitment. The system's own policy must still read `Crossed` on a deliberated task and `Indistinguishable` on a forced single candidate, with no action after revocation, and the verdict must never itself drive a transition (:26-32).
+  - Gap: D-ACR-8 consumers were four probe examples when last audited (`rubicon-loco-rung-cognitive-fabric-v1.md` :278-282). I did not re-check that count.
+
+### 10.4 Comparison arm (PROPOSAL)
+
+Question: does bounded OpenPsi-inspired selection keep working when the teacher stops supplying goals?
+
+- Arm A: externally supplied goals, fixed list. Arm B: demand plus calibrated EIG over the same candidate set (D-SAG-3 :105-108). Arm C: deterministic reference scheduler (:161-162).
+- Same snapshot, seeds, budget and oracle for all arms (ID 0, ID 15). At step T the goal feed to A is cut and B and C continue alone.
+- Report discoveries per total work, stale or post-revoke actions, false-causal rate, and original-root inflation, which must be 0 (:165).
+- Kill condition: if B does not beat C after T, the OpenPsi layer is not needed. This follows the D-RV-5 pattern (:147-148), and per D-SAG-3 :178 a post-outcome peek ends the run.
+
+### 10.5 Not built, and not to be built here
+
+- **No scheduler.** Progression is existence, not command (`rubicon_witness.rs` :28-32; `rubicon-loco-rung-cognitive-fabric-v1.md` §K).
+- **No AtomSpace.** No second OpenCog store (`FLOW_COG_...md` :39); Classic AtomSpace is AGPL (`metta-polyfill-v1.md` §8).
+- **No interpreter.** Hyperon's interpreter stays in Hyperon and is not modified (`metta-polyfill-v1.md` §8).
+- **No execution engine.** ACT-R never executes effects (`lance-graph-act-r/src/lib.rs` :6-8); D-RV-5 item 10 names a second scheduler or runtime as scope creep (:156).
+- **No truth store.** Evidence lives in NAL with original roots (`lance-graph-nal` :52-64); D-SAG-3 forbids a shadow registry or new index (:37).
