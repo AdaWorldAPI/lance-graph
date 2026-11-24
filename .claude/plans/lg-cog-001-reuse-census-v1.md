@@ -269,3 +269,22 @@ Each new problem the pilot solves is classed by what it took:
 | extension | an operation the algebra cannot express yet | yes; needs its own admission gate |
 
 Report the three counts separately, per knowledge source (Claude, `xlog-induce`, native composition, §8). Most solved problems landing in configuration or composition would be evidence that capability grows without a matching growth in code. A configuration is valid only if every field resolves to an existing typed contract. No new schema or configuration language.
+
+### 14.1 Denominator and outcome matrix
+
+The denominator is **every attempted problem**, not only the solved ones. Without that, the metric would overstate coverage. Each attempt lands in exactly one row, counted per knowledge source:
+
+| Outcome | Claude | `xlog-induce` | native composition |
+|---|---|---|---|
+| solved by configuration | | | |
+| solved by composition | | | |
+| requires extension | | | |
+| correctly refused | | | |
+| incorrect result | | | |
+
+A correct refusal counts in the system's favour. It shows the system knows what the machine is admitted to do, and does not fabricate an answer. After teacher withdrawal, the same matrix is measured again on unseen problems, with the acquired configurations frozen.
+
+The matrix answers three separate questions:
+- **expressivity:** what the existing algebra can represent;
+- **discovery:** whether useful configurations are found without the teacher;
+- **retention and transfer:** whether acquired methods carry over to unfamiliar problems once the teacher is withdrawn.
