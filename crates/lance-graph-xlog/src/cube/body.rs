@@ -624,11 +624,29 @@ impl Cube {
         atoms: &[Atom],
         k: usize,
     ) -> Result<Vec<u64>, BodyRefusal> {
+        self.materialize_distinct_witnesses(table, atoms, k, &[])
+    }
+
+    /// [`Cube::materialize_witnesses`] under distinctness pairs: a witness
+    /// binding both variables of a pair to one position is never emitted.
+    /// The pair is cleared inside the walk, as in [`Cube::body_pair`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Cube::body_answer`]; [`BodyRefusal::SameDistinct`] for a pair
+    /// naming one variable twice.
+    pub fn materialize_distinct_witnesses(
+        &self,
+        table: &MapTable,
+        atoms: &[Atom],
+        k: usize,
+        distinct: &[[u8; 2]],
+    ) -> Result<Vec<u64>, BodyRefusal> {
         if self.tiled {
             return Err(CubeRefusal::Tiled.into());
         }
         let map = self.map(table)?;
-        let plan = Plan::new(self, atoms, k, &[])?;
+        let plan = Plan::new(self, atoms, k, distinct)?;
         let mut locals = Vec::new();
         if plan.n > 0 {
             Walk::new(&plan).emit(0, &mut locals);

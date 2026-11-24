@@ -325,3 +325,96 @@ fn a_demand_across_independent_components_is_their_product() {
         BTreeSet::from([(1, 5), (1, 7), (3, 5), (3, 7)])
     );
 }
+
+/// Every witness of `atoms` under `distinct`, as global-id rows, by nested
+/// loops over the domain.
+fn witness_oracle(
+    rels: &[Vec<(u32, u32)>],
+    atoms: &[Atom],
+    k: usize,
+    distinct: &[[u8; 2]],
+) -> BTreeSet<Vec<u32>> {
+    let dom = ids_of(rels);
+    let sets: Vec<BTreeSet<(u32, u32)>> =
+        rels.iter().map(|r| r.iter().copied().collect()).collect();
+    let mut out = BTreeSet::new();
+    let mut b = vec![0u32; k];
+    let mut idx = vec![0usize; k];
+    loop {
+        for (i, &j) in idx.iter().enumerate() {
+            b[i] = dom[j];
+        }
+        let ok = atoms.iter().all(|a| {
+            sets[a.rel as usize].contains(&(b[a.vars[0] as usize], b[a.vars[1] as usize]))
+        }) && distinct
+            .iter()
+            .all(|&[x, y]| b[x as usize] != b[y as usize]);
+        if ok {
+            out.insert(b.clone());
+        }
+        let mut i = 0;
+        while i < k {
+            idx[i] += 1;
+            if idx[i] < dom.len() {
+                break;
+            }
+            idx[i] = 0;
+            i += 1;
+        }
+        if i == k {
+            return out;
+        }
+    }
+}
+
+fn witnesses(
+    cube: &Cube,
+    t: &MapTable,
+    atoms: &[Atom],
+    k: usize,
+    d: &[[u8; 2]],
+) -> BTreeSet<Vec<u32>> {
+    let flat = cube.materialize_distinct_witnesses(t, atoms, k, d).unwrap();
+    flat.chunks(k)
+        .map(|w| w.iter().map(|&g| g as u32).collect())
+        .collect()
+}
+
+/// `mutual(X, Y, M) :- friend(X, M), friend(Y, M), X != Y.` The head keeps
+/// all three variables, so its answer is the witnesses themselves; the pair
+/// is cleared inside the walk, never filtered from emitted rows.
+#[test]
+fn mutual_witnesses_respect_distinctness() {
+    let friend = vec![(1, 2), (2, 1), (2, 3), (3, 2), (1, 3), (4, 3)];
+    let body = [atom(0, 0, 2), atom(0, 1, 2)];
+    let rels = [friend];
+    let (t, cube) = cube_of(&rels);
+    for d in [[0u8, 1], [1, 0]] {
+        let got = witnesses(&cube, &t, &body, 3, &[d]);
+        assert_eq!(got, witness_oracle(&rels, &body, 3, &[d]), "pair {d:?}");
+        assert!(got.iter().all(|w| w[0] != w[1]), "pair {d:?}");
+    }
+    // Negative twin: without the pair, X = Y witnesses appear.
+    let all = witnesses(&cube, &t, &body, 3, &[]);
+    assert_eq!(all, witness_oracle(&rels, &body, 3, &[]));
+    assert!(all.iter().any(|w| w[0] == w[1]));
+    // The unconstrained call is the old entry point.
+    assert_eq!(
+        cube.materialize_witnesses(&t, &body, 3).unwrap(),
+        cube.materialize_distinct_witnesses(&t, &body, 3, &[])
+            .unwrap()
+    );
+}
+
+/// A pair over a variable outside `0..k` is refused, as for `body_pair`.
+#[test]
+fn a_bad_distinct_pair_is_refused_by_materialize() {
+    let (t, cube) = cube_of(&[vec![(1, 2)]]);
+    let body = [atom(0, 0, 1)];
+    assert!(cube
+        .materialize_distinct_witnesses(&t, &body, 2, &[[0, 0]])
+        .is_err());
+    assert!(cube
+        .materialize_distinct_witnesses(&t, &body, 2, &[[0, 5]])
+        .is_err());
+}
