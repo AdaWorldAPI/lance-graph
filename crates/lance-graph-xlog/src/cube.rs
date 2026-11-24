@@ -36,7 +36,7 @@
 
 mod body;
 mod lend;
-pub use body::{Atom, BodyAnswer, BodyRefusal, MAX_BODY_VARS};
+pub use body::{Atom, BodyAnswer, BodyRefusal, PairAnswer, MAX_BODY_VARS};
 pub use lend::CubeLanes;
 
 use std::cell::{Cell, OnceCell};
