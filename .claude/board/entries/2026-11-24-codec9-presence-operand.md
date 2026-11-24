@@ -103,7 +103,7 @@ view. Read at `lance-graph-dt64/src/lane.rs` on `29f5cff`:
 
 | Kind | Gap | Evidence |
 |---|---|---|
-| Mathematics | none | `abakus::pm::{touched, add_pm, neg_pm, sub_pm}`, `U8x64::cmpeq_mask`, mask-risc `MaskOp::Ternlog` |
+| Mathematics, for present / count / hydration only | none | `abakus::pm::touched`, `U8x64::cmpeq_mask`, mask-risc `MaskOp::Ternlog`. This says nothing about Codec9 arithmetic in general: Abakus has `touched`, `add_pm`, `neg_pm`, `sub_pm` and the carry contract, the start of an ALU, not a numerical repertoire |
 | Grammar | none for present / count / hydration (the width selects the reading) | `Arg::Present`; `EpiLaneSpec.width` |
 | Grammar, OPEN | where an adaptive width lives (below) | `LaneWidth` is a per-class compile-time constant (`lane_codec.rs:71`) |
 | Wiring | mask-risc has no byte operand and no byte-zero test | `LaneRef` = `I32`/`U32`/`U64`/`Strided` (`mask-risc/src/ir.rs:16-36`); strided predicates are u32 only |
