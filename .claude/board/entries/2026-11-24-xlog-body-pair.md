@@ -58,7 +58,17 @@ OPEN:
   not built.
 - One tile only, as `body_answer`.
 - A distinctness pair is the identity law's image: within a tile, row x of
-  the identity map is bit x, which is what `clear_distinct` clears. A body
-  needing `X != f(Z)` for an affine `f` would read a law lane (#2160,
-  `contract::lane_law`) and clear the bit at `f(bound)`. No such body exists
-  yet, so no law-lane reader is built.
+  the identity map is bit x, which is what `clear_distinct` clears. The
+  identity is its own inverse, so clearing the bound partner's bit is right
+  whichever side is bound first. `X != f(Z)` for an affine `f` (#2160,
+  `contract::lane_law`) is directional: with Z bound, clear `f(z)` from X's
+  candidates; with X bound, clear the preimage `f⁻¹({x})` from Z's, which
+  can be several positions because an affine map mod m need not be
+  bijective (`2z mod 10` sends 1 and 6 to 2). No body needs it, so neither
+  the law-lane reader nor the preimage contract is built.
+
+`PairAnswer` keeps its extent and the frame issue it was taken under (as
+`Closure` reuse does). `contains` refuses coordinates outside the extent,
+and `or_assign` ORs two answers on the planes, refusing an answer from
+another frame or extent. Disable runs: bound check removed, frame check
+removed, unbound partners cleared, each red.
