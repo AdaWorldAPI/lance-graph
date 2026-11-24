@@ -69,7 +69,7 @@ A replayed derivation carries `independent_roots = 0`. It cannot count as new NA
 
 | Seam | What is missing | Smallest honest step | Owner of the blocker |
 |---|---|---|---|
-| S1 receipt → NAL stamp | `Receipt::roots` is a **64-bit bit set** (`receipt.rs:381-383`: "Provenance roots of those sources, as a bit set"). NAL's `Evidence::stamp` is a slice of root **identities** (`&[u64]`, lib.rs:250). A bit position is not an identity: two bases can reuse the same bit for different roots, and a set holds at most 64 roots. So the translation needs a root-identity table per base, not a numeric cast. | a lab-only adapter in a probe crate, mapping bit to root id through a per-`BaseRef` table. Falsifiers: (a) partially overlapping root sets refuse as `OVERLAP` on the shared roots only; (b) a duplicate replay contributes nothing (`independent_roots = 0`); (c) independent new evidence pools; (d) the same bit under two bases with different root ids does **not** collide; (e) a root that overflows 64 bits refuses instead of aliasing. | lab; no contract type |
+| S1 receipt → NAL stamp | `Receipt::roots` is a **64-bit bit set** (`receipt.rs:381-383`: "Provenance roots of those sources, as a bit set"). NAL's `Evidence::stamp` is a slice of root **identities** (`&[u64]`, lib.rs:250). The mask is a **local coordinate**, not an evidence identity: two bases can use the same bit for different roots. Its meaning has to come from a witnessed map. | First check whether the existing DR addressing already expresses this, before designing any new table. `lance-graph-dt64::dr::LocalMap` (dr.rs:576) is "the prepared global → local pointer table for one tile under one frame … identity references and local positions only, never values". It is issued under a sealed `Frame` (dr.rs:489, no public constructor) and versioned by `MapTable` (dr.rs:874). Falsifiers: (a) partially overlapping root sets refuse as `OVERLAP` on the shared roots only; (b) a duplicate replay contributes nothing; (c) independent new evidence pools; (d) identical masks under different frames resolve to different identities; (e) a stale root map refuses; (f) ABA reuse of a local position does not alias; (g) a permutation of root order does not change the verdict; (h) more than 64 roots refuses, never truncates, until the existing tiled, wide or sparse addressing is audited. | lab; no contract type |
 | S2 rollout witness | there is no typed row for (fixture, arm, stage S0–S5, oracle verdict, receipt identity, `QueryReference`) | an **isolated, single-writer experimental dataset**, written through a cold adapter to `RolloutRecord` (`metadata` / `relationships`), as #2077 and #2078 §5 propose. Test before relying on it: conflicting event ids, flush and read-back, deterministic replay at a pinned `checkout(version)`. If any of these cannot be shown, fall back to temporary append-only artifacts. | lab use and production admission are separate questions; EXO-300 governs only the second |
 | S3 durable base | `BaseRef` stands in for `DurableRef` | none: the mock experiment uses the existing lab `BaseRef` and the sealed-version witnesses (`VersionStore::seal`, `CommitWitness`) | EXO-148 blocks **production only**; it is not a prerequisite for the mock-teacher experiment |
 | S4 Rig caller | the pilot needs a Claude call with a strict output schema and a hard cost cap | a cold caller through the graph-flow `rig` feature or rig-core directly, **only after** the mock teacher and the oracles are accepted | operator: $5 cap, key requested via `request_credential` |
@@ -127,3 +127,34 @@ These three stay independently gated:
 - the small teacher pilot (§4).
 
 None is a prerequisite for another.
+
+## 11. Shared addressing across provenance consumers (follow-up seam, not a blocker)
+
+Several consumers need stable identities, versioned references and dependencies that can be reconstructed. They may share **addressing** infrastructure (DR `Frame` / `LocalMap` / `MapTable`; DT64 binding witnesses). They must **not** share a truth model or a meaning: a provenance root, a probabilistic choice variable, a possible world, a thought slot and an observation episode are different identities.
+
+| Consumer | What it must identify | Existing code |
+|---|---|---|
+| thought-git receipts | original evidence behind a derivation | `receipt.rs` (`roots` bit set) |
+| NAL | whether two evidence sets are independent | `nal.rs` `Revision`, `Evidence::stamp` |
+| XLOG PIR | which choice variables reach an outcome | `xlog-prob/src/provenance.rs`, `pir.rs` |
+| XLOG EIR | which world and assumptions a statement holds under | `xlog-prob/src/epistemic.rs`, `wfs.rs` |
+| DRed | which derivations survive withdrawal of a premise | none; research only |
+| `xlog-induce` | which observations support an induced rule | `xlog-induce/src/provenance.rs` |
+| RolloutStore | which experience produced an outcome | `rollout.rs` `relationships` |
+| `temporal.rs` | whether evidence was knowable at decision time | `QueryReference::at` |
+
+Record only; nothing is unified here.
+
+## 12. `xlog-induce` on native Cube operations (follow-up seam)
+
+Hypothesis, to be tested before any lowering is built:
+
+| Topology | Possible native realisation |
+|---|---|
+| chain | relation composition |
+| star | intersections of masks over a shared coordinate |
+| fan-out | forward folds over the pair plane |
+| fan-in | reverse folds over the pair plane |
+| n-ary | factorised conjunctive body evaluation (`Cube::body_answer`) |
+
+The open question: can candidate rules be scored over resident relations without building candidate tuple populations? A candidate oracle is the Python reference `pyxlog/python/pyxlog/ilp/exact_induce.py`, provided its independence from the native path is checked first.
