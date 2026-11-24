@@ -1,3 +1,8 @@
+## 2026-11-24 — D-OJC amendment §7: dimension tables and CSR instead of foreign keys → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. The compiled frame is laid out as dimension tables (attributes by class address, O(1), no FK) and CSR per relation (a subtree is one contiguous `targets` run), bound lazily and immutable; DR reads them in place. Datafrog, Ascent, egglog, Scallop and XLOG read the same frame as procedural memory instead of copying it; agreement across engines is a gate. Adds D-OJC-10, D-OJC-11.
+**Confidence:** engine relation layouts not read; nothing measured.
+
 ## 2026-11-24 — D-OJC amendment §6: lazy loading, the ontology as intermediary IR → `.claude/plans/ontology-jit-compile-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. A loaded ontology is the intermediary IR between producers and execution; the ontology cache compiles it just in time, lazily as the general case. Wikidata as the large case, with the runtime left to `wikidata-lazy-spine-hydration-v1.md` (D-LWS). Three constraints for any lazy producer: codes fixed per snapshot, overflow escapes to a registry reference, a lazy entry equals the eager one. Adds D-OJC-9.

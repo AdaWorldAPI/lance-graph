@@ -196,3 +196,65 @@ meet:
 **Not verified:** the D-LWS plan and its two knowledge docs were read for scope
 only (the plan's header and sections), not in full; no lazy load exists to
 measure.
+
+## 7. Amendment (2026-11-24): dimension tables and CSR instead of foreign keys
+
+**The compiled layout.** The compile step (§1) lays the frozen frame out in two
+forms that DR binds and every reader borrows:
+
+- **Dimension table:** per class address, its attributes at fixed positions,
+  read as `dim[addr].field`. O(1) by address, no join, no foreign key. It is the
+  class view compiled into position order (`classid-on-do-call-shape.md` §0:
+  "There is no foreign key. A relation reached through classid and ontology is a
+  class view.").
+- **CSR per relation:** `offsets[addr] .. offsets[addr + 1]` into a `targets`
+  lane. Because classes are laid out in hierarchy order (§1 item 2), a subtree
+  is one contiguous run of addresses and its relations one contiguous run of
+  `targets`.
+- **Lazy, immutable binding:** a class's dimension row and CSR block are
+  compiled on first reference (§6) and frozen in the frame. DR binds a field
+  mask to those positions and reads in place.
+
+**What replaces the foreign key.**
+
+| Star schema | Compiled ontology |
+|---|---|
+| a fact row stores `customer_id` | a fact row stores the class address: the coordinate, not a pointer to resolve |
+| join through the dimension on FK = PK | positional read `dim[addr]`, no hash, no match |
+| many-to-many through a bridge table | the CSR block of the address |
+| a dimension change rewrites the table | a new frame; rows stay readable under the frame they were written in |
+
+**Reasoners over procedural memory.** With the ontology cache as procedural
+memory (the compiled ON / WHEN / DO), Datalog-family engines become readers of
+the same frame instead of owners of copies of it:
+
+| Engine | Adds |
+|---|---|
+| Datafrog | WHEN derived by semi-naive fixpoint over entailment chains |
+| Ascent | monotone lattice aggregates per subtree (lowest cost, earliest deadline) |
+| egglog | equivalence of DO sequences, the cheapest equivalent chosen before it runs |
+| Scallop | provenance and confidence carried along each derivation |
+| XLOG | the in-house witnessed reasoning compiler and cube, already reading lanes in place |
+
+A sorted-by-key relation is CSR with its offsets implicit, so a semi-naive step
+over the compiled CSR is an aligned pass over shared coordinates, not a copy
+into an engine's tuple store. Where their semantics overlap, the engines must
+agree on the same frame; XLOG's D-XLOG-KNOWLEDGE-G1 Datafrog comparator is the
+first such gate.
+
+**Boundary.** The dimension and CSR lanes are the single canonical copy of the
+compiled IR, owned by the frame; every reader borrows them. An engine that
+copies them into its own storage brings back the tuple problem and is used
+only as an oracle, not as the execution path.
+
+**Deliverables added.**
+
+| D-id | Deliverable | Gate |
+|---|---|---|
+| D-OJC-10 | Dimension table and CSR lanes in the compiled frame; DR binds and reads them in place | a subtree's relations are one contiguous `targets` run; a read allocates nothing; equal to the oracle closure of A1 |
+| D-OJC-11 | One external engine (Datafrog first) reading the frame's CSR without copying, compared with XLOG | the two agree on every query of the A1 fixture; a disable run that copies into tuples is detected by the allocation falsifier |
+
+**Not verified:** Datafrog's, Ascent's, egglog's and Scallop's internal
+relation layouts were not read in this session; "sorted relation = CSR with
+implicit offsets" is stated from memory and is the first thing D-OJC-11 must
+check.

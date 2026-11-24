@@ -54,6 +54,8 @@ Plan: `.claude/plans/ontology-jit-compile-v1.md`
 | D-OJC-7 | OGIT, OBO/SNOMED, code graph, WordNet, EU law producers | Queued |
 | D-OJC-8 | Load and read cost | Queued |
 | D-OJC-9 | Lazy compile of one class with its ancestors (amendment §6; runtime is D-LWS) | Queued |
+| D-OJC-10 | Dimension table and CSR lanes in the frame, read in place by DR (amendment §7) | Queued |
+| D-OJC-11 | One external engine (Datafrog first) reading the frame's CSR without copying, compared with XLOG | Queued |
 
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
