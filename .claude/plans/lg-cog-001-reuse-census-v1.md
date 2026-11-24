@@ -217,3 +217,17 @@ Question: does bounded OpenPsi-inspired selection keep working when the teacher 
 - **No interpreter.** Hyperon's interpreter stays in Hyperon and is not modified (`metta-polyfill-v1.md` §8).
 - **No execution engine.** ACT-R never executes effects (`lance-graph-act-r/src/lib.rs` :6-8); D-RV-5 item 10 names a second scheduler or runtime as scope creep (:156).
 - **No truth store.** Evidence lives in NAL with original roots (`lance-graph-nal` :52-64); D-SAG-3 forbids a shadow registry or new index (:37).
+
+## 13. The 64-bit root limit is an addressing law, already in code (research note)
+
+The 64-bit root limit is the width of a local operation, not the size of the evidence universe. The decomposition already exists in DR. It does not need a separate implementation in thought-git, NAL or XLOG:
+- `lance-graph-dt64::dr::Width` (dr.rs:35) has two widths, `W64` and `W256`.
+- `Axis::tile_of` (dr.rs:89) computes `position / tile.positions()`.
+- `Axis::for_survivors` (dr.rs:66-85) picks one DR64 tile for up to 64 positions, one DR256 tile for up to 256, and `ceil(n / 256)` DR256 tiles beyond that.
+- `LocalMap` (dr.rs:576) is the witnessed global → local pointer table for one tile under one `Frame`.
+
+So a receipt's `u64` root mask is the 64-wide tile of this law. A larger root set means more tiles under the same `Frame`, never truncation. Within a tile, the local bit position carries no identity; `LocalMap` supplies it. Modular arithmetic cannot decide whether two roots are the same or independent. That stays with the identity map and NAL.
+
+**Observation.** `Axis::for_survivors` saturates `tiles` at `u32::MAX` (dr.rs:78-82). That is a reservation count, so a saturating value cannot alias evidence. An evidence path that reuses this law must refuse at that bound, not saturate.
+
+**Hypothesis, PROPOSAL only.** The law could be stated once, declaratively (tile = ⌊i / w⌋, local = i mod w for a power-of-two w), and lowered by the existing compiler donors to shifts and masks. Two things to check first: whether XLOG's existing RIR, `crepe_plan!` and the Soufflé-harvested passes already lower such a rule; and whether DT64's method binding can carry it. No new configuration language is to be introduced. The open question for LG-COG-001: can a teacher or `xlog-induce` contribute *configurations* of existing laws (grammar → typed law → method configuration → verified composition → native execution) instead of new runtime code? It is gated like every other PROPOSAL here: oracle, disable control, no hot-path change.
