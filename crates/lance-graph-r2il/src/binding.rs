@@ -322,13 +322,18 @@ pub enum ExecRefusal {
     /// An `Arg::Present` field has no presence plane bound, or the path
     /// that ran the plan takes no presence binding.
     PresenceUnbound { effect: usize, field: u8 },
-    /// An `Arg::Present` names a field of a class whose lanes are 9-bit
-    /// (`ClassView::epi_lanes` says `LaneWidth::Bits9`). There the presence
-    /// bit is also the sign (`lane_codec`, `ndarray::hpc::codec9`): `P = 0`
-    /// with a nonzero magnitude is a negative value, so the plane alone does
-    /// not say absent, and `IS NULL` as `IntNot` of it would count negative
-    /// values. Absent needs `P = 0` and magnitude 0, which this dialect cannot
-    /// read: it binds no 8-bit magnitude lane.
+    /// An `Arg::Present` names a field of a class whose lanes are Codec9
+    /// (`ClassView::epi_lanes` says `LaneWidth::Bits9`). Codec9 is a `u8`
+    /// magnitude lane plus the `u64` polarity plane; there is no 9-bit lane.
+    /// The polarity bit is both presence and sign (`lane_codec`,
+    /// `ndarray::hpc::codec9`): `P = 0` with a nonzero magnitude is a
+    /// negative value, so the plane alone does not say absent, and `IS NULL`
+    /// as `IntNot` of it would count negative values. Absent is
+    /// `P = 0 ∧ M = 0` (`ndarray::hpc::abakus::pm::touched` is its
+    /// complement), which needs the magnitude as a second operand. This
+    /// dialect binds no `u8` lane (`LaneRef` has no byte form), so the
+    /// operation is refused until that binding exists. The arithmetic is not
+    /// missing; the operand is.
     PresenceIsSign { effect: usize, field: u8 },
     /// The field's presence plane index is outside `Planes::masks`.
     PresenceUnusable {
@@ -404,7 +409,7 @@ fn prepare_with<V: ClassView + ?Sized>(
         return Err(ExecRefusal::ThreeValuedNotExecutable);
     }
     // A presence operand reads absent from the plane alone: true for 8-bit
-    // lanes, false for 9-bit ones, whose presence bit is the sign.
+    // lanes, false for Codec9 ones, whose polarity bit is also the sign.
     if view
         .epi_lanes(view_class(r.method.class))
         .is_some_and(|spec| spec.width == LaneWidth::Bits9)

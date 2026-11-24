@@ -791,11 +791,15 @@ impl LaneBinding {
     /// present; nothing is allocated or computed here.
     ///
     /// The presence bit alone says present only for a lane whose presence
-    /// bit is not also a sign: 8-bit and wider lanes. A 9-bit lane's
-    /// presence bit is its sign ([`PresenceSource`]): `P = 0` with a nonzero
-    /// magnitude is a negative value, not absent. No [`LaneSource`] lends a
-    /// 9-bit lane today, so no law reads one; a source that does must not
-    /// hand its sign plane over as presence here.
+    /// bit is not also a sign: 8-bit and wider lanes. For a Codec9 lane (a
+    /// `u8` magnitude lane plus the `u64` polarity plane, `LaneWidth::Bits9`
+    /// in `lane_codec`) the plane is polarity: `P = 0` with a nonzero
+    /// magnitude is a negative value, not absent ([`PresenceSource`]). This
+    /// call already hands back both operands under one check, the lane and
+    /// its plane, so a reader of a Codec9 lane takes absent as
+    /// `!P ∧ M = 0` and present as `P ∨ M ≠ 0`, never `P` alone. Nothing
+    /// reads a Codec9 lane through a law today; a law is affine over keys,
+    /// not over signed magnitudes.
     pub fn borrow_law_bound<'b, 's, S: PresenceSource>(
         &'b self,
         store: &BindStore,

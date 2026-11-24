@@ -629,13 +629,14 @@ fn root_over(f: &Fixture, p: u64) -> i64 {
     r.values()[0].1
 }
 
-/// Codec9 (`ndarray::hpc::codec9`, `lane_codec`): a 9-bit lane's presence bit
-/// is also its sign. Rows `+7, -7, +0, -0` have P = `1, 0, 1, 0` and
-/// magnitude `7, 7, 0, 0`; only `-0` is absent. Read from the plane alone,
-/// `parent IS NULL` would count `-7` too: 2 rows instead of 1. A class that
-/// declares 9-bit lanes is refused at preparation, by name.
+/// Codec9 (`ndarray::hpc::codec9`, `lane_codec`): a `u8` magnitude lane plus
+/// the `u64` polarity plane, whose bit is both presence and sign. Rows
+/// `+7, -7, +0, -0` have P = `1, 0, 1, 0` and magnitude `7, 7, 0, 0`; only
+/// `-0` is absent. Read from the plane alone, `parent IS NULL` would count
+/// `-7` too: 2 rows instead of 1. A class that declares Codec9 lanes is
+/// refused at preparation, by name.
 #[test]
-fn a_presence_operand_over_9_bit_lanes_is_refused() {
+fn a_presence_operand_over_codec9_lanes_is_refused() {
     let f = Fixture::with_lanes(Some(layout(LaneWidth::Bits9)));
     assert_eq!(
         f.try_prepare(ROOT).unwrap_err(),
@@ -657,7 +658,7 @@ fn a_presence_operand_over_8_bit_lanes_counts_from_the_plane() {
 }
 
 /// An undeclared layout is not refused: the binding cannot tell 8-bit from
-/// 9-bit lanes, and reads the plane as the 8-bit rule says. The Codec9 rows
+/// Codec9 lanes, and reads the plane as the 8-bit rule says. The Codec9 rows
 /// `+7, -7, +0, -0` then count 2, not the 1 their own contract gives. This
 /// pins that reachable misread; declaring the layout is what removes it.
 #[test]
