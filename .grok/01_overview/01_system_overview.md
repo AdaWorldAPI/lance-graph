@@ -41,7 +41,7 @@ The system is intentionally split into three zones with different latency, seria
 **Spear Bridge Rule (Critical)**: `spear` (AdaWorldAPI/Spear) **deliberately clicks into both Zone 2 and Zone 3**. 
 - Zone 2 side: zero-copy `BindSpace` / `cognitive-shader-driver` access via `lance-graph-callcenter`
 - Zone 3 side: owns all serialized I/O and business logic (HubSpot reverse-engineering, ticket systems, mail, SharePoint QoS pipelines, invoices/emails unified DTOs)
-- **Why**: HubSpot-like CRM, ticket orchestration (Hiro/datagroup/almato), and external system integrations inherently require serialization and I/O. This complexity is kept **out of `lance-graph` core and pure Zone 2** so the hot path and transcode layer stay lean and focused on cognition + zero-copy ontology access.
+- **Why**: HubSpot-like CRM, ticket orchestration (Hiro/almato), and external system integrations inherently require serialization and I/O. This complexity is kept **out of `lance-graph` core and pure Zone 2** so the hot path and transcode layer stay lean and focused on cognition + zero-copy ontology access.
 
 All domain repos are compiled into the same binary for tight integration while `spear` provides separation of concerns.
 
