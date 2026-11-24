@@ -1,3 +1,8 @@
+## 2026-11-24 — D-OJC amendments §9–§10: the frame as retrieval source; lance-context wired through DR → `.claude/plans/ontology-jit-compile-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. §9: the compiled frame as the RAG / RIG retrieval source, exact reads by address, a pinned DR version acting like a token cache. §10: lance-context keeps the durable context rows unchanged; the mapping to class ordinals is one declared codebook table (dimension + CSR), versioned in the `BindStore` as (frame version, lance-context snapshot); no content duplicated, no second registry. lance-context vendors a patched Lance and uses DataFusion, so it stays outside the workspace graph. Adds D-OJC-12..14 and decisions 5–7.
+**Confidence:** lance-context read from README, Cargo.toml and two module headers at the fork's `main`; nothing built or measured.
+
 ## 2026-11-24 — D-OJC amendment §7: dimension tables and CSR instead of foreign keys → `.claude/plans/ontology-jit-compile-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. The compiled frame is laid out as dimension tables (attributes by class address, O(1), no FK) and CSR per relation (a subtree is one contiguous `targets` run), bound lazily and immutable; DR reads them in place. Datafrog, Ascent, egglog, Scallop and XLOG read the same frame as procedural memory instead of copying it; agreement across engines is a gate. Adds D-OJC-10, D-OJC-11.

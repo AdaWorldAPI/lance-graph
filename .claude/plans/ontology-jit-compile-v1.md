@@ -303,3 +303,117 @@ must be a dense ordinal, distinct from the coded path:
 **Gate changes.** D-OJC-10 is checked against these ordinals: a primary
 subtree's ordinals form one run, every class including registry-reference ones
 has exactly one `dim` row, and the diamond of A3 is found under both parents.
+
+## 9. Amendment (2026-11-24): the frame as retrieval source (RAG / RIG)
+
+The compiled frame (§7: dimension tables and CSR, bound through DR) can serve
+as the retrieval source for a model, in place of nearest-neighbour search over
+text chunks:
+
+- **Exact reads.** A retrieval-interleaved query from the model resolves to a
+  class address; the answer is `dim[addr]` or a CSR run: a fact with its frame
+  version and the axiom it came from, not an approximate passage.
+- **A pinned DR version works like a token cache.** With the frame version
+  pinned for a conversation, the same query returns the same facts; the address
+  is the cache key. Across conversations on one frame the retrieved part does
+  not drift.
+- **What comes back can be executable.** A retrieval can return a DO with its
+  WHEN, checked as an intervention or counterfactual (§1) before the model acts.
+- **Names only at entry.** The step from the model's words to an address is the
+  one place errors enter. An ambiguous name is refused or returned as a
+  candidate set, never guessed.
+
+Vector similarity stays available as a way to *find* candidate addresses; it is
+navigation, never the retrieved fact.
+
+## 10. Amendment (2026-11-24): lance-context wired through DR, data as context as config
+
+**Goal (owner, 2026-11-24, paraphrased):** use lance-context without taking on
+its development and without bypassing the architecture: context data is
+config, mapped through DR as a CSR / dimension-table-like codebook table
+object, versioned in the Quack `BindStore`, duplicating nothing we have.
+
+**What lance-context is (read at `AdaWorldAPI/lance-context` `main`, fork of
+`lance-format/lance-context`):** a storage engine for agent memory and RL
+rollouts on Lance. Relevant surfaces:
+
+- `lance-context-api::schema_spec::SchemaSpec` / `ColumnSpec`: a schema
+  declared as a value, persisted in the dataset's schema metadata, refused on
+  reopen with a different declaration. Depends only on `arrow-schema` and
+  `serde`. An `id: Utf8` column is mandatory (the LSM merge key).
+- `lance-context-core::generic_store::GenericStore`: a store over a
+  caller-declared `SchemaSpec`; all storage behaviour (WAL, merge, compaction,
+  versioning, `checkout(version)`) inherited from its `StorageBase`.
+- `TraceRecord`: deduplicated conversation turns (`session_id`, ordered
+  `turn_id`, role, content).
+
+**The division of labour.**
+
+| Concern | Owner |
+|---|---|
+| Durable context rows: turns, blobs, embeddings, rollouts; append, WAL, compaction, snapshots | lance-context, unchanged |
+| Which class a context row belongs to; its place in the hierarchy; relations between context and ontology classes | the compiled frame (§7), bound through DR |
+| The mapping itself | one codebook table object: `context row id → class ordinal` (dimension side) and `class ordinal → context rows` (CSR side) |
+| Versioning of that mapping | the `BindStore`, as a pair `(frame version, lance-context snapshot version)` |
+| Queries | Quack over the frame's masks; lance-context is read by id for the rows a mask selected |
+
+**Data as context as config.** The binding is declared, not coded: a
+`SchemaSpec` names the columns, and a declaration names which column carries
+the class reference. Registering a context store is then a `register` of that
+declaration, the same call shape as any other class
+(`classid-on-do-call-shape.md`). No per-store adapter code.
+
+**What is not duplicated.**
+
+- No second copy of context rows: the codebook holds ids and ordinals, never
+  content. Content is read from lance-context by id after the mask is known
+  ("filter IDs first, hydrate raw values last").
+- No second registry: the `BindStore` is the registry (D-DT64-7).
+- No second versioning scheme: Lance versions on the lance-context side, the
+  frame version on ours, joined as one pair.
+- lance-context's `Relationship { target_id: String, relation: String, weight }`
+  on `ContextRecord` is an ingestion view. It is resolved once into the CSR at
+  registration and not consulted on the read path
+  (`d-rmap-2-context-tile-algebra-probe-v1.md` already records it as "NOT the
+  hot numeric RelationMap").
+
+**The boundary that keeps this within the architecture.** lance-context
+vendors and patches Lance (`vendor/lance`, `vendor/lance-io`,
+`vendor/lance-core`, `vendor/lance-encoding`, wired by `[patch.crates-io]`) and
+depends on DataFusion 54. lance-graph's rule is that the Lance family is
+consumed from crates.io upstream, never from a fork
+(`E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1`), and DataFusion is in its grace period.
+So:
+
+- lance-context is **not** a dependency of any lance-graph workspace crate.
+- The wiring lives in a crate outside the workspace (the shape of
+  `lance-graph-dir-sim` and `lance-graph-ogar`), or runs lance-context as its
+  own process behind its existing server.
+- The only type that may cross into the workspace is `SchemaSpec` /
+  `ColumnSpec` from `lance-context-api`, if that crate proves free of the
+  patched Lance (its doc says it depends only on `arrow-schema` and `serde`;
+  to be verified by `cargo tree`).
+
+**Deliverables added.**
+
+| D-id | Deliverable | Gate |
+|---|---|---|
+| D-OJC-12 | Retrieval over the frame: a query resolved to an address returns the `dim` row or CSR run with its frame version | same query on the same pinned version returns byte-identical facts; an ambiguous name returns its candidate set; a version bump changes the answer only where the frame changed |
+| D-OJC-13 | lance-context codebook table: declared binding of a `SchemaSpec` store to class ordinals, versioned in the `BindStore` | the codebook holds no content column; a mask over the frame selects ids and lance-context returns exactly those rows; reopening under a different declaration is refused |
+| D-OJC-14 | Dependency fence: lance-context stays outside the workspace graph | `cargo tree` of every workspace member shows no `lance-context-core` and no patched Lance; a disable run that adds the dependency fails the fence |
+
+**Decisions needed (added to §4).**
+
+5. In-process outside the workspace, or lance-context as a separate process
+   behind its server.
+6. Whether `lance-context-api` may be a workspace dependency for `SchemaSpec`,
+   or the declaration is mirrored as our own type with a parity test.
+7. Which lance-context stores are bound first (`TraceRecord` turns are the
+   smallest).
+
+**Not verified:** lance-context was read from its README, `Cargo.toml`,
+`schema_spec.rs` and `generic_store.rs` headers and signatures only; nothing
+was built. Whether `GenericStore::get_many` is a zero-copy read is not known
+(`d-rmap-2` flags the same doubt). The fork's vendored Lance is 14.0.2, the
+same line as lance-graph's `14.*`; whether the patches change on-disk format
+was not checked.

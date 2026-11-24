@@ -56,6 +56,9 @@ Plan: `.claude/plans/ontology-jit-compile-v1.md`
 | D-OJC-9 | Lazy compile of one class with its ancestors (amendment §6; runtime is D-LWS) | Queued |
 | D-OJC-10 | Dimension table and CSR lanes in the frame, read in place by DR (amendment §7) | Queued |
 | D-OJC-11 | One external engine (Datafrog first) reading the frame's CSR without copying, compared with XLOG | Queued |
+| D-OJC-12 | Retrieval over the frame (RAG / RIG), pinned version as cache (amendment §9) | Queued |
+| D-OJC-13 | lance-context codebook table bound through DR, versioned in the `BindStore` (amendment §10) | Queued (decisions 5-7) |
+| D-OJC-14 | Dependency fence: lance-context outside the workspace graph | Queued |
 
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
