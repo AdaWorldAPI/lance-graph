@@ -288,3 +288,12 @@ The matrix answers three separate questions:
 - **expressivity:** what the existing algebra can represent;
 - **discovery:** whether useful configurations are found without the teacher;
 - **retention and transfer:** whether acquired methods carry over to unfamiliar problems once the teacher is withdrawn.
+
+### 14.2 Two naming disambiguations for the preregistration
+
+- **Seams vs. proof stages vs. levels.** The seams in §3 are written `S1`–`S4` and are integration seams. #2077's `S0`–`S5` are proof stages. L1–L7 are learning levels. These are three independent dimensions. The preregistration writes the seams as `seam S1`–`seam S4` wherever both seams and proof stages appear.
+- **Two kinds of configuration, measured separately.**
+  - *Cognitive configuration* is #2077 arm C: StyleFamily, ThinkingStyle and FieldModulation. It shapes how the teacher approaches a problem.
+  - *Algebraic configuration* is §14: method, parameters, operand domain, addressing and binding. It determines what the machine executes.
+  - Measuring them separately keeps a better prompt from being credited as a new algebraic capability.
+- **Arms.** #2077's A–D are the teacher interventions. E is withdrawal, with the acquired methods frozen and the problems unseen. The source comparison (§8: Claude, `xlog-induce`, native composition) is a separate axis, not a fifth intervention.
