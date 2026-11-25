@@ -175,6 +175,61 @@ fn lane_value(col: &PgColumn, text: &str, code_of: &mut dyn FnMut(&str) -> u32) 
     }
 }
 
+/// A typed cell for [`Table::append_values`]: the value as the producer
+/// already holds it, placed into its lane without being rendered to text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Datum<'a> {
+    Int(i64),
+    Bool(bool),
+    /// Text, for a text-code column, or the source's own spelling of a value
+    /// another encoding parses (a timestamp, a date).
+    Text(&'a str),
+}
+
+/// A cell `place` can put into a lane: text as read, or a typed [`Datum`].
+trait Cellish {
+    fn lane(&self, col: &PgColumn, code_of: &mut dyn FnMut(&str) -> u32) -> Option<u32>;
+    fn empty_text(&self) -> bool;
+    fn spelled(&self) -> String;
+}
+
+impl Cellish for &str {
+    fn lane(&self, col: &PgColumn, code_of: &mut dyn FnMut(&str) -> u32) -> Option<u32> {
+        lane_value(col, self, code_of)
+    }
+    fn empty_text(&self) -> bool {
+        self.is_empty()
+    }
+    fn spelled(&self) -> String {
+        (*self).to_owned()
+    }
+}
+
+impl Cellish for Datum<'_> {
+    fn lane(&self, col: &PgColumn, code_of: &mut dyn FnMut(&str) -> u32) -> Option<u32> {
+        match (*self, col.encoding) {
+            (Datum::Text(t), _) => lane_value(col, t, code_of),
+            (Datum::Bool(b), LaneEncoding::Bool) => Some(u32::from(b)),
+            (Datum::Int(v), LaneEncoding::Signed) => match col.ty {
+                PgType::Int2 => i16::try_from(v).ok().map(|x| i32::from(x) as u32),
+                _ => i32::try_from(v).ok().map(|x| x as u32),
+            },
+            (Datum::Int(v), LaneEncoding::Unsigned) => u32::try_from(v).ok(),
+            _ => None,
+        }
+    }
+    fn empty_text(&self) -> bool {
+        matches!(self, Datum::Text(""))
+    }
+    fn spelled(&self) -> String {
+        match self {
+            Datum::Int(v) => v.to_string(),
+            Datum::Bool(b) => b.to_string(),
+            Datum::Text(t) => (*t).to_owned(),
+        }
+    }
+}
+
 /// A key from a lane value, under an integer encoding.
 fn key_of(encoding: LaneEncoding, value: u32) -> Option<u64> {
     match encoding {
@@ -1265,10 +1320,53 @@ impl Table {
         self.append_rows(rows)
     }
 
+    /// Append typed rows, as [`Table::append`] appends text: the same
+    /// placement, keys, tiles and codes, all or nothing. A cell is placed from
+    /// its value, never rendered to text and parsed back: an `Int` into a
+    /// signed or unsigned lane (refused out of range), a `Bool` into a boolean
+    /// lane, `Text` into a text-code lane (or parsed, for a timestamp or a
+    /// date). A cell that does not fit its declared column is
+    /// [`IntakeRefusal::Cell`]; a ragged row is [`IntakeRefusal::Ragged`].
+    pub fn append_values(
+        &mut self,
+        rows: &[Vec<Option<Datum<'_>>>],
+    ) -> Result<AppendReport, IntakeRefusal> {
+        if let Some((row, cells)) = rows
+            .iter()
+            .enumerate()
+            .find(|(_, cells)| cells.len() != self.shape.len())
+        {
+            return Err(IntakeRefusal::Ragged {
+                row,
+                cells: cells.len(),
+            });
+        }
+        self.append_rows(rows)
+    }
+
+    /// Whether every typed row fits this table's columns, as
+    /// [`Table::append_values`] would place it, without appending anything.
+    pub fn check_values(&self, rows: &[Vec<Option<Datum<'_>>>]) -> Result<(), IntakeRefusal> {
+        if let Some((row, cells)) = rows
+            .iter()
+            .enumerate()
+            .find(|(_, cells)| cells.len() != self.shape.len())
+        {
+            return Err(IntakeRefusal::Ragged {
+                row,
+                cells: cells.len(),
+            });
+        }
+        self.place(rows).map(|_| ())
+    }
+
     /// Place rows that have not been checked against the shape: a cell that
     /// does not fit is a `Cell` refusal. Nothing changes until every check
     /// has passed.
-    fn append_rows(&mut self, rows: &[Vec<Option<&str>>]) -> Result<AppendReport, IntakeRefusal> {
+    fn append_rows<C: Cellish + Copy>(
+        &mut self,
+        rows: &[Vec<Option<C>>],
+    ) -> Result<AppendReport, IntakeRefusal> {
         let n = rows.len();
         if n == 0 {
             return Ok(AppendReport {
@@ -1356,17 +1454,17 @@ impl Table {
     /// New rows to lane values. NULL is absent (presence 0, value 0), and so
     /// is `''` under `AbsentAs::EmptyText`. A text cell is admitted through
     /// DT: its code at the current frame, else the next fresh one.
-    fn place(&self, rows: &[Vec<Option<&str>>]) -> Result<Placed, IntakeRefusal> {
+    fn place<C: Cellish + Copy>(&self, rows: &[Vec<Option<C>>]) -> Result<Placed, IntakeRefusal> {
         let columns = self.shape.len();
         let mut cells = vec![vec![None; rows.len()]; columns];
         let mut memos: Vec<BTreeMap<String, u32>> = vec![BTreeMap::new(); columns];
         let mut fresh: Vec<Vec<String>> = vec![Vec::new(); columns];
         for (r, row) in rows.iter().enumerate() {
             for (k, (column, space)) in self.shape.iter().zip(&self.spaces).enumerate() {
-                let Some(text) = row.get(k).copied().flatten() else {
+                let Some(cell) = row.get(k).copied().flatten() else {
                     continue;
                 };
-                if text.is_empty() && column.col.absent == AbsentAs::EmptyText {
+                if cell.empty_text() && column.col.absent == AbsentAs::EmptyText {
                     continue;
                 }
                 let base = self.code_counts[k];
@@ -1377,13 +1475,13 @@ impl Table {
                     }
                     None => 0,
                 };
-                let value = lane_value(&column.col, text, &mut code_of).ok_or_else(|| {
-                    IntakeRefusal::Cell {
-                        column: column.name.clone(),
-                        row: r,
-                        text: text.to_owned(),
-                    }
-                })?;
+                let value =
+                    cell.lane(&column.col, &mut code_of)
+                        .ok_or_else(|| IntakeRefusal::Cell {
+                            column: column.name.clone(),
+                            row: r,
+                            text: cell.spelled(),
+                        })?;
                 cells[k][r] = Some(value);
             }
         }

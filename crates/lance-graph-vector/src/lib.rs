@@ -8,33 +8,51 @@
 //! the field's identity, so Vector's output and the in-process polyfill (the
 //! same recipe run by `lance-graph-vrl` over intake lanes) meet on one IRI.
 //!
-//! [`VectorRoute`] is the receiver Vector's `http` sink posts to (`encoding:
-//! json`, newline-delimited framing, `application/x-ndjson`). Each line is
-//! decoded once, at this boundary, into the row shape intake takes; nothing
-//! after it reads JSON. Per batch it
+//! Vector and lance-graph run in one process: nothing between them is
+//! serialized. [`VectorRoute`] takes Vector's own `vrl::value::Value`s
+//! ([`VectorRoute::receive_values`]) or typed events
+//! ([`VectorRoute::receive_events`]), and places each value into its lane with
+//! intake's [`Table::append_values`]: no text in between. Per batch it
 //!
 //! - checks `.lg.schema_rev` against the route's revision, refusing the whole
 //!   batch on a mismatch;
-//! - drops events whose `.lg.event_id` the table already holds or the batch
-//!   repeats, through the table's own code space for that column, so a
-//!   replayed or retried batch changes nothing;
+//! - drops events whose `.lg.event_id` the route has already taken or the
+//!   batch repeats, by a 128-bit hash held in four lanes, so a replayed or
+//!   retried batch changes nothing;
 //! - appends the rest to the tenant's table, all or nothing.
 //!
-//! The tenant is the table the caller routes to, never a payload field. The
-//! answer maps to the status Vector's retry logic reads: [`Ack::status`].
+//! The tenant is the table the caller routes to, never a payload field.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding, PgType};
-use lance_graph_intake::{ColumnConfig, IntakeRefusal, ShapeConfig, SourceProfile, Table};
+use lance_graph_intake::{ColumnConfig, Datum, IntakeRefusal, ShapeConfig, SourceProfile, Table};
 use lance_graph_vrl::Recipe;
-use serde_json::value::RawValue;
 
-/// The label and IRI of the event id column.
-pub const EVENT_ID: (&str, &str) = ("lg.event_id", "lg:event_id");
+/// The four lanes of the event id's 128-bit hash, lowest word first.
+pub const EVENT_ID: [(&str, &str); 4] = [
+    ("lg.id0", "lg:event_id/0"),
+    ("lg.id1", "lg:event_id/1"),
+    ("lg.id2", "lg:event_id/2"),
+    ("lg.id3", "lg:event_id/3"),
+];
 /// The label and IRI of the row key, assigned by the route in arrival order.
 pub const SEQ: (&str, &str) = ("lg.seq", "lg:seq");
+
+/// FNV-1a over the event id's bytes, 128-bit. The id is Vector's (a sha256
+/// the remap computes); the hash only has to keep distinct ids apart, and at
+/// 128 bits a collision is out of reach for any event count a table holds.
+fn id_hash(id: &str) -> u128 {
+    const OFFSET: u128 = 0x6c62272e07bb014262b821756295c58d;
+    const PRIME: u128 = 0x0000000001000000000000000000013B;
+    id.bytes()
+        .fold(OFFSET, |h, b| (h ^ u128::from(b)).wrapping_mul(PRIME))
+}
+
+fn id_words(h: u128) -> [i64; 4] {
+    std::array::from_fn(|i| i64::from((h >> (32 * i)) as u32))
+}
 
 /// Why a program cannot declare an output profile.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,8 +69,8 @@ pub enum GlueRefusal {
 
 /// The intake profile a program's output lands in: one column per output
 /// name, in the recipe's output order, each with the IRI and the declared
-/// shape of the source field it reads; then the event id (text) and the row
-/// key the route assigns.
+/// shape of the source field it reads; then the event id's four hash lanes
+/// and the row key the route assigns.
 pub fn output_profile(
     recipe: &Recipe,
     source: &SourceProfile,
@@ -89,14 +107,16 @@ pub fn output_profile(
         config.columns.insert(name.to_owned(), declared);
         columns.push((name.to_owned(), iri.to_owned()));
     }
-    config.columns.insert(
-        EVENT_ID.0.to_owned(),
-        ColumnConfig {
-            ty: Some(PgType::Text),
-            encoding: Some(LaneEncoding::TextCode),
-            absent: Some(AbsentAs::Null),
-        },
-    );
+    for (label, _) in EVENT_ID {
+        config.columns.insert(
+            label.to_owned(),
+            ColumnConfig {
+                ty: Some(PgType::Int8),
+                encoding: Some(LaneEncoding::Unsigned),
+                absent: Some(AbsentAs::Null),
+            },
+        );
+    }
     config.columns.insert(
         SEQ.0.to_owned(),
         ColumnConfig {
@@ -105,7 +125,9 @@ pub fn output_profile(
             absent: Some(AbsentAs::Null),
         },
     );
-    columns.push((EVENT_ID.0.to_owned(), EVENT_ID.1.to_owned()));
+    for (label, iri) in EVENT_ID {
+        columns.push((label.to_owned(), iri.to_owned()));
+    }
     columns.push((SEQ.0.to_owned(), SEQ.1.to_owned()));
     let pairs: Vec<(&str, &str)> = columns
         .iter()
@@ -131,16 +153,18 @@ pub fn vector_remap(program: &str, recipe: &Recipe) -> String {
 /// Why a batch was refused. Nothing of it was appended.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Refusal {
-    /// Line `line` (from 1) is not a JSON object.
-    Malformed { line: usize },
-    /// Line `line` has no `.lg.event_id` string.
-    MissingEventId { line: usize },
-    /// Line `line` was written under another schema revision.
-    SchemaRev { line: usize, got: Option<String> },
-    /// Line `line` carries a field the output profile does not have.
-    UnknownField { line: usize, field: String },
-    /// Line `line` carries a nested value for a column.
-    NotScalar { line: usize, field: String },
+    /// Event `event` (from 1) is not an object.
+    NotAnObject { event: usize },
+    /// Event `event` has no `.lg.event_id` string.
+    MissingEventId { event: usize },
+    /// Event `event` was written under another schema revision.
+    SchemaRev { event: usize, got: Option<String> },
+    /// Event `event` carries a field the output profile does not have.
+    UnknownField { event: usize, field: String },
+    /// Event `event` carries a nested value, a float or a non-UTF-8 string for
+    /// a column. A float is an `f64` inside Vector already: a value that must
+    /// stay exact is kept as a string by the remap.
+    NotScalar { event: usize, field: String },
     /// Intake refused the batch (a cell that does not fit its column).
     Intake(IntakeRefusal),
 }
@@ -154,28 +178,7 @@ pub enum Ack {
     Refused(Refusal),
 }
 
-impl Ack {
-    /// The HTTP status for Vector's `http` sink. 400 is outside Vector's
-    /// retry set, so a refused batch is not retried; a committed one is 200,
-    /// and a retried duplicate batch is 200 with every event a duplicate.
-    pub fn status(&self) -> u16 {
-        match self {
-            Ack::Committed { .. } => 200,
-            Ack::Refused(_) => 400,
-        }
-    }
-}
-
-/// The receiver of one tenant's events under one output profile.
-pub struct VectorRoute {
-    table: Table,
-    labels: Vec<String>,
-    schema_rev: String,
-    next_seq: i64,
-}
-
-/// One typed cell of an event, as Vector holds it after VRL: what a sink
-/// inside Vector hands over directly, with no JSON in between.
+/// One typed cell of an event, as Vector holds it after VRL.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cell<'a> {
     /// The field is absent (VRL `null`, or not set).
@@ -183,17 +186,15 @@ pub enum Cell<'a> {
     Int(i64),
     Bool(bool),
     Text(&'a str),
-    /// A number's exact text (a decimal, never read through `f64`).
-    Number(&'a str),
 }
 
-impl Cell<'_> {
-    fn text(self) -> Option<String> {
+impl<'a> Cell<'a> {
+    fn datum(self) -> Option<Datum<'a>> {
         match self {
             Cell::Absent => None,
-            Cell::Int(v) => Some(v.to_string()),
-            Cell::Bool(b) => Some(if b { "true" } else { "false" }.to_owned()),
-            Cell::Text(t) | Cell::Number(t) => Some(t.to_owned()),
+            Cell::Int(v) => Some(Datum::Int(v)),
+            Cell::Bool(b) => Some(Datum::Bool(b)),
+            Cell::Text(t) => Some(Datum::Text(t)),
         }
     }
 }
@@ -207,13 +208,16 @@ pub struct Event<'a> {
     pub fields: Vec<(&'a str, Cell<'a>)>,
 }
 
-/// One event, its fields rendered for intake, numbered from 1 within the batch.
-struct Item {
-    line: usize,
-    id: String,
-    rev: Option<String>,
-    fields: Vec<(String, Option<String>)>,
+/// The receiver of one tenant's events under one output profile.
+pub struct VectorRoute {
+    table: Table,
+    labels: Vec<String>,
+    schema_rev: String,
+    next_seq: i64,
+    taken: HashSet<u128>,
 }
+
+type Row<'a> = Vec<Option<Datum<'a>>>;
 
 impl VectorRoute {
     /// An empty route for `profile` (from [`output_profile`]) under schema
@@ -231,6 +235,7 @@ impl VectorRoute {
             labels,
             schema_rev: schema_rev.to_owned(),
             next_seq: 1,
+            taken: HashSet::new(),
         })
     }
 
@@ -240,175 +245,178 @@ impl VectorRoute {
     }
 
     /// The landed table, mutably: Quack's `select_bound` keeps a selection on
-    /// it. Rows still enter only through [`VectorRoute::receive`] and
-    /// [`VectorRoute::receive_events`].
+    /// it. Rows still enter only through the route's `receive_*` methods.
     pub fn table_mut(&mut self) -> &mut Table {
         &mut self.table
     }
 
     /// Take a batch of typed events, as a sink inside Vector hands them over.
     pub fn receive_events(&mut self, events: &[Event<'_>]) -> Ack {
-        let items = events
-            .iter()
-            .enumerate()
-            .map(|(n, e)| Item {
-                line: n + 1,
-                id: e.event_id.to_owned(),
-                rev: e.schema_rev.map(str::to_owned),
-                fields: e
-                    .fields
-                    .iter()
-                    .map(|(k, c)| ((*k).to_owned(), c.text()))
-                    .collect(),
-            })
-            .collect();
-        self.admit(items)
+        let mut batch = Batch::new(self);
+        for (n, e) in events.iter().enumerate() {
+            let event = n + 1;
+            if let Err(r) = batch.event(event, e.event_id, e.schema_rev, |push| {
+                for (field, cell) in &e.fields {
+                    push(field, cell.datum())?;
+                }
+                Ok(())
+            }) {
+                return Ack::Refused(r);
+            }
+        }
+        batch.commit()
     }
+}
 
-    /// Take one NDJSON body, as Vector's `http` sink posts it.
-    pub fn receive(&mut self, body: &str) -> Ack {
-        match ndjson_items(body) {
-            Ok(items) => self.admit(items),
-            Err(r) => Ack::Refused(r),
+/// One batch being admitted: the new rows, the duplicates' rows (checked for
+/// fit, never appended), and the ids it takes.
+struct Batch<'r, 'a> {
+    route: &'r mut VectorRoute,
+    rows: Vec<Row<'a>>,
+    dups: Vec<Row<'a>>,
+    fresh: Vec<u128>,
+}
+
+impl<'r, 'a> Batch<'r, 'a> {
+    fn new(route: &'r mut VectorRoute) -> Self {
+        Batch {
+            route,
+            rows: Vec::new(),
+            dups: Vec::new(),
+            fresh: Vec::new(),
         }
     }
 
-    /// Check, deduplicate and append, all or nothing.
-    fn admit(&mut self, items: Vec<Item>) -> Ack {
-        let rows = match self.rows(items) {
-            Ok(rows) => rows,
-            Err(r) => return Ack::Refused(r),
-        };
-        let (rows, dups) = rows;
-        let duplicates = dups.len();
+    /// Admit one event; `fields` pushes each `(name, value)` it carries.
+    fn event(
+        &mut self,
+        event: usize,
+        id: &str,
+        rev: Option<&str>,
+        fields: impl FnOnce(
+            &mut dyn FnMut(&str, Option<Datum<'a>>) -> Result<(), Refusal>,
+        ) -> Result<(), Refusal>,
+    ) -> Result<(), Refusal> {
+        let r = &*self.route;
+        if rev != Some(r.schema_rev.as_str()) {
+            return Err(Refusal::SchemaRev {
+                event,
+                got: rev.map(str::to_owned),
+            });
+        }
+        let outputs = r.labels.len() - EVENT_ID.len() - 1;
+        let mut row: Row<'a> = vec![None; r.labels.len()];
+        fields(&mut |field, value| {
+            let k = r.labels[..outputs]
+                .iter()
+                .position(|l| l == field)
+                .ok_or_else(|| Refusal::UnknownField {
+                    event,
+                    field: field.to_owned(),
+                })?;
+            row[k] = value;
+            Ok(())
+        })?;
+        let h = id_hash(id);
+        for (i, w) in id_words(h).into_iter().enumerate() {
+            row[outputs + i] = Some(Datum::Int(w));
+        }
+        let duplicate = r.taken.contains(&h) || self.fresh.contains(&h);
+        let seq = r.next_seq + self.rows.len() as i64;
+        row[outputs + EVENT_ID.len()] = Some(Datum::Int(seq));
+        if duplicate {
+            self.dups.push(row);
+        } else {
+            self.fresh.push(h);
+            self.rows.push(row);
+        }
+        Ok(())
+    }
+
+    fn commit(self) -> Ack {
+        let Batch {
+            route,
+            rows,
+            dups,
+            fresh,
+        } = self;
         // A skipped duplicate must still fit: a replay that carries a value
         // its column cannot hold is refused, not acknowledged.
-        if let Err(e) = self.table.observe(&borrowed(&dups)) {
+        if let Err(e) = route.table.check_values(&dups) {
             return Ack::Refused(Refusal::Intake(e));
         }
-        if let Err(e) = self.table.append(&borrowed(&rows)) {
+        if let Err(e) = route.table.append_values(&rows) {
             return Ack::Refused(Refusal::Intake(e));
         }
-        self.next_seq += rows.len() as i64;
+        route.next_seq += rows.len() as i64;
+        route.taken.extend(fresh);
         Ack::Committed {
             appended: rows.len(),
-            duplicates,
+            duplicates: dups.len(),
+        }
+    }
+}
+
+mod values {
+    use vrl::value::Value;
+
+    use super::{Ack, Batch, Datum, Refusal, VectorRoute};
+
+    fn text(v: &Value) -> Option<&str> {
+        match v {
+            Value::Bytes(b) => std::str::from_utf8(b).ok(),
+            Value::String(s) => Some(s),
+            _ => None,
         }
     }
 
-    /// The new rows in column order, and the duplicates' rows (checked for
-    /// fit, never appended). Reads nothing from the table but its event-id
-    /// codes.
-    #[allow(clippy::type_complexity)]
-    fn rows(
-        &self,
-        items: Vec<Item>,
-    ) -> Result<(Vec<Vec<Option<String>>>, Vec<Vec<Option<String>>>), Refusal> {
-        let frame = self.table.frame();
-        let id_col = self.labels.len() - 2;
-        let mut seen: BTreeSet<String> = BTreeSet::new();
-        let mut rows = Vec::new();
-        let mut dups = Vec::new();
-        for item in items {
-            let line = item.line;
-            if item.rev.as_deref() != Some(self.schema_rev.as_str()) {
-                return Err(Refusal::SchemaRev {
-                    line,
-                    got: item.rev,
+    impl VectorRoute {
+        /// Take a batch of Vector's own events (`LogEvent::value()`), read in
+        /// place: each value goes into its lane from where Vector holds it.
+        pub fn receive_values(&mut self, events: &[&Value]) -> Ack {
+            let mut batch = Batch::new(self);
+            for (n, v) in events.iter().enumerate() {
+                let event = n + 1;
+                let Value::Object(map) = v else {
+                    return Ack::Refused(Refusal::NotAnObject { event });
+                };
+                let lg = match map.get("lg") {
+                    Some(Value::Object(lg)) => lg,
+                    _ => return Ack::Refused(Refusal::MissingEventId { event }),
+                };
+                let Some(id) = lg.get("event_id").and_then(text) else {
+                    return Ack::Refused(Refusal::MissingEventId { event });
+                };
+                let rev = lg.get("schema_rev").and_then(text);
+                let admitted = batch.event(event, id, rev, |push| {
+                    for (k, v) in map.iter() {
+                        let field = k.as_str();
+                        if field == "lg" {
+                            continue;
+                        }
+                        let datum = match v {
+                            Value::Null => None,
+                            Value::Integer(i) => Some(Datum::Int(*i)),
+                            Value::Boolean(b) => Some(Datum::Bool(*b)),
+                            other => match text(other) {
+                                Some(t) => Some(Datum::Text(t)),
+                                None => {
+                                    return Err(Refusal::NotScalar {
+                                        event,
+                                        field: field.to_owned(),
+                                    })
+                                }
+                            },
+                        };
+                        push(field, datum)?;
+                    }
+                    Ok(())
                 });
+                if let Err(r) = admitted {
+                    return Ack::Refused(r);
+                }
             }
-            let mut row: Vec<Option<String>> = vec![None; self.labels.len()];
-            for (field, value) in item.fields {
-                let k = self.labels[..id_col]
-                    .iter()
-                    .position(|l| *l == field)
-                    .ok_or(Refusal::UnknownField { line, field })?;
-                row[k] = value;
-            }
-            let known = self.table.code_for(&frame, EVENT_ID.1, &item.id).is_some();
-            let duplicate = known || !seen.insert(item.id.clone());
-            row[id_col] = Some(item.id);
-            if duplicate {
-                row[id_col + 1] = Some(self.next_seq.to_string());
-                dups.push(row);
-                continue;
-            }
-            row[id_col + 1] = Some((self.next_seq + rows.len() as i64).to_string());
-            rows.push(row);
+            batch.commit()
         }
-        Ok((rows, dups))
-    }
-}
-
-fn borrowed(rows: &[Vec<Option<String>>]) -> Vec<Vec<Option<&str>>> {
-    rows.iter()
-        .map(|r| r.iter().map(|c| c.as_deref()).collect())
-        .collect()
-}
-
-/// Decode an NDJSON body into events, each line once.
-fn ndjson_items(body: &str) -> Result<Vec<Item>, Refusal> {
-    let mut items = Vec::new();
-    for (n, raw) in body
-        .lines()
-        .enumerate()
-        .filter(|(_, l)| !l.trim().is_empty())
-    {
-        let line = n + 1;
-        let mut obj: BTreeMap<String, Box<RawValue>> =
-            serde_json::from_str(raw).map_err(|_| Refusal::Malformed { line })?;
-        let lg: BTreeMap<String, Box<RawValue>> = obj
-            .remove("lg")
-            .and_then(|v| serde_json::from_str(v.get()).ok())
-            .ok_or(Refusal::MissingEventId { line })?;
-        let text = |k: &str| {
-            lg.get(k)
-                .and_then(|v| serde_json::from_str::<String>(v.get()).ok())
-        };
-        let id = text("event_id").ok_or(Refusal::MissingEventId { line })?;
-        let mut fields = Vec::with_capacity(obj.len());
-        for (field, value) in obj {
-            let v = value.get();
-            let cell = match v.as_bytes().first() {
-                Some(b'n') => None,
-                Some(b'"') => Some(
-                    serde_json::from_str::<String>(v).map_err(|_| Refusal::Malformed { line })?,
-                ),
-                Some(b'{' | b'[') => return Err(Refusal::NotScalar { line, field }),
-                // A number or a boolean: its own text, never through f64.
-                _ => Some(v.to_owned()),
-            };
-            fields.push((field, cell));
-        }
-        items.push(Item {
-            line,
-            id,
-            rev: text("schema_rev"),
-            fields,
-        });
-    }
-    Ok(items)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// FAILS IF: a line without `.lg.event_id` decodes, or a number is read
-    /// through `f64` instead of kept as its text.
-    #[test]
-    fn the_decoder_needs_an_event_id_and_keeps_number_text() {
-        assert!(matches!(
-            ndjson_items(r#"{"host":"north"}"#),
-            Err(Refusal::MissingEventId { line: 1 })
-        ));
-        let exact = "12345678901234567890.123456789";
-        let items =
-            ndjson_items(&format!(r#"{{"lg":{{"event_id":"e1"}},"amt":{exact}}}"#)).unwrap();
-        assert_eq!(
-            items[0].fields,
-            [("amt".to_owned(), Some(exact.to_owned()))]
-        );
-        assert_ne!(exact.parse::<f64>().unwrap().to_string(), exact);
     }
 }

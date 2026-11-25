@@ -12,8 +12,8 @@ use std::collections::BTreeMap;
 use lance_graph_contract::pg_row::{write_cell, AbsentAs, LaneEncoding, PgColumn, PgType};
 use lance_graph_intake::pg::{write_selection, CollectRows, CopyText};
 use lance_graph_intake::{
-    detect_column, detect_key, detections, ColumnConfig, IntakeRefusal, ShapeConfig, SourceProfile,
-    Table, Verdict,
+    detect_column, detect_key, detections, ColumnConfig, Datum, IntakeRefusal, ShapeConfig,
+    SourceProfile, Table, Verdict,
 };
 use lance_graph_pg_row::{PgRowRefusal, PgRows};
 use lance_graph_quack::bind::{table as draft, BindError};
@@ -1953,4 +1953,133 @@ fn a_profile_refuses_two_fields_with_one_iri() {
         ShapeConfig::default()
     )
     .is_ok());
+}
+
+/// The ticket rows as typed values, by column: integers and booleans as
+/// values, text as text, and the timestamp and date in their own spelling.
+fn typed(row: &[Option<String>]) -> Vec<Option<Datum<'_>>> {
+    row.iter()
+        .enumerate()
+        .map(|(k, c)| {
+            c.as_deref().map(|t| match TICKET_COLUMNS[k] {
+                "id" | "owner_id" | "priority" => Datum::Int(t.parse().unwrap()),
+                "open" => Datum::Bool(t == "t"),
+                _ => Datum::Text(t),
+            })
+        })
+        .collect()
+}
+
+/// FAILS IF: typed rows appended with `append_values` answer PostgreSQL's
+/// queries differently from the same rows appended as text.
+#[test]
+fn typed_append_equals_text_append() {
+    let (ticket_rows, ticket_deleted) = tickets();
+    let agent_rows = agents();
+    let agent_gone = agent_gone();
+    let one_shot = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .unwrap();
+    let mut typed_table = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &[],
+        &full_config(&one_shot),
+    )
+    .unwrap();
+    for chunk in ticket_rows.chunks(120) {
+        let rows: Vec<_> = chunk.iter().map(|r| typed(r)).collect();
+        assert_eq!(typed_table.append_values(&rows).unwrap().rows, chunk.len());
+    }
+    let from_values = gate(
+        typed_table,
+        agent_table(&agent_rows),
+        &ticket_rows,
+        &ticket_deleted,
+        &agent_rows,
+        &agent_gone,
+    );
+    let from_text = gate(
+        one_shot,
+        agent_table(&agent_rows),
+        &ticket_rows,
+        &ticket_deleted,
+        &agent_rows,
+        &agent_gone,
+    );
+    assert_eq!(from_values, from_text);
+}
+
+/// FAILS IF: a typed cell that does not fit its declared column is placed
+/// (an integer out of range or into a boolean or text-code lane, a boolean
+/// into an integer lane, text that is not an integer), a ragged row is
+/// accepted, or a refused append changes the table; or `check_values`
+/// disagrees with `append_values`.
+#[test]
+fn typed_append_refuses_what_does_not_fit() {
+    let (ticket_rows, _) = tickets();
+    let one_shot = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &cells(&ticket_rows),
+        &ShapeConfig::default(),
+    )
+    .unwrap();
+    let mut t = Table::from_rows(
+        "ticket",
+        0x2B01_0001,
+        &TICKET_COLUMNS,
+        &[],
+        &full_config(&one_shot),
+    )
+    .unwrap();
+    let good = || -> Vec<Option<Datum<'static>>> {
+        vec![
+            Some(Datum::Int(9001)),
+            Some(Datum::Text("vpn")),
+            None,
+            Some(Datum::Bool(true)),
+            None,
+            Some(Datum::Int(2)),
+            None,
+            None,
+        ]
+    };
+    let with = |k: usize, d: Datum<'static>| {
+        let mut r = good();
+        r[k] = Some(d);
+        r
+    };
+    for bad in [
+        with(5, Datum::Int(i64::from(i32::MAX) + 1)),
+        with(3, Datum::Int(1)),
+        with(1, Datum::Int(1)),
+        with(5, Datum::Bool(true)),
+        with(5, Datum::Text("many")),
+    ] {
+        assert!(matches!(
+            t.check_values(std::slice::from_ref(&bad)),
+            Err(IntakeRefusal::Cell { .. })
+        ));
+        assert!(matches!(
+            t.append_values(&[bad]),
+            Err(IntakeRefusal::Cell { .. })
+        ));
+    }
+    assert!(matches!(
+        t.append_values(&[good()[..7].to_vec()]),
+        Err(IntakeRefusal::Ragged { row: 0, cells: 7 })
+    ));
+    assert_eq!(t.len(), 0);
+    assert_eq!(t.check_values(&[good()]), Ok(()));
+    assert_eq!(t.len(), 0, "check_values appends nothing");
+    assert_eq!(t.append_values(&[good()]).unwrap().rows, 1);
+    assert_eq!(t.len(), 1);
 }
