@@ -1,24 +1,33 @@
 //! The terminals allocate only n-independent bookkeeping plus masks of
 //! `⌈n/64⌉` words, and materialization adds only the position table.
-//! Measured with a counting global allocator, so this is its own test binary
-//! and the tests run in one thread.
+//! Measured with a counting global allocator, so this is its own test binary.
+//! The allocator counts only the thread inside [`measured`], so the tests may
+//! run in parallel, as the workspace runs them.
 
 mod common;
 
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use common::{all_fields, bind, witness, Source, VIEW_CLASS};
-use vrl_recipe_probe::Recipe;
+use lance_graph_vrl::Recipe;
 
 struct Counting;
 static BYTES: AtomicUsize = AtomicUsize::new(0);
 static CALLS: AtomicUsize = AtomicUsize::new(0);
 
+thread_local! {
+    // Const-initialized, so reading it from the allocator never allocates.
+    static COUNTING: Cell<bool> = const { Cell::new(false) };
+}
+
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
-        BYTES.fetch_add(l.size(), Ordering::Relaxed);
-        CALLS.fetch_add(1, Ordering::Relaxed);
+        if COUNTING.with(Cell::get) {
+            BYTES.fetch_add(l.size(), Ordering::Relaxed);
+            CALLS.fetch_add(1, Ordering::Relaxed);
+        }
         // SAFETY: forwards the caller's layout unchanged.
         unsafe { System.alloc(l) }
     }
@@ -31,9 +40,16 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static A: Counting = Counting;
 
+/// What `f` allocates on this thread. The counters are shared, but only a
+/// thread inside `measured` adds to them, and the two tests never measure at
+/// once: they hold `ONE`.
 fn measured<T>(f: impl FnOnce() -> T) -> (T, usize, usize) {
+    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     let (b, c) = (BYTES.load(Ordering::Relaxed), CALLS.load(Ordering::Relaxed));
+    COUNTING.with(|on| on.set(true));
     let v = f();
+    COUNTING.with(|on| on.set(false));
     (
         v,
         BYTES.load(Ordering::Relaxed) - b,

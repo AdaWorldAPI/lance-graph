@@ -3,6 +3,11 @@
 //! every read goes through one `LaneBinding`.
 #![allow(dead_code)]
 
+pub mod interpreter;
+// Each test binary uses its own subset of the interpreter.
+#[allow(unused_imports)]
+pub use interpreter::{interpret, interpret_present, Event, Interpreted};
+
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Frame, FrameRevisions, FrameStore, Scope};
@@ -11,7 +16,7 @@ use lance_graph_dt64::{
     PresenceSource, RouteAt, SchemaRev,
 };
 use lance_graph_mask_risc::LaneRef;
-use vrl_recipe_probe::Witness;
+use lance_graph_vrl::Witness;
 
 pub const CLASS: u32 = 0x0C1B_0001;
 pub const VIEW_CLASS: ClassId = 0x0C1B;

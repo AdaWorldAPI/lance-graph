@@ -42,7 +42,7 @@ This is the Untersetzer form, not a glove. No cube terminal that builds rows (`C
 
 The read side uses the existing DT64 socket, not a new one:
 
-1. `LaneBinding::borrow_all_present` runs `LaneBinding::check` once (frame, route, basis, mapping, scope, row order) and lends every bound lane with its presence plane, in field order, with no allocation. Reading N fields through `LaneBinding::lane` instead re-runs the check per field (N² source lookups); `borrow_all` does N. Precedents: `xlog-coverage-probe/tests/group_by.rs`, `quack-boundary-lab`, `vrl-recipe-probe`.
+1. `LaneBinding::borrow_all_present` runs `LaneBinding::check` once (frame, route, basis, mapping, scope, row order) and lends every bound lane with its presence plane, in field order, with no allocation. Reading N fields through `LaneBinding::lane` instead re-runs the check per field (N² source lookups); `borrow_all` does N. Precedents: `xlog-coverage-probe/tests/group_by.rs`, `quack-boundary-lab`, `lance-graph-vrl` (formerly the `vrl-recipe-probe` lab).
 2. `LaneBinding::selected` lends the positions of a selection that the source issued under the same frame, row order and scope, refusing `SelectionSpace` / `SelectionScope` before anything is borrowed.
 3. The fold runs over the lent lanes at the lent positions (mask-risc `execute_sel`); the wire encoder reads the same lanes at the same positions.
 

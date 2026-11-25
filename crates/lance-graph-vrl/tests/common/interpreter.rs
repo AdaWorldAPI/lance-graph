@@ -1,11 +1,13 @@
-//! The VRL recipe probe (D-VRL-RECIPE-0, lab only): the reference interpreter
-//! and the parity tests for [`lance_graph_vrl`], where the recipe core now
-//! lives. The interpreter materializes every row as an [`Event`] on purpose; it
-//! shares only the parser with [`Recipe`] and reads no DT64 or mask-risc code.
+//! The naive reference interpreter the recipe is checked against: it
+//! materializes every row as a VRL event on purpose and shares only the
+//! parser with [`Recipe`]; evaluation reads no DT64 or mask-risc code. Test
+//! support only, never part of the library.
 
 use std::collections::BTreeMap;
 
-pub use lance_graph_vrl::*;
+#[allow(unused_imports)]
+use lance_graph_vrl::Recipe;
+use lance_graph_vrl::{parse, Path, Refusal, Stmt};
 
 /// One event of the reference interpreter: names repeated per row, which is
 /// exactly what the recipe's [`Rows`] avoid.

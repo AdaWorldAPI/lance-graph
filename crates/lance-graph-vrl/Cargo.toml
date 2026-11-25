@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
-description = "VRL recipes over the register contract (not Magic Sets / crepe, not the NARS tactic recipes): the read/rename/filter subset of VRL compiled into a stored recipe (bound fields, abort terms, output aliases), run as one mask-risc program over lanes lent by one DT64 borrow_all (prepare once, then run_into; the convenience terminals check the witness again to size the program), answered as positional rows (names once, borrowed lanes, a u32 position table). Moved from the vrl-recipe-probe lab."
+description = "VRL recipes over the register contract (not Magic Sets / crepe, not the NARS tactic recipes): the read/rename/filter subset of VRL compiled into a stored recipe (bound fields, abort terms, output aliases), run as one mask-risc program over lanes lent by one DT64 borrow_all (prepare once, then run_into; the convenience terminals check the witness again to size the program), answered as positional rows (names once, borrowed lanes, a u32 position table)."
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
@@ -21,3 +21,7 @@ lance-graph-intake = { path = "../lance-graph-intake" }
 lance-graph-pg-row = { path = "../lance-graph-pg-row" }
 # The row-type contract tests run the same predicate through Quack.
 lance-graph-quack = { path = "../lance-graph-quack" }
+# The r2il parity test only (tests/r2il_parity.rs): the same recipe as frozen
+# F000 words, run through r2il's prepare/run. Execution never goes this way;
+# r2il is the inspectable reading.
+lance-graph-r2il = { path = "../lance-graph-r2il" }

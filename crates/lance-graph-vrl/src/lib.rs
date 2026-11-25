@@ -1,8 +1,7 @@
 //! VRL recipes over the register contract (not Magic Sets / crepe rewrites, not
 //! the NARS tactic recipes): the VRL read/rename/filter subset, lowered onto the
-//! existing witnessed path (D-VRL-RECIPE-0). Moved here from the
-//! `vrl-recipe-probe` lab, which keeps the reference interpreter and the
-//! parity tests.
+//! existing witnessed path (D-VRL-RECIPE-0). The reference interpreter it is
+//! checked against lives in this crate's `tests/common/`, test support only.
 //!
 //! Whatever the population size, the answer has one shape:
 //! `identity | select {name = identity.key; identity.properties.f.value}`.

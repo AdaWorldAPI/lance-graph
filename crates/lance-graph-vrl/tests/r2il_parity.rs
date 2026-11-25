@@ -7,6 +7,7 @@
 
 mod common;
 
+use common::interpret;
 use common::{all_fields, bind, witness, Source, LABELS, VIEW_CLASS};
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
@@ -22,7 +23,7 @@ use lance_graph_r2il::polyfill::{
     polyfill_arities, position_of, HARDCODED, POLYFILL, POLYFILL_LENS,
 };
 use lance_graph_r2il::FoldDialect;
-use vrl_recipe_probe::{interpret, Cmp, Recipe};
+use lance_graph_vrl::{Cmp, Recipe};
 
 const CLASS: u32 = 0x7F0C_0001;
 const CLASS_VIEW: ClassId = 0x7F0C;

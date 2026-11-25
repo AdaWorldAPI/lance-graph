@@ -83,8 +83,8 @@ naming either, and its absent-case policy is "a name needs no member".
   header still says "No crate exists yet"; an earlier version of this file
   repeated that without opening the crate. This plan builds on it for the
   across dimension; it does not restate it.
-- VERIFIED-IN-CODE: `crates/vrl-recipe-probe` (lab probe, its own workspace
-  root). It lowers the read / rename / filter subset of Vector's VRL onto
+- VERIFIED-IN-CODE: `crates/lance-graph-vrl` (workspace member; the former
+  `vrl-recipe-probe` lab, moved 2026-11-25). It lowers the read / rename / filter subset of Vector's VRL onto
   DT64 lane binding and mask-risc, checked against a naive interpreter, with
   a parity test through the frozen `F000` words. It refuses every function
   call but `del`, so `starts_with(.name, "a.")` and `split(.name, ".")`, VRL's

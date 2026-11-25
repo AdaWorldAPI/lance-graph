@@ -175,7 +175,7 @@ What this means for currency (HYPOTHESIS, no measurement): a two-decimal amount 
 
 **Shape:** one decimal field, one homogeneous scale `s` declared by the source, coefficient in the existing i32 `Signed` lane plus its presence plane. Read through the existing DT64 → VRL → mask-risc path. No new runtime, no new `Datum` variant, no `f64`.
 
-**Where it would live (HYPOTHESIS):** a lab crate or test in lance-graph next to `lance-graph-vrl` (as `vrl-recipe-probe` is the lab for VRL, vrl lib.rs:3-5), holding:
+**Where it would live (HYPOTHESIS):** a lab crate or test in lance-graph next to `lance-graph-vrl` (it became `crates/exact-decimal-probe`; the VRL lab it was modelled on, `vrl-recipe-probe`, has since moved into `lance-graph-vrl`), holding:
 1. **A lexical parser** `text → (coefficient: i64, scale: u8)` with an exact refusal. It reuses the shape `parse_decimal` already validates (rr:reconcile.rs:233-242) and adds a canonical coefficient at the field's declared `s`. Fewer fraction digits are padded (`"1.2"` at s=2 → 120). More digits than `s` are refused unless the extra digits are zeros (`"1.200"` → 120; `"1.205"` → refuse). It never rounds. It refuses on i32 overflow, or widens exactly to an i64 escape if one is admitted.
 2. **A literal resolver at prepare time,** mirroring how text literals resolve to codes before preparing (vrl lib.rs:66-69, :551; the unrepresentable case already maps to `Range{lo:0,hi:0}` / `Range{0,hi}`, :1050-1056). For a literal L with exact coefficient L·10^s:
    - representable: compare directly;
