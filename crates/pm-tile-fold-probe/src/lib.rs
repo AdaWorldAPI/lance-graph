@@ -64,7 +64,11 @@ pub enum FoldRefusal {
     /// The lane, its plane and the selection do not describe the same rows:
     /// the lane must be whole 64-row blocks, one plane word and one selection
     /// word per block.
-    Shape { rows: usize, plane: usize, sel: usize },
+    Shape {
+        rows: usize,
+        plane: usize,
+        sel: usize,
+    },
     /// The socket refused the read.
     Lane(LaneRefusal),
     /// The binding has no lane for this field.
@@ -92,7 +96,8 @@ fn square_sum(a: U8x64) -> u64 {
 /// Fold one Codec9 lane: `mags` are the magnitudes, `plane` the polarity
 /// words, `sel` the selected rows, all in the lane's row order.
 pub fn fold_lane(mags: &[u8], plane: &[u64], sel: &[u64]) -> Result<Stats, FoldRefusal> {
-    if mags.len() % 64 != 0 || mags.len() / 64 != plane.len() || plane.len() != sel.len() {
+    if !mags.len().is_multiple_of(64) || mags.len() / 64 != plane.len() || plane.len() != sel.len()
+    {
         return Err(FoldRefusal::Shape {
             rows: mags.len(),
             plane: plane.len(),
@@ -100,9 +105,9 @@ pub fn fold_lane(mags: &[u8], plane: &[u64], sel: &[u64]) -> Result<Stats, FoldR
         });
     }
     let mut st = Stats::default();
-    for ((block, &pos), &m) in mags.chunks_exact(64).zip(plane).zip(sel) {
+    for ((block, &pos), &m) in mags.as_chunks::<64>().0.iter().zip(plane).zip(sel) {
         let x = Pm {
-            mag: U8x64::from_slice(block),
+            mag: U8x64::from_slice(&block[..]),
             pos,
         };
         st.n += u64::from((m & touched(x)).count_ones());

@@ -4,7 +4,9 @@
 
 use lance_graph_dt64::dr::FrameRefusal;
 use pm_tile_fold_probe::fixture::{self, Tile, FIELD, READER, ROWS};
-use pm_tile_fold_probe::{combine, fold_lane, fold_tile, CombineRefusal, FoldRefusal, Stats, TilePart};
+use pm_tile_fold_probe::{
+    combine, fold_lane, fold_tile, CombineRefusal, FoldRefusal, Stats, TilePart,
+};
 
 fn xorshift(s: &mut u64) -> u64 {
     *s ^= *s << 13;
@@ -42,8 +44,17 @@ fn oracle(codes: &[u16], sel: &[u64]) -> Stats {
 fn part(tile: &Tile, sel: &[u64]) -> TilePart {
     let (store, route) = fixture::store();
     let view = fixture::View::new();
-    let b = pm_tile_fold_probe::bind_field(&store, &view, tile, route, ROWS, READER, FIELD).expect("bind");
-    fold_tile(&b, &store, lance_graph_dt64::LaneSource::frames(tile), tile, FIELD, sel).expect("fold")
+    let b = pm_tile_fold_probe::bind_field(&store, &view, tile, route, ROWS, READER, FIELD)
+        .expect("bind");
+    fold_tile(
+        &b,
+        &store,
+        lance_graph_dt64::LaneSource::frames(tile),
+        tile,
+        FIELD,
+        sel,
+    )
+    .expect("fold")
 }
 
 /// Tiles of unequal sizes, the last ones not a whole block.
@@ -65,7 +76,12 @@ fn tiles() -> Vec<(Vec<u16>, Vec<u64>, Tile)> {
 #[test]
 fn each_part_equals_the_oracle() {
     for (c, sel, t) in tiles() {
-        assert_eq!(part(&t, &sel).stats_unwitnessed(), oracle(&c, &sel), "{} rows", c.len());
+        assert_eq!(
+            part(&t, &sel).stats_unwitnessed(),
+            oracle(&c, &sel),
+            "{} rows",
+            c.len()
+        );
     }
 }
 
@@ -138,16 +154,35 @@ fn a_part_presented_with_another_tile_is_refused() {
 #[test]
 fn a_mismatched_shape_is_refused() {
     let t = Tile::from_codes(&codes(128, 3), 1);
-    assert!(matches!(fold_lane(&t.mags, &t.pos, &[u64::MAX]), Err(FoldRefusal::Shape { .. })));
-    assert!(matches!(fold_lane(&t.mags[..100], &t.pos, &[u64::MAX; 2]), Err(FoldRefusal::Shape { .. })));
+    assert!(matches!(
+        fold_lane(&t.mags, &t.pos, &[u64::MAX]),
+        Err(FoldRefusal::Shape { .. })
+    ));
+    assert!(matches!(
+        fold_lane(&t.mags[..100], &t.pos, &[u64::MAX; 2]),
+        Err(FoldRefusal::Shape { .. })
+    ));
     assert!(fold_lane(&t.mags, &t.pos, &[u64::MAX; 2]).is_ok());
 }
 
 /// FAILS IF: an overflow wraps instead of refusing, or variance is not exact.
 #[test]
 fn overflow_refuses_and_variance_is_exact() {
-    let big = Stats { n: 1, s: i64::MAX, q: 0, a: 0 };
-    assert_eq!(big.checked_add(Stats { n: 1, s: 1, q: 0, a: 0 }), None);
+    let big = Stats {
+        n: 1,
+        s: i64::MAX,
+        q: 0,
+        a: 0,
+    };
+    assert_eq!(
+        big.checked_add(Stats {
+            n: 1,
+            s: 1,
+            q: 0,
+            a: 0
+        }),
+        None
+    );
     // Untouched only: no values, variance undefined.
     let u = Tile::from_codes(&[0u16; 64], 1);
     let st = fold_lane(&u.mags, &u.pos, &[u64::MAX]).unwrap();
@@ -156,5 +191,10 @@ fn overflow_refuses_and_variance_is_exact() {
     let mut c = vec![256 + 200u16; 64];
     c[9] = 256 + 201;
     let t = Tile::from_codes(&c, 1);
-    assert_eq!(fold_lane(&t.mags, &t.pos, &[u64::MAX]).unwrap().variance_parts(), Some((63, 4096)));
+    assert_eq!(
+        fold_lane(&t.mags, &t.pos, &[u64::MAX])
+            .unwrap()
+            .variance_parts(),
+        Some((63, 4096))
+    );
 }
