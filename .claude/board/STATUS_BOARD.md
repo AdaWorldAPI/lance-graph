@@ -3644,3 +3644,21 @@ Plan: [adaptive-exact-decimal-binding-v1](../plans/adaptive-exact-decimal-bindin
 | D-AED-6 | Real coefficient ranges and redundant zeros (workbooks, logs, telemetry) | Queued (needs real samples) |
 | D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | Queued |
 | D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | Queued |
+
+### Registered source profiles (2026-11-25)
+
+Plan: [registered-source-profiles-v1](../plans/registered-source-profiles-v1.md). Census: `.claude/knowledge/registered-source-profiles-census.md`.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-RSP-0 | Census and plan | In PR, docs only |
+| D-RSP-1 | Declared-and-validated intake path (skip detection on fully declared columns; `Verdict::Declared`, no manufactured agreement) | Queued |
+| D-RSP-2 | Source-scoped IRIs supplied by the caller; one registered class across tenants (borrowed BindStore/ClassView, per-tenant frames and code tables) | Queued |
+| D-RSP-3 | Measure semantics: unit, temporal kind, lawful aggregation (PropertySpec declares vs MethodBinding enforces) | Queued (decision needed) |
+| D-RSP-4 | Meaning witness (version meaning by IRI) | Queued |
+| D-RSP-5 | One field seam for Quack and VRL; semantic differences pinned, not merged | Queued |
+| D-RSP-6 | Harvest declarations (ogar-az AttrDef, field policy, CSDL/OpenAPI where present); never measure semantics | Queued |
+| D-RSP-7 | Cross-source measure equivalence by canonical IRI + exact conversion + identity evidence + oracle | Queued |
+| D-RSP-8 | `source-profile-probe` vertical slice (arms A–D, Quack and VRL, measured separately) | Queued |
+| D-RSP-9 | report-rs license report on a registered subscribedSku profile (absent seats UNKNOWN, not 0) | Queued (report-rs) |
+
