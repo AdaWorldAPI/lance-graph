@@ -1143,3 +1143,33 @@ fn compaction_demotes_to_the_smallest_lawful_slice() {
         (before.n, before.s, before.q, before.exp)
     );
 }
+
+/// FAILS IF: compaction panics on values that cancel to zero at a fine
+/// exponent, or stops demoting at exponent 0 when the values are multiples
+/// of a power of ten (codex on #2191).
+#[test]
+fn compaction_demotes_past_zero_and_survives_cancellation() {
+    let slice = |v: &[Option<&str>], e: Exp| PhysicalSlice::store(&seal(v, e).unwrap());
+    let fine = Exp::scale(10);
+    let mut log = SliceLog::new(Policy::Reseal, fine);
+    log.append(&[Some("0.0000000001")]).unwrap();
+    assert_eq!(
+        log.add_into(0, &slice(&[Some("-0.0000000001")], fine)),
+        Ok(false)
+    );
+    log.compact().unwrap();
+    let p = &log.slices()[0];
+    assert_eq!(
+        (p.exp, p.get(0)),
+        (Exp(0), Some(0)),
+        "cancelled to an established zero"
+    );
+
+    let mut log = SliceLog::new(Policy::Reseal, Exp(0));
+    log.append(&[Some("151")]).unwrap();
+    assert_eq!(log.add_into(0, &slice(&[Some("149")], Exp(0))), Ok(true));
+    assert_eq!(log.slices()[0].width(), "PM17");
+    log.compact().unwrap();
+    let p = &log.slices()[0];
+    assert_eq!((p.exp, p.get(0), p.width()), (Exp(2), Some(3), "PM9"));
+}

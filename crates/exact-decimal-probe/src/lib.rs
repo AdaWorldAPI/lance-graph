@@ -1590,11 +1590,7 @@ impl SliceLog {
         let refs: Vec<&PhysicalSlice> = self.slices.iter().map(|s| s.as_ref()).collect();
         let finest = refs.iter().map(|s| s.exp).min().unwrap_or(self.limit);
         let at_finest = values_at(&refs, finest).map_err(LogRefusal::Decimal)?;
-        let exp = coarsest(&at_finest, finest);
-        let values: Vec<Option<i32>> = at_finest
-            .iter()
-            .map(|c| c.map(|c| c / 10i32.pow((exp.0 - finest.0) as u32)))
-            .collect();
+        let (exp, values) = coarsest(at_finest, finest);
         let n = values.len();
         self.slices.clear();
         self.stats.clear();
@@ -1613,14 +1609,20 @@ fn stats_max(p: &PhysicalSlice) -> u64 {
         .unwrap_or(0)
 }
 
-/// The coarsest exponent, no coarser than 0, at which every coefficient
-/// given at `at` stays an integer.
-fn coarsest(values: &[Option<i32>], at: Exp) -> Exp {
-    let mut exp = at;
-    let mut step = 10i64;
-    while exp < Exp(0) && values.iter().flatten().all(|&c| i64::from(c) % step == 0) {
-        exp = Exp(exp.0 + 1);
-        step *= 10;
+/// The coefficients given at `at` read at the coarsest exponent that keeps
+/// every one an integer, positive exponents included: one factor of ten is
+/// removed at a time, so no power of ten is ever formed. A slice with no
+/// nonzero value has no resolution and reads at exponent 0, as `seal` does.
+fn coarsest(mut values: Vec<Option<i32>>, at: Exp) -> (Exp, Vec<Option<i32>>) {
+    if values.iter().flatten().all(|&c| c == 0) {
+        return (Exp(0), values);
     }
-    exp
+    let mut exp = at;
+    while exp < Exp(i8::MAX) && values.iter().flatten().all(|&c| c % 10 == 0) {
+        for c in values.iter_mut().flatten() {
+            *c /= 10;
+        }
+        exp = Exp(exp.0 + 1);
+    }
+    (exp, values)
 }
