@@ -1,0 +1,20 @@
+[package]
+name = "lance-graph-enrichment"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99.0"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Vector's enrichment tables answered by lance-graph: an enrichment::Table over an intake table, its lookups bound through Quack and its rows read from the lanes, in the same process as Vector."
+
+[dependencies]
+chrono = { version = "0.4", default-features = false }
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-intake = { path = "../lance-graph-intake" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-vrl = { path = "../lance-graph-vrl" }
+# Vector's enrichment trait, from the AdaWorldAPI fork. Its `vrl` resolves to
+# the one `vrl` through the root `[patch."https://github.com/vectordotdev/vrl.git"]`.
+enrichment = { git = "https://github.com/AdaWorldAPI/vector.git", branch = "master" }
+vrl = { git = "https://github.com/AdaWorldAPI/vrl.git", rev = "7738f74e039df4d92ee5370d1f0d7d522f73e97a", default-features = false, features = ["value"] }
