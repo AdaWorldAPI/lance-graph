@@ -1192,11 +1192,12 @@ pub fn detect_decimal(cells: &[Option<&str>]) -> DecimalReading {
     let mut pointed = false;
     for (row, cell) in cells.iter().enumerate() {
         let Some(text) = cell else { continue };
-        if canonical(text).is_err() {
-            return DecimalReading::Refused {
-                row,
-                why: DecimalDetectRefusal::Malformed,
+        if let Err(e) = canonical(text) {
+            let why = match e {
+                DecimalRefusal::Overflow { .. } => DecimalDetectRefusal::Overflow,
+                _ => DecimalDetectRefusal::Malformed,
             };
+            return DecimalReading::Refused { row, why };
         }
         if float_artefact(text) {
             return DecimalReading::Refused {

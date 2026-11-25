@@ -797,4 +797,15 @@ fn decimal_detection_never_rounds() {
         detect_decimal(&[Some("12"), None, Some("-4")]),
         DecimalReading::NotDecimal
     );
+    // A valid decimal past `i128` is out of range, not malformed.
+    assert_eq!(
+        detect_decimal(&[
+            Some("1.5"),
+            Some("123456789012345678901234567890123456789.1")
+        ]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
 }
