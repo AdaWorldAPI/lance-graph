@@ -797,4 +797,168 @@ fn decimal_detection_never_rounds() {
         detect_decimal(&[Some("12"), None, Some("-4")]),
         DecimalReading::NotDecimal
     );
+    // A valid decimal past `i128` is out of range, not malformed.
+    assert_eq!(
+        detect_decimal(&[
+            Some("1.5"),
+            Some("123456789012345678901234567890123456789.1")
+        ]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
+}
+
+/// The owner of a decimal field: the intake table holding its coefficients,
+/// and the descriptor (exponent, width) its sealed slice was stored at. The
+/// frame is the table's own seal, so the declaration is witnessed with the
+/// data version.
+struct Owned<'t> {
+    table: &'t Table,
+    iri: String,
+    exp: Exp,
+    width: Option<PmWidth>,
+}
+
+impl FieldExps for Owned<'_> {
+    fn exp_of(&self, iri: &str) -> Option<Exp> {
+        (iri == self.iri).then_some(self.exp)
+    }
+    fn width_of(&self, iri: &str) -> Option<PmWidth> {
+        if iri == self.iri {
+            self.width
+        } else {
+            None
+        }
+    }
+    fn frame(&self) -> Option<lance_graph_dt64::dr::Frame> {
+        Some(self.table.frame())
+    }
+    fn check_frame(
+        &self,
+        frame: &lance_graph_dt64::dr::Frame,
+    ) -> Result<(), lance_graph_dt64::dr::FrameRefusal> {
+        self.table.witness().frames.check(frame)
+    }
+}
+
+fn owned_recipe(owner: &Owned<'_>, filters: &[(Op, &str)]) -> DecimalRecipe {
+    let t = owner.table;
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    let filters: Vec<DecimalFilter<'_>> = filters
+        .iter()
+        .map(|&(op, literal)| DecimalFilter {
+            path: ".a",
+            predicate_iri: &owner.iri,
+            op,
+            literal,
+        })
+        .collect();
+    DecimalRecipe::compile(
+        ".a = .properties.amount.value",
+        &filters,
+        owner,
+        t.witness().view,
+        class,
+    )
+    .unwrap()
+}
+
+/// FAILS IF: a recipe resolved under the owner's descriptor runs after the
+/// width moved, after a data write left exponent and width alone, or on
+/// another table with the same class, fields, row count and descriptor; or
+/// if it refuses on its own unchanged owner.
+#[test]
+fn a_recipe_is_refused_under_a_moved_width_exponent_or_frame() {
+    let (mut t, iri) = table();
+    let s2 = Exp::scale(2);
+    // The column's sealed slice: |c| <= 12345, so PM17.
+    let width = Some(PmWidth::Pm17);
+    let r = {
+        let owner = Owned {
+            table: &t,
+            iri: iri.clone(),
+            exp: s2,
+            width,
+        };
+        let r = owned_recipe(&owner, &[(Op::Ge, "1.205")]);
+        assert_eq!(
+            r.count(&witness(&t), &owner).unwrap(),
+            3,
+            "unchanged owner runs"
+        );
+        r
+    };
+
+    // Another table, equal in class, fields, rows and descriptor: its frame
+    // is another store's seal.
+    let (other, _) = table();
+    let foreign = Owned {
+        table: &other,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&other), &foreign),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::ForeignFrame
+        ))
+    );
+
+    // The original owner's declaration over another table's lanes: the
+    // executing witness is another store.
+    let owner = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&other), &owner),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::ForeignFrame
+        ))
+    );
+
+    // A write that moves no descriptor still moves the frame.
+    t.append(&[vec![Some("6"), Some("700")]]).unwrap();
+    let moved = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&t), &moved),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::SourceChanged
+        ))
+    );
+
+    // A write that widens the slice is named by the width.
+    t.append(&[vec![Some("7"), Some("7000000")]]).unwrap();
+    let wider = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width: Some(PmWidth::Pm25),
+    };
+    assert_eq!(
+        r.count(&witness(&t), &wider),
+        Err(RecipeRefusal::WidthChanged {
+            predicate_iri: iri.clone(),
+            resolved: width,
+            now: Some(PmWidth::Pm25),
+        })
+    );
+
+    // Recompiled under the current owner, it runs again.
+    let again = owned_recipe(&wider, &[(Op::Ge, "1.205")]);
+    assert_eq!(
+        again.count(&witness(&t), &wider).unwrap(),
+        3,
+        "7.00 and 70000.00 drop"
+    );
 }
