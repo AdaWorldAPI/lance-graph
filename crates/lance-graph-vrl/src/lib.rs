@@ -24,6 +24,22 @@
 //!   is positional ([`Rows`]): the names once, the borrowed lanes, and a `u32`
 //!   position table. No string or event is built per row.
 //!
+//! ## Which "recipe" this is
+//!
+//! Three things in this workspace are called recipes; they do not share code
+//! or types, and a consumer should know which one it takes:
+//!
+//! - **This crate (`lance-graph-vrl`):** a VRL read/rename/filter program over
+//!   one class's lanes, run as a mask-risc fold and answered as positional
+//!   [`Rows`]. Consumers: report-rs's workbook XVERWEIS and, later, live log
+//!   pipelines (Vector VRL).
+//! - **Magic Sets / crepe** (`crepe-plan-probe`, a lab; a `lance-graph-crepe`
+//!   crate would be its consumer-facing home): rewrites of recursive Datalog
+//!   plans. Not a row projection, and not reached from here.
+//! - **The planner's NARS recipes** (`lance-graph-planner`: `recipe_kernels`,
+//!   `recipes`, `recipe_dispatch`): the tactic runbooks of the thinking stack.
+//!   Not a data read.
+//!
 //! The VRL subset, one statement per line (or `;`):
 //!
 //! - `.out = .key`, `.out = .other_out`, `.out = .properties.f.value`
