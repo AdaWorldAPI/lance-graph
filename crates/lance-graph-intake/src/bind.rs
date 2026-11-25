@@ -91,6 +91,24 @@ impl Table {
         };
         self.keep_positions(positions)
     }
+
+    /// The live positions a bound query holds for, ascending, without keeping
+    /// a selection: the read half of [`Table::select_bound`] for a reader that
+    /// only looks (`&self`). The query must be current, as for `select_bound`.
+    pub fn positions_bound(&self, q: &BoundQuery) -> Result<Vec<u32>, IntakeRefusal> {
+        self.owner
+            .table
+            .frames()
+            .check(&q.frame)
+            .map_err(|_| IntakeRefusal::Stale)?;
+        let query = q.typed.admit(self).map_err(IntakeRefusal::Bind)?.clone();
+        let texts = self.texts();
+        let specs = self.specs(&texts);
+        let reader = self.reader(&specs)?;
+        self.predicate_runs.set(self.predicate_runs.get() + 1);
+        let kept = self.with_validity(&reader, |v| reader.keep_bound(&query, v))?;
+        Ok(positions_of(&kept))
+    }
 }
 
 impl Binder for Table {

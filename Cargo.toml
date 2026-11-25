@@ -33,6 +33,7 @@ members = [
     "crates/lance-graph-intake",
     "crates/lance-graph-vrl",
     "crates/lance-graph-vector",
+    "crates/lance-graph-enrichment",
     "crates/dr256-ternlog-lab",
     # LAB: one Quack-lowered Program against a bound source, a wrong source, a
     # revised row order and a detached kept mask, admitted through the DT64
@@ -561,3 +562,10 @@ ndarray = { path = "../ndarray" }
 # instead if line-numbered backtraces are ever worth the size again.
 [profile.dev]
 debug = 0
+
+# One `vrl` in any binary that links Vector's crates: Vector depends on
+# `vectordotdev/vrl` at `branch = "main"`, lance-graph on the AdaWorldAPI fork
+# at Vector's locked rev. Without this patch the two are different crates and
+# their `Value` types do not meet.
+[patch."https://github.com/vectordotdev/vrl.git"]
+vrl = { git = "https://github.com/AdaWorldAPI/vrl.git", rev = "7738f74e039df4d92ee5370d1f0d7d522f73e97a" }

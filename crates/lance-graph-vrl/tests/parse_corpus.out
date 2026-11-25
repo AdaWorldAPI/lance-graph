@@ -1,0 +1,184 @@
+"del("
+  => Err(Computes("function del"))
+"if .key == 1 { abort }"
+  => Ok([Abort { path: Name("key"), cmp: Eq, value: 1 }])
+"if .key == 1 { abort"
+  => Err(Computes("if body other than abort"))
+"if .key == 1 { abort }}"
+  => Err(Computes("if body other than abort"))
+".o{i} = .properties.f{i}.value"
+  => Err(Computes("statement .o{i} = .properties.f{i}.value"))
+".id = .key\ndel(.id)"
+  => Ok([Assign("id", Name("key")), Del("id")])
+".id = .key"
+  => Ok([Assign("id", Name("key"))])
+".k = .key\nif .properties.cpu.value > 3 { abort }"
+  => Ok([Assign("k", Name("key")), Abort { path: Prop("cpu"), cmp: Gt, value: 3 }])
+".k = .key + 1"
+  => Err(Computes("arithmetic"))
+".k = no_such_fn(.key)"
+  => Err(Computes("function no_such_fn"))
+".n = .key\n.a = .properties.amount.value\nif .properties.status.value != 1 { abort }"
+  => Ok([Assign("n", Name("key")), Assign("a", Prop("amount")), Abort { path: Prop("status"), cmp: Ne, value: 1 }])
+".name = .key\n.amount = .properties.amount.value"
+  => Ok([Assign("name", Name("key")), Assign("amount", Prop("amount"))])
+".name = .key\n.amount = .properties.amount.value\nif .properties.status.value != 2 { abort }"
+  => Ok([Assign("name", Name("key")), Assign("amount", Prop("amount")), Abort { path: Prop("status"), cmp: Ne, value: 2 }])
+".id = .key\nif .properties.region.value == 0 { abort }\nif .properties.status.value == 3 { abort }"
+  => Ok([Assign("id", Name("key")), Abort { path: Prop("region"), cmp: Eq, value: 0 }, Abort { path: Prop("status"), cmp: Eq, value: 3 }])
+".orig = .key\n.key = .properties.region.value\n.reg = .key\nif .key != 1 { abort }"
+  => Ok([Assign("orig", Name("key")), Assign("key", Prop("region")), Assign("reg", Name("key")), Abort { path: Name("key"), cmp: Ne, value: 1 }])
+".a = .key; .b = .properties.amount.value; del(.a)"
+  => Ok([Assign("a", Name("key")), Assign("b", Prop("amount")), Del("a")])
+".a = .properties.status.value; del(.key); if .a == 0 { abort }"
+  => Ok([Assign("a", Prop("status")), Del("key"), Abort { path: Name("a"), cmp: Eq, value: 0 }])
+".s = .properties.status.value\n.amt = .properties.amount.value\nif .s != 1 { abort }"
+  => Ok([Assign("s", Prop("status")), Assign("amt", Prop("amount")), Abort { path: Name("s"), cmp: Ne, value: 1 }])
+".id = .key\nif .key < 1010 { abort }\nif .key >= 1050 { abort }"
+  => Ok([Assign("id", Name("key")), Abort { path: Name("key"), cmp: Lt, value: 1010 }, Abort { path: Name("key"), cmp: Ge, value: 1050 }])
+".a = .properties.amount.value\nif .a <= 0 { abort }\nif .properties.status.value > 1 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Le, value: 0 }, Abort { path: Prop("status"), cmp: Gt, value: 1 }])
+".r = .properties.region.value\nif .r < 1 { abort }\nif .r >= 2 { abort }"
+  => Ok([Assign("r", Prop("region")), Abort { path: Name("r"), cmp: Lt, value: 1 }, Abort { path: Name("r"), cmp: Ge, value: 2 }])
+".n = .key\n.a = .properties.amount.value"
+  => Ok([Assign("n", Name("key")), Assign("a", Prop("amount"))])
+".a = .properties.amount.value\nif .a < 0 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Lt, value: 0 }])
+".a = .properties.amount.value\nif .properties.status.value != 2 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Prop("status"), cmp: Ne, value: 2 }])
+".a = .properties.amount.value\nif .properties.region.value == 0 { abort }\nif .a >= 200 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Prop("region"), cmp: Eq, value: 0 }, Abort { path: Name("a"), cmp: Ge, value: 200 }])
+".r = .properties.region.value\n.a = .properties.amount.value\nif .properties.status.value > 2 { abort }\nif .a <= 10 { abort }\nif .r != 1 { abort }"
+  => Ok([Assign("r", Prop("region")), Assign("a", Prop("amount")), Abort { path: Prop("status"), cmp: Gt, value: 2 }, Abort { path: Name("a"), cmp: Le, value: 10 }, Abort { path: Name("r"), cmp: Ne, value: 1 }])
+".id = .properties.id.value\n.region = .properties.region.value\n.qty = .properties.qty.value"
+  => Ok([Assign("id", Prop("id")), Assign("region", Prop("region")), Assign("qty", Prop("qty"))])
+".region = .properties.region.value"
+  => Ok([Assign("region", Prop("region"))])
+".q = .properties.qty.value\nif .properties.qty.value < 0 { abort }"
+  => Ok([Assign("q", Prop("qty")), Abort { path: Prop("qty"), cmp: Lt, value: 0 }])
+".q = .properties.qty.value"
+  => Ok([Assign("q", Prop("qty"))])
+".r = .properties.region.value\nif .properties.region.value == 1 { abort }"
+  => Ok([Assign("r", Prop("region")), Abort { path: Prop("region"), cmp: Eq, value: 1 }])
+".r = .properties.region.value"
+  => Ok([Assign("r", Prop("region"))])
+".r = .properties.region.value\n"
+  => Ok([Assign("r", Prop("region"))])
+".r = .properties.region.value\nif .r < \"m\" { abort }"
+  => Err(OrderOnText { op: "<" })
+".r = .properties.region.value\nif .r == \"north\" { abort }"
+  => Ok([Assign("r", Prop("region")), AbortText { path: Name("r"), eq: true, text: "north" }])
+".q = .properties.qty.value\nif .q == \"10\" { abort }"
+  => Ok([Assign("q", Prop("qty")), AbortText { path: Name("q"), eq: true, text: "10" }])
+".r = .properties.region.value\nif .r == \"west\" { abort }"
+  => Ok([Assign("r", Prop("region")), AbortText { path: Name("r"), eq: true, text: "west" }])
+".n = .properties.note.value\n"
+  => Ok([Assign("n", Prop("note"))])
+"if .n != \"\" { abort }"
+  => Ok([AbortText { path: Name("n"), eq: false, text: "" }])
+"if .n == \"\" { abort }"
+  => Ok([AbortText { path: Name("n"), eq: true, text: "" }])
+".e = .properties.enabled.value\nif {cond} {{ abort }}"
+  => Err(Computes("if body other than abort"))
+".e == false"
+  => Err(Computes("statement .e == false"))
+".e != true"
+  => Err(Computes("statement .e != true"))
+".e = .properties.enabled.value"
+  => Ok([Assign("e", Prop("enabled"))])
+".a = .properties.amount.value\nif .a < 3 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Lt, value: 3 }])
+".a = .properties.amount.value\nif .a < 3 { abort }\nif .properties.status.value > 1 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Lt, value: 3 }, Abort { path: Prop("status"), cmp: Gt, value: 1 }])
+".a = .properties.amount.value\nif .a > 0 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Gt, value: 0 }])
+".a = .properties.amount.value"
+  => Ok([Assign("a", Prop("amount"))])
+".n = .key"
+  => Ok([Assign("n", Name("key"))])
+".a = .properties.amount.value\nif .a == 7 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Eq, value: 7 }])
+".a = .properties.amount.value\nif .a <= 120 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Le, value: 120 }])
+".a = .properties.amount.value\nif .a > 300 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Gt, value: 300 }])
+".a = .properties.amount.value\nif .a >= -50 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("a"), cmp: Ge, value: -50 }])
+".a = .properties.amount.value\nif .key < 1010 { abort }\nif .key >= 1050 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Name("key"), cmp: Lt, value: 1010 }, Abort { path: Name("key"), cmp: Ge, value: 1050 }])
+".a = .properties.amount.value\nif .properties.region.value == 0 { abort }\nif .properties.status.value > 2 { abort }\nif .a <= 10 { abort }"
+  => Ok([Assign("a", Prop("amount")), Abort { path: Prop("region"), cmp: Eq, value: 0 }, Abort { path: Prop("status"), cmp: Gt, value: 2 }, Abort { path: Name("a"), cmp: Le, value: 10 }])
+".n = .key\nif .properties.region.value == 1 { abort }"
+  => Ok([Assign("n", Name("key")), Abort { path: Prop("region"), cmp: Eq, value: 1 }])
+".a = parse_json(.key)"
+  => Err(Computes("function parse_json"))
+".t = now()"
+  => Err(Computes("function now"))
+".a = .key + 1"
+  => Err(Computes("arithmetic"))
+".a = \"x\""
+  => Err(Computes("string literal"))
+".a = 5"
+  => Err(Computes("integer literal"))
+"if .key =~ 3 { abort }"
+  => Err(Computes("comparison =~"))
+"if .key > 3 && .key < 9 { abort }"
+  => Err(Computes("condition .key > 3 && .key < 9"))
+"if .key == 3 { .a = .key }"
+  => Err(Computes("if body other than abort"))
+"if body other than abort"
+  => Err(Computes("if without a block"))
+".properties.x.value = .key"
+  => Err(Computes("assignment into properties"))
+".a = .nope"
+  => Ok([Assign("a", Name("nope"))])
+".a = .properties.nope.value"
+  => Ok([Assign("a", Prop("nope"))])
+"del(.nope)"
+  => Ok([Del("nope")])
+".c = .properties.code.value\nif .properties.code.value == 1 { abort }"
+  => Ok([Assign("c", Prop("code")), Abort { path: Prop("code"), cmp: Eq, value: 1 }])
+".c = .properties.code.value"
+  => Ok([Assign("c", Prop("code"))])
+".o0 = .key\n"
+  => Ok([Assign("o0", Name("key"))])
+".o{i} = .properties.f{i}.value\n"
+  => Err(Computes("statement .o{i} = .properties.f{i}.value"))
+".a = .properties.amount.value\nif .a {op} 0 {{ abort }}"
+  => Err(Computes("if body other than abort"))
+".n = .key\nif .key >= 0 { abort }"
+  => Ok([Assign("n", Name("key")), Abort { path: Name("key"), cmp: Ge, value: 0 }])
+".n = .key\nif .key < 0 { abort }"
+  => Ok([Assign("n", Name("key")), Abort { path: Name("key"), cmp: Lt, value: 0 }])
+".p = .properties.price.value"
+  => Ok([Assign("p", Prop("price"))])
+".p = .properties.amount.value"
+  => Ok([Assign("p", Prop("amount"))])
+".a = .key\n.b = .properties.amount.value"
+  => Ok([Assign("a", Name("key")), Assign("b", Prop("amount"))])
+".a = .properties.amount.value\n.b = .key"
+  => Ok([Assign("a", Prop("amount")), Assign("b", Name("key"))])
+"# a comment\n.n = .key\n\n.a = .properties.amount.value  # trailing"
+  => Ok([Assign("n", Name("key")), Assign("a", Prop("amount"))])
+".a=.key\nif .a<3{abort}"
+  => Ok([Assign("a", Name("key")), Abort { path: Name("a"), cmp: Lt, value: 3 }])
+"if .properties.title.value == \"a;b\" { abort }"
+  => Ok([AbortText { path: Prop("title"), eq: true, text: "a;b" }])
+"if .properties.title.value == \"x#y\" { abort }"
+  => Ok([AbortText { path: Prop("title"), eq: true, text: "x#y" }])
+"if .key > -5 { abort }"
+  => Ok([Abort { path: Name("key"), cmp: Gt, value: -5 }])
+"if !.properties.flag.value { abort }"
+  => Ok([AbortBool { path: Prop("flag"), value: false }])
+"if .properties.flag.value != false { abort }"
+  => Ok([AbortBool { path: Prop("flag"), value: true }])
+"if .properties.flag.value { abort }"
+  => Ok([AbortBool { path: Prop("flag"), value: true }])
+".a = .key;;.b = .key"
+  => Err(Computes("empty statement"))
+"if .key > 3 { abort } else { abort }"
+  => Err(Computes("if body other than abort"))
+"if .key > 3 { abort: \"x\" }"
+  => Err(Computes("if body other than abort"))
+"if .key { .a = .key }"
+  => Err(Computes("if body other than abort"))
