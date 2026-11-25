@@ -219,7 +219,7 @@ the goal is built; do not propose it again.
   `run` only executes the kept program; the lanes come from `borrow_all`
   (`method.rs:229`).
 - Other callers of `borrow_all` / `borrow_all_present`: `quack-boundary-lab`,
-  `vrl-recipe-probe` (`lib.rs:420`), `xlog-coverage-probe/tests/group_by.rs`
+  `lance-graph-vrl` (`src/lib.rs:678`, formerly `vrl-recipe-probe`), `xlog-coverage-probe/tests/group_by.rs`
   (one `borrow_all`, one `GroupReduce`).
 - The owners that lend lanes today (`impl LaneSource`):
   `lance-graph-mailbox-lanes::MailboxLanes`, `lance-graph-report::AbiLanes`,

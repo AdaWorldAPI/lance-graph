@@ -1,3 +1,10 @@
+## 2026-11-25 — VRL migration finished: the lab moves into lance-graph-vrl (S0)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-vrl`: the reference interpreter (`interpret`, `interpret_present`, `Interpreted`, `Event`) is test support in `tests/common/interpreter.rs`, never part of the library; `tests/recipe.rs` (16), `presence.rs` (6), `alloc.rs` (2) and `r2il_parity.rs` (1) run as root-workspace tests, `lance-graph-r2il` a dev-dependency. `alloc.rs` counts only its measuring thread, so the 0-byte / 0-call check holds under parallel test threads.
+- `crates/vrl-recipe-probe` and `.github/workflows/vrl-recipe-probe.yml`: deleted.
+
 ## 2026-11-25 — measure law on PropertySpec; source profiles (D-RSP-3 declaration, D-RSP-2)
 
 ### Current Contract Inventory — net delta
@@ -31,7 +38,7 @@
 ### Current Contract Inventory — net delta
 
 - New crate `lance-graph-vrl` (workspace member; named for VRL so it is not read as a Magic Sets / crepe or NARS tactic recipe): `Recipe::{compile, terms, output_field, fields, outputs, prepare_count, prepare_sum, prepare_unknown, prepare_keep, run_into, n_rows, count, count_unknown, sum, materialize_rows}`, `Rows::{len, is_empty, names, positions, get, present}`, `Witness`, `Prepared`, `Cmp::holds`, `Refusal`, and the parser `parse` with `Path` / `Stmt` (now public). Moved unchanged from `vrl-recipe-probe` (D-VRL-RECIPE-0); depends on contract, dt64, mask-risc.
-- `vrl-recipe-probe` keeps only the reference interpreter (`interpret`, `interpret_present`, `Interpreted`, `Event`) and its parity tests, and re-exports the recipe core. 18 probe tests pass against the moved core.
+- ⊘ SUPERSEDED 2026-11-25 (S0 below): `vrl-recipe-probe` keeps only the reference interpreter (`interpret`, `interpret_present`, `Interpreted`, `Event`) and its parity tests, and re-exports the recipe core. 18 probe tests pass against the moved core.
 
 ## 2026-11-23 — identity[index] reads and law lanes (in PR #2160, not on main)
 

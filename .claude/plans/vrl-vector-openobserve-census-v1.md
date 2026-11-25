@@ -446,6 +446,8 @@ Second fixture: `ogar-flow-m365` and `ogar-az` observations (for example `accoun
 
 ### S0: Finish the vrl-recipe-probe migration
 
+**Status:** DONE 2026-11-25. Moved as written; 25 tests pass as root-workspace members (release, parallel threads), the absent-rule ablation turns `presence.rs` red, the lab and its workflow are deleted. S1 can land in `lance-graph-vrl`'s tests.
+
 - Goal: move what the lab still holds into `lance-graph-vrl`: the reference interpreter (`interpret`, `interpret_present`, `Interpreted`, `Event`, [lance-graph crates/vrl-recipe-probe/src/lib.rs](https://github.com/AdaWorldAPI/lance-graph/blob/f5e625f131ff0f39de3b3207cf7ae7cb92c23f04/crates/vrl-recipe-probe/src/lib.rs)) as test support (`tests/common/`), and `tests/recipe.rs`, `tests/presence.rs`, `tests/alloc.rs`, `tests/r2il_parity.rs` with `tests/common/mod.rs`. `lance-graph-r2il` becomes a dev-dependency (it is a workspace member, root `Cargo.toml:15`, so the probe's own `[patch]` for the contract is not needed). Then delete `crates/vrl-recipe-probe` and update the references to it (`.claude/board/STATUS_BOARD.md:105`, `LATEST_STATE.md:27`, `global-pattern-words-v1.md:86`, `d-qsp-classview-quack-postgresql-parity-v1.md:45`, `knowledge/exact-decimal-reconciliation.md:178`, `knowledge/classid-on-do-call-shape.md:222`).
 - Owner: lance-graph.
 - Acceptance: the same test count (16 + 6 + 2 + 1) passes as members of the root workspace; `cargo test --release --manifest-path crates/vrl-recipe-probe/Cargo.toml` no longer exists to run. The release-mode requirement of `tests/alloc.rs` (0 bytes, 0 calls) still holds under the workspace profile.
