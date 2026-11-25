@@ -1,0 +1,27 @@
+# Exact-decimal probe: a lab probe, NOT a workspace member, NOT a decimal
+# runtime and NOT a storage decision. A semantic reference for exact decimals
+# as a mathematical reading of an integer coefficient (value = coefficient x
+# 10^exponent), run on the existing i32 lane, DT64 witness, VRL recipes and
+# mask-risc folds. The destination is adaptive numerical binding through the
+# ISA register contract (ndarray #438); see
+# .claude/knowledge/exact-decimal-reconciliation.md. Run with
+#   cargo test --manifest-path crates/exact-decimal-probe/Cargo.toml
+[package]
+name = "exact-decimal-probe"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.99.0"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Exact decimals as coefficient x 10^exponent over the existing i32 lane, VRL recipes and mask-risc power sums; a semantic reference for ndarray #438, not a storage decision."
+
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-vrl = { path = "../lance-graph-vrl" }
+
+[dev-dependencies]
+lance-graph-intake = { path = "../lance-graph-intake" }
