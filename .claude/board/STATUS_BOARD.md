@@ -3643,7 +3643,7 @@ Plan: [adaptive-exact-decimal-binding-v1](../plans/adaptive-exact-decimal-bindin
 | D-AED-5 | Dispatch once per sealed slice; ns and bytes against the i32 path | In PR (partial) — `slice_count_sum_where`: literal resolved once per slice at its exponent, Count/Sum per extent, equal to the per-value oracle; per-slice runs 25–43 ns/64 lanes, dispatch cost below noise (`entries/2026-11-25-aed-5-per-slice-dispatch.md`). OPEN: PM9/PM17 kernels (ndarray #438) and the U8/U16 lane seam |
 | D-AED-6 | Real coefficient ranges and redundant zeros (workbooks, logs, telemetry) | Queued (needs real samples) |
 | D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | In PR — `detect_decimal` (coarsest exponent, range, width, `Lexical`) and `merge_decimal` (config wins, never rounds) in the probe; float artefacts refused with their reason (`entries/2026-11-25-aed-7-decimal-detection.md`). OPEN: production admission (D-LANESOCK), no numeric `PgType` in intake |
-| D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | Queued |
+| D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | In PR — `DecimalRecipe::compile_vrl` (decimal literals in VRL source, resolved at the field's exponent, no `f64`) and `sum`; equal to the oracle and to the structured path, exponent change refused (`entries/2026-11-25-aed-8-vrl-decimal-literals.md`). OPEN: Vector ingress (D-VRL-RECIPE-0); production admission (D-LANESOCK) |
 
 ### Registered source profiles (2026-11-25)
 
