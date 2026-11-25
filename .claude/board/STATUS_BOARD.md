@@ -3652,7 +3652,7 @@ Plan: [registered-source-profiles-v1](../plans/registered-source-profiles-v1.md)
 | D-id | Deliverable | Status |
 |---|---|---|
 | D-RSP-0 | Census and plan | In PR, docs only |
-| D-RSP-1 | Declared-and-validated intake path (skip detection on fully declared columns; `Verdict::Declared`, no manufactured agreement) | Queued |
+| D-RSP-1 | Declared-and-validated intake path (skip detection on fully declared columns; `Verdict::Declared`, no manufactured agreement) | In PR — `Shape::build` admits a fully declared column without `detect_column`; `detections()` counter; tests `declared_columns_are_not_detected_and_read_as_discovered`, `partly_configured_column_is_still_detected`, `declared_column_still_validates_every_cell` (disable run red) |
 | D-RSP-2 | Source-scoped IRIs supplied by the caller; one registered class across tenants (borrowed BindStore/ClassView, per-tenant frames and code tables) | Queued |
 | D-RSP-3 | Measure semantics: unit, temporal kind, lawful aggregation (PropertySpec declares vs MethodBinding enforces) | Queued (decision needed) |
 | D-RSP-4 | Meaning witness (version meaning by IRI) | Queued |
