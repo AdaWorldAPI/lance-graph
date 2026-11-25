@@ -491,3 +491,70 @@ fn a_prepared_filter_refuses_a_changed_exponent_on_the_same_witness() {
     // The VRL recipe alone would have run: the exponent is what refuses.
     assert!(r.recipe.count(&w).is_ok());
 }
+
+/// Rows with values, established zeros and absent cells, cut into slices at
+/// unaligned boundaries, one slice empty: the bounds-based passes against
+/// the slice-id-lane pass of #2182.
+fn sliced_rows() -> (Vec<i32>, Vec<u64>, Vec<usize>) {
+    let n = 1000;
+    let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut coef = Vec::with_capacity(n);
+    let mut plane = vec![0u64; words_for(n)];
+    for i in 0..n {
+        x = x
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        let r = (x >> 33) as i64;
+        let (c, present) = match r % 5 {
+            0 => (0, false),
+            1 => (0, true),
+            _ => ((r % 200_001 - 100_000) as i32, true),
+        };
+        coef.push(c);
+        if present {
+            plane[i / 64] |= 1 << (i % 64);
+        }
+    }
+    (coef, plane, vec![0, 3, 130, 130, 517, 999, 1000])
+}
+
+/// FAILS IF: N, S or Q of any slice taken by its boundaries differs from
+/// the grouped pass keyed by a slice-id lane, an empty slice is not empty,
+/// or a boundary inside a word leaks rows across slices.
+#[test]
+fn slice_boundaries_equal_the_slice_id_lane() {
+    let (coef, plane, bounds) = sliced_rows();
+    let mut slice_of = Vec::with_capacity(coef.len());
+    for (k, w) in bounds.windows(2).enumerate() {
+        slice_of.extend(std::iter::repeat_n(k as u32, w[1] - w[0]));
+    }
+    let slices = bounds.len() - 1;
+    let want = slice_sums(&coef, &plane, &slice_of, slices).unwrap();
+    assert!(
+        want.iter().filter(|s| s.n > 0).count() >= 4,
+        "non-trivial slices"
+    );
+    assert_eq!(want[2].n, 0, "the empty slice");
+
+    let zeros = vec![0u32; coef.len()];
+    let got = slice_sums_by_bounds(&coef, &plane, &bounds, &zeros).unwrap();
+    assert_eq!(got, want);
+    let ns = slice_counts_sums(&coef, &plane, &bounds).unwrap();
+    let want_ns: Vec<(u64, i64)> = want.iter().map(|s| (s.n, s.sum)).collect();
+    assert_eq!(ns, want_ns);
+}
+
+/// FAILS IF: boundaries that do not start at 0, end at the row count, or
+/// that decrease are accepted.
+#[test]
+fn slice_boundaries_out_of_order_are_refused() {
+    let (coef, plane, _) = sliced_rows();
+    let zeros = vec![0u32; coef.len()];
+    for bad in [vec![1, 1000], vec![0, 999], vec![0, 500, 400, 1000], vec![]] {
+        assert!(slice_counts_sums(&coef, &plane, &bad).is_err(), "{bad:?}");
+        assert!(
+            slice_sums_by_bounds(&coef, &plane, &bad, &zeros).is_err(),
+            "{bad:?}"
+        );
+    }
+}
