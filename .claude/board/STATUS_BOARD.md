@@ -3642,7 +3642,7 @@ Plan: [adaptive-exact-decimal-binding-v1](../plans/adaptive-exact-decimal-bindin
 | D-AED-4 | Promotion, finer resolution, demotion: reseal vs append a slice | Queued |
 | D-AED-5 | Dispatch once per sealed slice; ns and bytes against the i32 path | Queued |
 | D-AED-6 | Real coefficient ranges and redundant zeros (workbooks, logs, telemetry) | Queued (needs real samples) |
-| D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | Queued |
+| D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | In PR — `detect_decimal` (coarsest exponent, range, width, `Lexical`) and `merge_decimal` (config wins, never rounds) in the probe; float artefacts refused with their reason (`entries/2026-11-25-aed-7-decimal-detection.md`). OPEN: production admission (D-LANESOCK), no numeric `PgType` in intake |
 | D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | Queued |
 
 ### Registered source profiles (2026-11-25)
