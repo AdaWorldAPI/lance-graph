@@ -1,0 +1,249 @@
+del(
+%%%%
+if .key == 1 { abort }
+%%%%
+if .key == 1 { abort
+%%%%
+if .key == 1 { abort }}
+%%%%
+.o{i} = .properties.f{i}.value
+%%%%
+.id = .key
+del(.id)
+%%%%
+.id = .key
+%%%%
+.k = .key
+if .properties.cpu.value > 3 { abort }
+%%%%
+.k = .key + 1
+%%%%
+.k = no_such_fn(.key)
+%%%%
+.n = .key
+.a = .properties.amount.value
+if .properties.status.value != 1 { abort }
+%%%%
+.name = .key
+.amount = .properties.amount.value
+%%%%
+.name = .key
+.amount = .properties.amount.value
+if .properties.status.value != 2 { abort }
+%%%%
+.id = .key
+if .properties.region.value == 0 { abort }
+if .properties.status.value == 3 { abort }
+%%%%
+.orig = .key
+.key = .properties.region.value
+.reg = .key
+if .key != 1 { abort }
+%%%%
+.a = .key; .b = .properties.amount.value; del(.a)
+%%%%
+.a = .properties.status.value; del(.key); if .a == 0 { abort }
+%%%%
+.s = .properties.status.value
+.amt = .properties.amount.value
+if .s != 1 { abort }
+%%%%
+.id = .key
+if .key < 1010 { abort }
+if .key >= 1050 { abort }
+%%%%
+.a = .properties.amount.value
+if .a <= 0 { abort }
+if .properties.status.value > 1 { abort }
+%%%%
+.r = .properties.region.value
+if .r < 1 { abort }
+if .r >= 2 { abort }
+%%%%
+.n = .key
+.a = .properties.amount.value
+%%%%
+.a = .properties.amount.value
+if .a < 0 { abort }
+%%%%
+.a = .properties.amount.value
+if .properties.status.value != 2 { abort }
+%%%%
+.a = .properties.amount.value
+if .properties.region.value == 0 { abort }
+if .a >= 200 { abort }
+%%%%
+.r = .properties.region.value
+.a = .properties.amount.value
+if .properties.status.value > 2 { abort }
+if .a <= 10 { abort }
+if .r != 1 { abort }
+%%%%
+.id = .properties.id.value
+.region = .properties.region.value
+.qty = .properties.qty.value
+%%%%
+.region = .properties.region.value
+%%%%
+.q = .properties.qty.value
+if .properties.qty.value < 0 { abort }
+%%%%
+.q = .properties.qty.value
+%%%%
+.r = .properties.region.value
+if .properties.region.value == 1 { abort }
+%%%%
+.r = .properties.region.value
+%%%%
+.r = .properties.region.value
+
+%%%%
+.r = .properties.region.value
+if .r < "m" { abort }
+%%%%
+.r = .properties.region.value
+if .r == "north" { abort }
+%%%%
+.q = .properties.qty.value
+if .q == "10" { abort }
+%%%%
+.r = .properties.region.value
+if .r == "west" { abort }
+%%%%
+.n = .properties.note.value
+
+%%%%
+if .n != "" { abort }
+%%%%
+if .n == "" { abort }
+%%%%
+.e = .properties.enabled.value
+if {cond} {{ abort }}
+%%%%
+.e == false
+%%%%
+.e != true
+%%%%
+.e = .properties.enabled.value
+%%%%
+.a = .properties.amount.value
+if .a < 3 { abort }
+%%%%
+.a = .properties.amount.value
+if .a < 3 { abort }
+if .properties.status.value > 1 { abort }
+%%%%
+.a = .properties.amount.value
+if .a > 0 { abort }
+%%%%
+.a = .properties.amount.value
+%%%%
+.n = .key
+%%%%
+.a = .properties.amount.value
+if .a == 7 { abort }
+%%%%
+.a = .properties.amount.value
+if .a <= 120 { abort }
+%%%%
+.a = .properties.amount.value
+if .a > 300 { abort }
+%%%%
+.a = .properties.amount.value
+if .a >= -50 { abort }
+%%%%
+.a = .properties.amount.value
+if .key < 1010 { abort }
+if .key >= 1050 { abort }
+%%%%
+.a = .properties.amount.value
+if .properties.region.value == 0 { abort }
+if .properties.status.value > 2 { abort }
+if .a <= 10 { abort }
+%%%%
+.n = .key
+if .properties.region.value == 1 { abort }
+%%%%
+.a = parse_json(.key)
+%%%%
+.t = now()
+%%%%
+.a = .key + 1
+%%%%
+.a = "x"
+%%%%
+.a = 5
+%%%%
+if .key =~ 3 { abort }
+%%%%
+if .key > 3 && .key < 9 { abort }
+%%%%
+if .key == 3 { .a = .key }
+%%%%
+if body other than abort
+%%%%
+.properties.x.value = .key
+%%%%
+.a = .nope
+%%%%
+.a = .properties.nope.value
+%%%%
+del(.nope)
+%%%%
+.c = .properties.code.value
+if .properties.code.value == 1 { abort }
+%%%%
+.c = .properties.code.value
+%%%%
+.o0 = .key
+
+%%%%
+.o{i} = .properties.f{i}.value
+
+%%%%
+.a = .properties.amount.value
+if .a {op} 0 {{ abort }}
+%%%%
+.n = .key
+if .key >= 0 { abort }
+%%%%
+.n = .key
+if .key < 0 { abort }
+%%%%
+.p = .properties.price.value
+%%%%
+.p = .properties.amount.value
+%%%%
+.a = .key
+.b = .properties.amount.value
+%%%%
+.a = .properties.amount.value
+.b = .key
+%%%%
+# a comment
+.n = .key
+
+.a = .properties.amount.value  # trailing
+%%%%
+.a=.key
+if .a<3{abort}
+%%%%
+if .properties.title.value == "a;b" { abort }
+%%%%
+if .properties.title.value == "x#y" { abort }
+%%%%
+if .key > -5 { abort }
+%%%%
+if !.properties.flag.value { abort }
+%%%%
+if .properties.flag.value != false { abort }
+%%%%
+if .properties.flag.value { abort }
+%%%%
+.a = .key;;.b = .key
+%%%%
+if .key > 3 { abort } else { abort }
+%%%%
+if .key > 3 { abort: "x" }
+%%%%
+if .key { .a = .key }
