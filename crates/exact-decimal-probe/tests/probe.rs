@@ -1341,3 +1341,38 @@ fn a_vrl_decimal_literal_equals_the_oracle_and_is_witnessed() {
     )
     .is_err());
 }
+
+/// FAILS IF: a decimal comparison through an alias of an alias falls back
+/// to plain VRL, or a comparison extracted before the alias is reassigned
+/// or deleted filters another field (codex on #2193).
+#[test]
+fn vrl_decimal_filters_follow_aliases_and_keep_their_field() {
+    let (t, iri) = table();
+    let w = witness(&t);
+    let exps = Declared(BTreeMap::from([(iri.clone(), Exp::scale(2))]));
+    // 123.45 >= 2 drops; 0.00, -0.50 and 1.20 stay.
+    let chained = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.b = .a\nif .b >= 2 { abort }",
+        &exps,
+    );
+    assert_eq!(chained.count(&w, &exps).unwrap(), 3);
+    let fractional = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.b = .a\nif .b >= 1.205 { abort }",
+        &exps,
+    );
+    assert_eq!(fractional.count(&w, &exps).unwrap(), 3);
+    let reassigned = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .a >= 1.205 { abort }\n.a = .properties.id.value",
+        &exps,
+    );
+    assert_eq!(reassigned.count(&w, &exps).unwrap(), 3);
+    let deleted = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.k = .properties.id.value\nif .a >= 1.205 { abort }\ndel(.a)",
+        &exps,
+    );
+    assert_eq!(deleted.count(&w, &exps).unwrap(), 3);
+}

@@ -962,18 +962,29 @@ impl DecimalRecipe {
                         ">=" => Some(Op::Ge),
                         _ => None,
                     };
-                    if let (Some(iri), Some(op)) = (iri, op) {
+                    if let (Some(label), Some(iri), Some(op)) = (label, iri, op) {
                         if exps.exp_of(&iri).is_some() && !literal.starts_with('"') {
-                            decimal.push((path.to_string(), iri, op, literal.to_string()));
+                            // The filter reads the field itself, not the
+                            // alias: it moves after the projection, where
+                            // the alias may have been reassigned or deleted.
+                            let field = format!(".properties.{label}.value");
+                            decimal.push((field, iri, op, literal.to_string()));
                             continue;
                         }
                     }
                 }
             }
-            if let Some((lhs, rhs)) = stmt.split_once('=') {
-                if let Some(label) = label_of_prop(rhs.trim()) {
-                    aliases.insert(lhs.trim().to_owned(), label);
-                }
+            if let Some(name) = stmt.strip_prefix("del(").and_then(|r| r.strip_suffix(')')) {
+                aliases.remove(name.trim());
+            } else if let Some((lhs, rhs)) = stmt.split_once('=') {
+                // An alias of an alias names the same field; any other
+                // right-hand side ends the binding.
+                let rhs = rhs.trim();
+                let label = label_of_prop(rhs).or_else(|| aliases.get(rhs).cloned());
+                match label {
+                    Some(label) => aliases.insert(lhs.trim().to_owned(), label),
+                    None => aliases.remove(lhs.trim()),
+                };
             }
             if !stmt.is_empty() {
                 projection.push(stmt);
