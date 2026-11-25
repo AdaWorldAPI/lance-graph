@@ -150,3 +150,20 @@ OPEN, and it is a grammar decision: `LaneWidth` is fixed per class at compile
 time, while an adaptive width is a property of a frame or tile. Either the
 width moves into what the frame seals, or `LaneWidth` grows variants that
 ClassView declares per revision. No second type system either way.
+
+## 2026-11-25 — mask-risc has the byte operand (EXO-401)
+
+Closes the first wiring row above. `LaneRef::U8` plus `Pred::EqU8` / `Pred::NeU8`
+(`ndarray::simd::{eq_u8_to_mask, ne_u8_to_mask}`; gated by AND with the gate,
+because there is no `_under` byte word). With the polarity plane as a mask:
+
+- established values `S ∧ (P ∨ ¬Z)`: `NeU8 { v: 0 }`, `Or P`, `And S`, `Count`;
+- hydration demand `S ∧ ¬P ∧ Z`: `AndNot(S, P)`, then `EqU8 { v: 0 }` under it.
+
+`tests/differential.rs` runs both against a codeword oracle over 64K rows in
+which all 512 codewords occur, and against the reference executor. The three
+byte predicates joined the every-predicate sweep, gated and ungated. A disable
+run that drops the gate turns 2 tests red.
+
+Still OPEN: no source lends a Codec9 field yet, and `PresenceIsSign` stays
+until one does; the in-row orientation question is unchanged.

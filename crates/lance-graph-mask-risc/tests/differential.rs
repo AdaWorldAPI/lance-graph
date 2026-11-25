@@ -678,7 +678,7 @@ fn codec9_present_and_absent_counts_match_the_codeword_oracle() {
     let mut sel = vec![0u64; words_for(n)];
     for (i, &c) in codes.iter().enumerate() {
         pos[i / 64] |= u64::from(c >> 8 & 1) << (i % 64);
-        sel[i / 64] |= u64::from(lcg(&mut s) % 3 != 0) << (i % 64);
+        sel[i / 64] |= u64::from(!lcg(&mut s).is_multiple_of(3)) << (i % 64);
     }
     let picked = |i: usize| sel[i / 64] >> (i % 64) & 1 == 1;
     let want_present = (0..n).filter(|&i| picked(i) && codes[i] != 0).count();
