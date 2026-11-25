@@ -8,6 +8,7 @@ use lance_graph_intake::{ColumnConfig, ShapeConfig, Table};
 use lance_graph_mask_risc::{words_for, Out};
 use lance_graph_vrl::{Recipe, Witness};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 /// `"1.20"` and `"1.2"` are one number; trailing zeros of an integer are a
 /// coarser exponent; a negative zero is the established zero.
@@ -960,5 +961,185 @@ fn a_recipe_is_refused_under_a_moved_width_exponent_or_frame() {
         again.count(&witness(&t), &wider).unwrap(),
         3,
         "7.00 and 70000.00 drop"
+    );
+}
+
+/// Batches that trigger each D-AED-4 event in turn: a plain batch, one
+/// whose value leaves PM9 (wider), one with a finer exponent, one that is
+/// all absent, and one that is coarse again.
+fn event_batches() -> Vec<Vec<Option<&'static str>>> {
+    vec![
+        vec![Some("1.25"), None, Some("-0.50"), Some("2.00")],
+        vec![Some("300.75"), Some("0.01")],
+        vec![Some("0.125"), Some("-1.5")],
+        vec![None, None],
+        vec![Some("4"), Some("10")],
+    ]
+}
+
+/// N, S, Q of every value written so far, read directly at `exp`.
+fn written_sums(batches: &[Vec<Option<&str>>], exp: Exp) -> (u64, i128, u128) {
+    let all: Vec<i128> = batches
+        .iter()
+        .flatten()
+        .flatten()
+        .map(|t| i128::from(parse_exact(t, exp).unwrap()))
+        .collect();
+    let s = all.iter().sum();
+    let q = all.iter().map(|c| (c * c) as u128).sum();
+    (all.len() as u64, s, q)
+}
+
+/// FAILS IF: under either policy, after any event, the aggregates aligned
+/// per slice differ from the values read directly, a value is lost or
+/// reordered, or a policy produces the other's slice shape.
+#[test]
+fn every_event_stays_exact_under_both_policies() {
+    let batches = event_batches();
+    for policy in [Policy::Reseal, Policy::Append] {
+        let mut log = SliceLog::new(policy, Exp::scale(3));
+        let mut events = Vec::new();
+        for (k, b) in batches.iter().enumerate() {
+            events.push(log.append(b).unwrap());
+            let c = log.combined().unwrap();
+            assert_eq!(
+                (c.n, c.s, c.q),
+                written_sums(&batches[..=k], c.exp),
+                "{policy:?} after batch {k}"
+            );
+        }
+        let values: Vec<Option<String>> = log
+            .slices()
+            .iter()
+            .flat_map(|p| {
+                (0..p.len).map(move |i| p.get(i).map(|c| format(i64::from(c), p.exp, 3).unwrap()))
+            })
+            .collect();
+        let want: Vec<Option<String>> = batches
+            .iter()
+            .flatten()
+            .map(|t| {
+                t.map(|t| {
+                    format(
+                        i64::from(parse_exact(t, Exp::scale(3)).unwrap()),
+                        Exp::scale(3),
+                        3,
+                    )
+                    .unwrap()
+                })
+            })
+            .collect();
+        assert_eq!(values, want, "{policy:?}: identity order");
+        match policy {
+            Policy::Reseal => {
+                assert_eq!(log.slices().len(), 1);
+                assert_eq!(
+                    events[1],
+                    Event::Resealed {
+                        wider: true,
+                        finer: false
+                    }
+                );
+                assert_eq!(
+                    events[2],
+                    // 300.75 at scale 3 is 300750: finer resolution widens too.
+                    Event::Resealed {
+                        wider: true,
+                        finer: true
+                    }
+                );
+                assert!(log.rewritten > 0);
+            }
+            Policy::Append => {
+                assert_eq!(log.slices().len(), batches.len());
+                assert_eq!(log.rewritten, 0, "sealed slices are never rewritten");
+            }
+        }
+    }
+}
+
+/// FAILS IF: a reseal rewrites a slice a reader still holds, or the reader
+/// sees its slice change; the write must land in a new slice instead.
+#[test]
+fn a_witnessed_slice_is_never_rewritten() {
+    let mut log = SliceLog::new(Policy::Reseal, Exp::scale(2));
+    log.append(&[Some("1.00"), Some("2.00")]).unwrap();
+    let held = log.pin(0);
+    let before = (*held).clone();
+    assert_eq!(
+        log.append(&[Some("3.50")]).unwrap(),
+        Event::NewSlice { witnessed: true }
+    );
+    assert!(Arc::ptr_eq(&held, &log.slices()[0]));
+    assert_eq!(*held, before);
+    let c = log.combined().unwrap();
+    assert_eq!((c.s, c.exp), (65, Exp::scale(1)), "1 + 2 + 3.5 at scale 1");
+    assert_eq!(log.compact(), Err(LogRefusal::Witnessed { k: 0 }));
+    drop(held);
+    // Released, the tail is resealed again: 3.5 and 0.25 at scale 2 are
+    // 350 and 25, past PM9.
+    assert_eq!(
+        log.append(&[Some("0.25")]).unwrap(),
+        Event::Resealed {
+            wider: true,
+            finer: true
+        }
+    );
+    assert_eq!(log.slices().len(), 2);
+}
+
+/// FAILS IF: a lane-wise Abakus addition that carries does not promote the
+/// slice to the width its exact sum needs, one that does not carry
+/// promotes, or a carried lane is not its exact sum.
+#[test]
+fn an_abakus_carry_promotes_the_slice() {
+    let s0 = Exp(0);
+    let slice = |v: &[Option<&str>]| PhysicalSlice::store(&seal(v, s0).unwrap());
+    let mut log = SliceLog::new(Policy::Reseal, s0);
+    log.append(&[Some("200"), Some("-5"), None, Some("0")])
+        .unwrap();
+    let small = slice(&[Some("50"), Some("5"), None, Some("1")]);
+    assert_eq!(log.add_into(0, &small), Ok(false));
+    assert_eq!(log.slices()[0].width(), "PM9");
+    let big = slice(&[Some("100"), Some("-1"), Some("3"), None]);
+    assert_eq!(log.add_into(0, &big), Ok(true), "250 + 100 leaves PM9");
+    let p = &log.slices()[0];
+    assert_eq!(p.width(), "PM17");
+    let got: Vec<Option<i32>> = (0..p.len).map(|i| p.get(i)).collect();
+    assert_eq!(got, [Some(350), Some(-1), Some(3), Some(1)]);
+    let held = log.pin(0);
+    assert_eq!(log.add_into(0, &big), Err(LogRefusal::Witnessed { k: 0 }));
+    drop(held);
+}
+
+/// FAILS IF: compaction does not demote to the coarsest exponent and the
+/// narrowest width that hold every value, or changes an aggregate.
+#[test]
+fn compaction_demotes_to_the_smallest_lawful_slice() {
+    let mut log = SliceLog::new(Policy::Append, Exp::scale(2));
+    log.append(&[Some("100.00"), Some("70000")]).unwrap();
+    log.append(&[Some("-20.50")]).unwrap();
+    let before = log.combined().unwrap();
+    log.append(&[None]).unwrap();
+    // Remove the value that needs the width, then compact.
+    let mut demote = SliceLog::new(Policy::Append, Exp::scale(2));
+    demote.append(&[Some("100.00"), Some("30")]).unwrap();
+    demote.append(&[Some("-20.50"), None]).unwrap();
+    demote.compact().unwrap();
+    let p = &demote.slices()[0];
+    assert_eq!(demote.slices().len(), 1);
+    assert_eq!((p.exp, p.width()), (Exp::scale(1), "PM17"));
+    let whole = {
+        let mut l = SliceLog::new(Policy::Append, Exp::scale(2));
+        l.append(&[Some("100"), Some("30"), Some("-20")]).unwrap();
+        l.compact().unwrap();
+        (l.slices()[0].exp, l.slices()[0].width())
+    };
+    assert_eq!(whole, (Exp(1), "PM9"), "tens demote to exponent 1 and PM9");
+    log.compact().unwrap();
+    let after = log.combined().unwrap();
+    assert_eq!(
+        (after.n, after.s, after.q, after.exp),
+        (before.n, before.s, before.q, before.exp)
     );
 }
