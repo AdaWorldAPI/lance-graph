@@ -462,6 +462,8 @@ Second fixture: `ogar-flow-m365` and `ogar-az` observations (for example `accoun
 - Ablation: swap Gt for Ge in the lowering, which must turn red. Drop the `ExternalEnv` typing, so every order compare is refused with E100, which must turn red.
 - Not in scope: any change to `lance-graph-vrl`'s library code.
 
+**Status:** In PR 2026-11-25. `tests/upstream.rs` with optional features `upstream-vector` (7738f74) and `upstream-o2` (0.31.0 at 4d61e53) on the AdaWorldAPI fork, and the manual workflow `vrl-upstream-diff.yml`. Present lanes agree row by row. 210 presence rows diverge in four pinned classes, identical on both pins; one class (Drop → Unknown: upstream fails at the first erroring order compare) is not about `==`/`!=`. Both ablations were run red. Entry `entries/2026-11-25-vrl-s1-upstream-differential.md`.
+
 ### S2: Upstream admission gate
 
 - Goal: in `lance-graph-vrl`, feature-gated: a program is admitted only if upstream typed compile succeeds and the lowering succeeds. `Refusal` carries the upstream E-code.
