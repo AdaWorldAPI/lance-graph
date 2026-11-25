@@ -471,6 +471,8 @@ Second fixture: `ogar-flow-m365` and `ogar-az` observations (for example `accoun
 - Ablation: mutate one AST mapping, which must turn the corpus diff red.
 - Not in scope: new constructs.
 
+**Status:** In PR 2026-11-25, polyfill flavour (operator: the polyfill serves the internal mapping; it lowers to the low-code BindStore surface without upstream `vrl`). The split-based parser is replaced by a lexer. The 92-program corpus is pinned (3 lexical fixes; `;;` refused as upstream refuses it), and `tests/parser_oracle` lowers upstream's AST to identical `Stmt` for every accepted program on both pins. Both ablations were run red. Entry `entries/2026-11-25-vrl-s3-polyfill-parser.md`.
+
 ### S4: NDJSON intake route, event-id dedup, schema_rev, ack mapping
 
 - Goal: the receiver of section 5.

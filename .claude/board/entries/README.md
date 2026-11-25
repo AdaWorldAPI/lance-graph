@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-699 entries, 2026-08-06 .. 2026-11-25.
+700 entries, 2026-08-06 .. 2026-11-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-25 | `vrl-s3-polyfill-parser` |  | [2026-11-25-vrl-s3-polyfill-parser.md](2026-11-25-vrl-s3-polyfill-parser.md) |
 | 2026-11-25 | `vrl-s2-admission-gate` |  | [2026-11-25-vrl-s2-admission-gate.md](2026-11-25-vrl-s2-admission-gate.md) |
 | 2026-11-25 | `vrl-s1-upstream-differential` |  | [2026-11-25-vrl-s1-upstream-differential.md](2026-11-25-vrl-s1-upstream-differential.md) |
 | 2026-11-25 | `D-VEC-GLUE-1` |  | [2026-11-25-vector-in-process-handoff.md](2026-11-25-vector-in-process-handoff.md) |
