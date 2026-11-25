@@ -893,28 +893,44 @@ impl<'s> View<'s> {
         })
     }
 
+    /// The location of an existing node in this version: `None` when the
+    /// node does not exist here, `Some(None)` when it has no location. The
+    /// same read [`Self::node_state`] makes for its `dn`, without the rest.
+    pub fn location(&self, g: &Guid128) -> Option<Option<Dn128>> {
+        let slot = self.locate(g)?;
+        Some(self.slot_dn(slot))
+    }
+    fn slot_dn(&self, (kind, i): Slot) -> Option<Dn128> {
+        let (p, o) = self.pop(kind);
+        if i < p.len() {
+            match o.dn.get(&(i as u16)) {
+                Some(&dn) => dn,
+                None => p.dn_of(i),
+            }
+        } else {
+            o.created.dn[i - p.len()]
+        }
+    }
+
     /// The canonical semantic state of an existing node — ids only.
     pub fn node_state(&self, g: &Guid128) -> Option<NodeState> {
         let (kind, i) = self.locate(g)?;
         let (p, o) = self.pop(kind);
-        let (active, dn, recipient) = if i < p.len() {
+        let dn = self.slot_dn((kind, i));
+        let (active, recipient) = if i < p.len() {
             let o16 = i as u16;
             let active = match o.active.get(&o16) {
                 Some(&flag) => flag,
                 None => base_active_of(p, kind, i),
             };
-            let dn = match o.dn.get(&o16) {
-                Some(&dn) => dn,
-                None => p.dn_of(i),
-            };
             let recipient = match o.recipient.get(&o16) {
                 Some(&r) => r,
                 None => p.recipient_of(i),
             };
-            (active, dn, recipient)
+            (active, recipient)
         } else {
             let j = i - p.len();
-            (o.created.active[j], o.created.dn[j], o.created.recipient[j])
+            (o.created.active[j], o.created.recipient[j])
         };
         Some(NodeState {
             kind,
