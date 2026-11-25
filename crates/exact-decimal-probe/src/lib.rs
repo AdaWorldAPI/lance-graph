@@ -35,8 +35,11 @@ use lance_graph_vrl::{Prepared, Recipe, Witness};
 pub struct Exp(pub i8);
 
 impl Exp {
+    /// Scale `s` as an exponent. Scales above 128 have no `i8` exponent
+    /// and panic: an exponent is always the negated scale, never wrapped.
     pub fn scale(s: u8) -> Exp {
-        Exp(-(s as i8))
+        let e = i8::try_from(-i16::from(s)).expect("a scale above 128 has no i8 exponent");
+        Exp(e)
     }
 }
 
@@ -207,32 +210,35 @@ pub fn format(coefficient: i64, exp: Exp, digits: u8) -> Result<String, DecimalR
         exp,
         digits,
     };
-    let neg = coefficient < 0;
-    let mag = coefficient.unsigned_abs() as u128;
-    let d = u32::from(digits);
-    // The value in units of 10^-digits.
-    let units = if exp.0 >= 0 {
-        mag.checked_mul(10u128.pow(exp.0 as u32 + d))
-            .ok_or_else(refuse)?
-    } else {
-        let finer = (-(exp.0 as i32)) as u32;
-        if finer > d {
-            let div = 10u128.pow(finer - d);
-            if !mag.is_multiple_of(div) {
-                return Err(refuse());
-            }
-            mag / div
-        } else {
-            mag * 10u128.pow(d - finer)
+    let d = usize::from(digits);
+    // Place the point and pad with characters: no power of ten is computed,
+    // so no presentation precision can overflow.
+    let mag = coefficient.unsigned_abs().to_string();
+    let (int, frac) = if exp.0 >= 0 {
+        let mut int = mag;
+        if int != "0" {
+            int.push_str(&"0".repeat(exp.0 as usize));
         }
+        (int, String::new())
+    } else {
+        let f = usize::from(exp.0.unsigned_abs());
+        let padded = format!("{mag:0>width$}", width = f + 1);
+        let (i, fr) = padded.split_at(padded.len() - f);
+        (i.to_string(), fr.to_string())
     };
-    let p = 10u128.pow(d);
-    let (int, frac) = (units / p, units % p);
-    let sign = if neg && units != 0 { "-" } else { "" };
+    let frac = if frac.len() > d {
+        if frac[d..].bytes().any(|b| b != b'0') {
+            return Err(refuse());
+        }
+        frac[..d].to_string()
+    } else {
+        format!("{frac:0<d$}")
+    };
+    let sign = if coefficient < 0 { "-" } else { "" };
     Ok(if d == 0 {
         format!("{sign}{int}")
     } else {
-        format!("{sign}{int}.{frac:0width$}", width = d as usize)
+        format!("{sign}{int}.{frac}")
     })
 }
 
@@ -388,11 +394,19 @@ pub fn combine(slices: &[SliceStats]) -> Result<Combined, DecimalRefusal> {
         if k > 0 {
             out.alignments += 1;
         }
-        let s = shift(i128::from(sl.sums.sum), k).ok_or(DecimalRefusal::AlignmentOverflow)?;
-        let q = 10u128
-            .checked_pow(2 * k)
-            .and_then(|p| sl.sums.sum_sq.checked_mul(p))
-            .ok_or(DecimalRefusal::AlignmentOverflow)?;
+        // A zero aggregate stays zero at any exponent: no factor is needed,
+        // so none can overflow.
+        let s = match sl.sums.sum {
+            0 => 0,
+            v => shift(i128::from(v), k).ok_or(DecimalRefusal::AlignmentOverflow)?,
+        };
+        let q = match sl.sums.sum_sq {
+            0 => 0,
+            v => 10u128
+                .checked_pow(2 * k)
+                .and_then(|p| v.checked_mul(p))
+                .ok_or(DecimalRefusal::AlignmentOverflow)?,
+        };
         out.n += sl.sums.n;
         out.s = out
             .s
@@ -499,7 +513,13 @@ pub fn threshold(op: Op, literal: &str, exp: Exp) -> Result<Threshold, DecimalRe
     };
     let exact = num % den == 0;
     let floor = num.div_euclid(den);
-    let ceil = if exact { floor } else { floor + 1 };
+    // Saturating: a bound at the edge of i128 is far outside i32, where
+    // `lt` and `gt` already decide, so saturation cannot change an answer.
+    let ceil = if exact {
+        floor
+    } else {
+        floor.saturating_add(1)
+    };
     let lo = i128::from(i32::MIN);
     let hi = i128::from(i32::MAX);
     // `c < t` over i32 coefficients, with `t` possibly out of range.
@@ -533,11 +553,11 @@ pub fn threshold(op: Op, literal: &str, exp: Exp) -> Result<Threshold, DecimalRe
         // x < L  ⇔  c < ceil(L)
         Op::Lt => lt(ceil),
         // x <= L ⇔  c < floor(L) + 1
-        Op::Le => lt(floor + 1),
+        Op::Le => lt(floor.saturating_add(1)),
         // x > L  ⇔  c > floor(L)
         Op::Gt => gt(floor),
         // x >= L ⇔  c > ceil(L) − 1
-        Op::Ge => gt(ceil - 1),
+        Op::Ge => gt(ceil.saturating_sub(1)),
     })
 }
 
@@ -702,5 +722,77 @@ impl DecimalRecipe {
     {
         self.check(exps)?;
         self.recipe.count_unknown(w).map_err(RecipeRefusal::Recipe)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scale_128_is_the_finest_exponent_and_never_positive() {
+        assert_eq!(Exp::scale(0), Exp(0));
+        assert_eq!(Exp::scale(2), Exp(-2));
+        assert_eq!(Exp::scale(128), Exp(-128));
+        assert!(std::panic::catch_unwind(|| Exp::scale(129)).is_err());
+    }
+
+    #[test]
+    fn format_pads_any_precision_without_overflow() {
+        assert_eq!(
+            format(1, Exp(0), 39).unwrap(),
+            format!("1.{}", "0".repeat(39))
+        );
+        assert_eq!(
+            format(1, Exp(-128), 128).unwrap(),
+            format!("0.{}1", "0".repeat(127))
+        );
+        assert_eq!(format(i64::MIN, Exp(0), 0).unwrap(), "-9223372036854775808");
+        assert_eq!(
+            format(7, Exp(120), 0).unwrap(),
+            format!("7{}", "0".repeat(120))
+        );
+        assert!(matches!(
+            format(1, Exp(-128), 127),
+            Err(DecimalRefusal::PresentationCuts { .. })
+        ));
+        assert_eq!(format(0, Exp(5), 2).unwrap(), "0.00");
+    }
+
+    #[test]
+    fn a_zero_aggregate_aligns_to_any_exponent() {
+        let zero = SliceStats {
+            exp: Exp(0),
+            sums: PowerSums {
+                n: 1,
+                sum: 0,
+                sum_sq: 0,
+            },
+        };
+        let fine = SliceStats {
+            exp: Exp(-20),
+            sums: PowerSums {
+                n: 1,
+                sum: 1,
+                sum_sq: 1,
+            },
+        };
+        let c = combine(&[zero, fine]).unwrap();
+        assert_eq!((c.n, c.s, c.q, c.exp), (2, 1, 1, Exp(-20)));
+    }
+
+    #[test]
+    fn a_threshold_at_the_edge_of_i128_does_not_overflow() {
+        let max = i128::MAX.to_string();
+        let min = (-i128::MAX).to_string();
+        // One past: no i128 magnitude, refused rather than wrapped.
+        assert!(matches!(
+            threshold(Op::Ge, &i128::MIN.to_string(), Exp(0)),
+            Err(DecimalRefusal::Overflow { .. })
+        ));
+        assert_eq!(threshold(Op::Le, &max, Exp(0)), Ok(Threshold::EveryValue));
+        assert_eq!(threshold(Op::Lt, &max, Exp(0)), Ok(Threshold::EveryValue));
+        assert_eq!(threshold(Op::Ge, &min, Exp(0)), Ok(Threshold::EveryValue));
+        assert_eq!(threshold(Op::Gt, &max, Exp(0)), Ok(Threshold::Never));
     }
 }
