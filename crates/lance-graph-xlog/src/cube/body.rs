@@ -12,6 +12,13 @@
 //!   depend on it (a disable run removing it stays green); it keeps the walk
 //!   from visiting positions with no row in that column.
 //!
+//! A [`Restrict`] (EXO-457) is the semijoin with a one-column relation:
+//! `v ∈ set`, where `set` is a [`SetExpr`] evaluated inside the terminal,
+//! under the frame check, like every other read. It is ANDed into `v`'s
+//! column projection before the walk is planned. Unlike the atoms' column
+//! projections it does change the answer, which it may because every
+//! candidate set starts from the projection. No row is decoded for it.
+//!
 //! Every atom is therefore checked exactly when its later variable is bound,
 //! which is what lets a cyclic body close: `e3(X, Z)` is applied to `Z`'s
 //! candidates under the `X` already bound, so the walk does not lose the
@@ -32,7 +39,7 @@
 use lance_graph_dt64::dr::{Frame, MapTable, PairDir};
 use ndarray::simd::{mask_and, mask_or_assign, mask_ternlog_popcount, ternlog, U64x4};
 
-use super::{Cube, CubeRefusal, RelId};
+use super::{Cube, CubeRefusal, RelId, SetExpr};
 
 /// The most variables one body may bind.
 pub const MAX_BODY_VARS: usize = 8;
@@ -43,6 +50,16 @@ pub const MAX_BODY_VARS: usize = 8;
 pub struct Atom {
     pub rel: RelId,
     pub vars: [u8; 2],
+}
+
+/// `var ∈ set`: the semijoin of a body variable with a one-column relation
+/// (a magic-set seed, a unary base, a routed unary head). The set is an
+/// expression, not a mask, so it is evaluated inside the terminal that reads
+/// it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Restrict {
+    pub var: u8,
+    pub set: SetExpr,
 }
 
 /// Why a body did not run.
@@ -150,6 +167,7 @@ impl<'c> Plan<'c> {
         atoms: &[Atom],
         k: usize,
         distinct_pairs: &[[u8; 2]],
+        restrict: &[Restrict],
     ) -> Result<Self, BodyRefusal> {
         if k == 0 || k > MAX_BODY_VARS {
             return Err(BodyRefusal::Arity(k));
@@ -259,6 +277,22 @@ impl<'c> Plan<'c> {
                     base: bwd,
                     earlier: w,
                 });
+            }
+        }
+        // The semijoins: `proj[v] &= set`, before the walk is planned.
+        let set_words = n.div_ceil(64);
+        for (i, r) in restrict.iter().enumerate() {
+            let v = usize::from(r.var);
+            if v >= k {
+                return Err(BodyRefusal::VarOutOfRange {
+                    atom: atoms.len() + i,
+                    var: r.var,
+                });
+            }
+            let set = cube.eval(&r.set, set_words)?;
+            let p = &mut proj[v * words..(v + 1) * words];
+            for (dst, &m) in p.iter_mut().zip(&set) {
+                *dst &= m;
             }
         }
         let states = 1usize << (2 * k);
@@ -592,11 +626,29 @@ impl Cube {
         atoms: &[Atom],
         k: usize,
     ) -> Result<BodyAnswer, BodyRefusal> {
+        self.body_answer_restricted(table, atoms, k, &[])
+    }
+
+    /// [`Cube::body_answer`] with semijoins: each [`Restrict`] keeps its
+    /// variable inside its set.
+    ///
+    /// # Errors
+    ///
+    /// As [`Cube::body_answer`]; a restriction naming a variable outside
+    /// `0..k` is [`BodyRefusal::VarOutOfRange`] with `atom` counting past the
+    /// atoms; an unknown set is [`CubeRefusal::UnknownSet`].
+    pub fn body_answer_restricted(
+        &self,
+        table: &MapTable,
+        atoms: &[Atom],
+        k: usize,
+        restrict: &[Restrict],
+    ) -> Result<BodyAnswer, BodyRefusal> {
         if self.tiled {
             return Err(CubeRefusal::Tiled.into());
         }
         self.check_frame(table)?;
-        let plan = Plan::new(self, atoms, k, &[])?;
+        let plan = Plan::new(self, atoms, k, &[], restrict)?;
         let mut support = vec![0u64; k * plan.words];
         let count = if plan.n == 0 {
             0
@@ -646,11 +698,27 @@ impl Cube {
         k: usize,
         distinct: &[[u8; 2]],
     ) -> Result<Vec<u64>, BodyRefusal> {
+        self.materialize_restricted_witnesses(table, atoms, k, distinct, &[])
+    }
+
+    /// [`Cube::materialize_distinct_witnesses`] with semijoins.
+    ///
+    /// # Errors
+    ///
+    /// As [`Cube::body_answer_restricted`].
+    pub fn materialize_restricted_witnesses(
+        &self,
+        table: &MapTable,
+        atoms: &[Atom],
+        k: usize,
+        distinct: &[[u8; 2]],
+        restrict: &[Restrict],
+    ) -> Result<Vec<u64>, BodyRefusal> {
         if self.tiled {
             return Err(CubeRefusal::Tiled.into());
         }
         let map = self.map(table)?;
-        let plan = Plan::new(self, atoms, k, distinct)?;
+        let plan = Plan::new(self, atoms, k, distinct, restrict)?;
         let mut locals = Vec::new();
         if plan.n > 0 {
             Walk::new(&plan).emit(0, &mut locals);
@@ -748,13 +816,30 @@ impl Cube {
         atoms: &[Atom],
         k: usize,
         distinct: &[[u8; 2]],
+        demand: [u8; 2],
+    ) -> Result<PairAnswer, BodyRefusal> {
+        self.body_pair_restricted(table, atoms, k, distinct, &[], demand)
+    }
+
+    /// [`Cube::body_pair`] with semijoins.
+    ///
+    /// # Errors
+    ///
+    /// As [`Cube::body_pair`] and [`Cube::body_answer_restricted`].
+    pub fn body_pair_restricted(
+        &self,
+        table: &MapTable,
+        atoms: &[Atom],
+        k: usize,
+        distinct: &[[u8; 2]],
+        restrict: &[Restrict],
         [u, v]: [u8; 2],
     ) -> Result<PairAnswer, BodyRefusal> {
         if self.tiled {
             return Err(CubeRefusal::Tiled.into());
         }
         self.check_frame(table)?;
-        let mut plan = Plan::new(self, atoms, k, distinct)?;
+        let mut plan = Plan::new(self, atoms, k, distinct, restrict)?;
         for x in [u, v] {
             if usize::from(x) >= k {
                 return Err(BodyRefusal::VarOutOfRange {
@@ -840,7 +925,7 @@ mod tests {
     fn clear_distinct_at_word_boundaries_with_several_partners() {
         let (_t, cube) = full_tile();
         let atoms = [atom(0, 1), atom(1, 2), atom(2, 3)];
-        let plan = Plan::new(&cube, &atoms, 4, &[[3, 0], [3, 1], [3, 2]]).unwrap();
+        let plan = Plan::new(&cube, &atoms, 4, &[[3, 0], [3, 1], [3, 2]], &[]).unwrap();
         assert_eq!(plan.words, 4, "a full tile is four words per row");
         let mut cand = [u64::MAX; 4];
         plan.clear_distinct(3, 0b0111, &[63, 64, 255, 0], &mut cand);
@@ -856,7 +941,7 @@ mod tests {
     fn clear_distinct_ignores_unbound_partners() {
         let (_t, cube) = full_tile();
         let atoms = [atom(0, 1), atom(1, 2)];
-        let plan = Plan::new(&cube, &atoms, 3, &[[2, 0], [2, 1]]).unwrap();
+        let plan = Plan::new(&cube, &atoms, 3, &[[2, 0], [2, 1]], &[]).unwrap();
         let mut cand = [u64::MAX; 4];
         // Only variable 1 is bound (at 64); variable 0's slot says 63.
         plan.clear_distinct(2, 0b010, &[63, 64, 0], &mut cand);
@@ -868,7 +953,7 @@ mod tests {
     fn clear_distinct_is_symmetric_for_the_identity() {
         let (_t, cube) = full_tile();
         let atoms = [atom(0, 1)];
-        let plan = Plan::new(&cube, &atoms, 2, &[[0, 1]]).unwrap();
+        let plan = Plan::new(&cube, &atoms, 2, &[[0, 1]], &[]).unwrap();
         let mut a = [u64::MAX; 4];
         plan.clear_distinct(1, 0b01, &[255, 0], &mut a);
         let mut b = [u64::MAX; 4];
