@@ -22,6 +22,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-vrl = { path = "../lance-graph-vrl" }
+# PM9 slices are stored in Abakus `Pm` blocks (codec9 / DR512), the same
+# coordinate mask-risc depends on, so the graph holds one ndarray.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 lance-graph-intake = { path = "../lance-graph-intake" }

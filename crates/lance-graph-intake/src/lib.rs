@@ -46,6 +46,7 @@ pub use bind::BoundQuery;
 use lance_graph_mask_risc::LaneRef;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
@@ -107,6 +108,10 @@ pub enum IntakeRefusal {
         was: PgColumn,
         now: PgColumn,
     },
+    /// A table's columns are not its profile's labels, in order.
+    ProfileMismatch { columns: Vec<String> },
+    /// Two fields of a profile name the same predicate IRI.
+    DuplicateIri(String),
     /// A row has another number of cells than there are columns.
     Ragged { row: usize, cells: usize },
     /// No row holds this key.
@@ -494,9 +499,81 @@ pub struct Table {
     validity: RefCell<Option<(Frame, Vec<Vec<u64>>)>>,
     validity_folds: Cell<u64>,
     owner: Owner,
+    profile: Arc<SourceProfile>,
+    binding: LaneBinding,
+}
+
+/// One registered class many tables share: its classid, its fields under
+/// caller-supplied source IRIs, the hand config every table of it is shaped
+/// with, and the `BindStore` it is registered and routed in. A table built
+/// from it keeps its own frame store, map table and code table, so a frame or
+/// a code of one table never serves another.
+pub struct SourceProfile {
+    class: u32,
+    labels: Vec<String>,
+    config: ShapeConfig,
     view: IntakeView,
     store: BindStore,
-    binding: LaneBinding,
+    version: lance_graph_dt64::RouteVersion,
+}
+
+impl SourceProfile {
+    /// Register `class` with one field per `(label, iri)`, in column order.
+    /// The IRI is the field's identity: two profiles that name a property by
+    /// the same IRI mean the same property under any table name.
+    pub fn new(
+        class: u32,
+        fields: &[(&str, &str)],
+        config: ShapeConfig,
+    ) -> Result<Arc<SourceProfile>, IntakeRefusal> {
+        if fields.len() > MAX_COLUMNS {
+            return Err(IntakeRefusal::Width {
+                columns: fields.len(),
+            });
+        }
+        // A lane is found by its IRI, so two fields sharing one would both
+        // read the first one's lane.
+        for (k, (_, iri)) in fields.iter().enumerate() {
+            if fields[..k].iter().any(|(_, other)| other == iri) {
+                return Err(IntakeRefusal::DuplicateIri((*iri).to_owned()));
+            }
+        }
+        let view = IntakeView {
+            class: (class >> 16) as ClassId,
+            fields: fields
+                .iter()
+                .map(|(label, iri)| FieldRef::new((*iri).to_owned(), (*label).to_owned()))
+                .collect(),
+        };
+        let mut store = BindStore::new();
+        store
+            .register(
+                &view,
+                class,
+                ClassSchema {
+                    schema_rev: SchemaRev(1),
+                    field_count: fields.len(),
+                    extent: Extent::DR64_CUBE,
+                },
+                Vec::new(),
+            )
+            .map_err(|refusal| IntakeRefusal::Lane(LaneRefusal::Bind(refusal)))?;
+        let version = store
+            .route(ROUTE_POSITION, class)
+            .map_err(|refusal| IntakeRefusal::Lane(LaneRefusal::Bind(refusal)))?;
+        Ok(Arc::new(SourceProfile {
+            class,
+            labels: fields.iter().map(|(l, _)| (*l).to_owned()).collect(),
+            config,
+            view,
+            store,
+            version,
+        }))
+    }
+
+    pub fn class(&self) -> u32 {
+        self.class
+    }
 }
 
 impl Table {
@@ -514,6 +591,38 @@ impl Table {
                 columns: columns.len(),
             });
         }
+        let iris: Vec<String> = columns
+            .iter()
+            .map(|c| format!("intake:{name}/{c}"))
+            .collect();
+        let fields: Vec<(&str, &str)> = columns
+            .iter()
+            .zip(&iris)
+            .map(|(c, i)| (*c, i.as_str()))
+            .collect();
+        let profile = SourceProfile::new(class, &fields, config.clone())?;
+        Table::from_rows_in(name, &profile, columns, rows)
+    }
+
+    /// A tenant's table of a registered [`SourceProfile`]: the profile's
+    /// class, field IRIs and hand config, shared; this table's own frame
+    /// store, map table and code table. `columns` must be the profile's
+    /// labels, in order.
+    pub fn from_rows_in(
+        name: &str,
+        profile: &Arc<SourceProfile>,
+        columns: &[&str],
+        rows: &[Vec<Option<&str>>],
+    ) -> Result<Table, IntakeRefusal> {
+        if columns.len() != profile.labels.len()
+            || columns.iter().zip(&profile.labels).any(|(c, l)| c != l)
+        {
+            return Err(IntakeRefusal::ProfileMismatch {
+                columns: columns.iter().map(|c| (*c).to_owned()).collect(),
+            });
+        }
+        let class = profile.class;
+        let config = &profile.config;
         let shaped = Shape::build(columns, rows, config)?;
         let key = shaped.key_column(columns, rows, config)?;
         let shape = shaped.columns;
@@ -526,9 +635,11 @@ impl Table {
             population: u64::from(class),
             coordinates: 1,
         };
-        let iris: Vec<String> = shape
+        let iris: Vec<String> = profile
+            .view
+            .fields
             .iter()
-            .map(|c| format!("intake:{name}/{}", c.name))
+            .map(|f| f.predicate_iri.clone())
             .collect();
         let spaces: Vec<Option<CodeSpaceId>> = iris
             .iter()
@@ -557,33 +668,10 @@ impl Table {
             lend: Cell::new(None),
         };
 
-        let view = IntakeView {
-            class: (class >> 16) as ClassId,
-            fields: iris
-                .iter()
-                .zip(&shape)
-                .map(|(iri, c)| FieldRef::new(iri.clone(), c.name.clone()))
-                .collect(),
-        };
-        let mut store = BindStore::new();
-        store
-            .register(
-                &view,
-                class,
-                ClassSchema {
-                    schema_rev: SchemaRev(1),
-                    field_count: shape.len(),
-                    extent: Extent::DR64_CUBE,
-                },
-                Vec::new(),
-            )
-            .map_err(|refusal| IntakeRefusal::Lane(LaneRefusal::Bind(refusal)))?;
-        let version = store
-            .route(ROUTE_POSITION, class)
-            .map_err(|refusal| IntakeRefusal::Lane(LaneRefusal::Bind(refusal)))?;
+        let version = profile.version;
         let fields: Vec<u8> = (0..shape.len()).map(|k| k as u8).collect();
-        let binding = store.bind_lanes(
-            &view,
+        let binding = profile.store.bind_lanes(
+            &profile.view,
             owner.table.frames(),
             &owner,
             LaneRequest {
@@ -612,8 +700,7 @@ impl Table {
             validity: RefCell::new(None),
             validity_folds: Cell::new(0),
             owner,
-            view,
-            store,
+            profile: Arc::clone(profile),
             binding,
         };
         table.append_rows(rows)?;
@@ -672,8 +759,8 @@ impl Table {
     pub fn witness(&self) -> TableWitness<'_> {
         TableWitness {
             binding: &self.binding,
-            store: &self.store,
-            view: &self.view,
+            store: &self.profile.store,
+            view: &self.profile.view,
             frames: self.owner.table.frames(),
             source: &self.owner,
         }
@@ -707,6 +794,7 @@ impl Table {
     /// (`lance-graph-vrl`'s `Recipe::resolve_text`).
     pub fn code_for(&self, frame: &Frame, predicate_iri: &str, text: &str) -> Option<u32> {
         let column = self
+            .profile
             .view
             .fields
             .iter()
@@ -764,7 +852,7 @@ impl Table {
     ) -> Result<Reader<'s, 'c>, IntakeRefusal> {
         Ok(Reader::open(
             &self.binding,
-            &self.store,
+            &self.profile.store,
             self.owner.table.frames(),
             &self.owner,
             specs,
@@ -904,7 +992,7 @@ impl Table {
         // read admits them only under that frame.
         let (reader, at) = Reader::open_at(
             &self.binding,
-            &self.store,
+            &self.profile.store,
             self.owner.table.frames(),
             &self.owner,
             &positions,
@@ -919,7 +1007,7 @@ impl Table {
         let specs = self.specs(&texts);
         let (reader, positions) = Reader::open_selected(
             &self.binding,
-            &self.store,
+            &self.profile.store,
             self.owner.table.frames(),
             &self.owner,
             sel,
@@ -998,8 +1086,8 @@ impl Table {
     fn rebind(&mut self) -> Result<(), IntakeRefusal> {
         self.owner.frame = self.owner.table.seal();
         let fields: Vec<u8> = (0..self.shape.len()).map(|k| k as u8).collect();
-        self.binding = self.store.bind_lanes(
-            &self.view,
+        self.binding = self.profile.store.bind_lanes(
+            &self.profile.view,
             self.owner.table.frames(),
             &self.owner,
             LaneRequest {

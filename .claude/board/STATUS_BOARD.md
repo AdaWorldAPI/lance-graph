@@ -3638,13 +3638,13 @@ Plan: [adaptive-exact-decimal-binding-v1](../plans/adaptive-exact-decimal-bindin
 |---|---|---|
 | D-AED-0 | Plan, oracle boundary (#2182 unchanged) | In PR, docs only |
 | D-AED-1 | Slice boundaries instead of the U32 slice-id lane (ungrouped N/S exist; ungrouped Σx² does not) | In PR — candidate (a) shipped: `slice_counts_sums` (no lane) and `slice_sums_by_bounds` (zero lane) over `execute_extent`; equal to #2182. Measured (`entries/2026-11-25-aed-1-slice-boundaries.md`): bounds remove the 4.2 MB per-call lane; grouping, not the square, costs 4–5× the ungrouped N S. OPEN: candidate (b), ungrouped Σx² kernel in ndarray |
-| D-AED-2 | One sealed slice stored at its #438 width (PM9, then PM17) in the canonical owner | Queued |
-| D-AED-3 | Width and exponent as bookmarks witnessed with the frame | Queued |
-| D-AED-4 | Promotion, finer resolution, demotion: reseal vs append a slice | Queued |
-| D-AED-5 | Dispatch once per sealed slice; ns and bytes against the i32 path | Queued |
+| D-AED-2 | One sealed slice stored at its #438 width (PM9, then PM17) in the canonical owner | In PR — storage shipped: `PhysicalSlice` at PM9 (packed, lent as Abakus `Pm`), PM17, i32; round trip exact with P×M intact. Measured 1.125 / 2.125 / 4.125 B/value (`entries/2026-11-25-aed-2-physical-width.md`). OPEN: owner seam (`LaneRef` U8/U16, a layout change), PM17 arithmetic (#438) |
+| D-AED-3 | Width and exponent as bookmarks witnessed with the frame | In PR — `DecimalRecipe` witnesses exponent, width and the owner's DT64 frame; refused as `ExpChanged` / `WidthChanged` / `FrameMoved` on another store or a later version (`entries/2026-11-25-aed-3-witnessed-bookmarks.md`). OPEN: where the descriptor lives (plan §4.2) |
+| D-AED-4 | Promotion, finer resolution, demotion: reseal vs append a slice | In PR — `SliceLog` with Reseal and Append, witnessed slices never rewritten, Abakus carry promotes, `compact` demotes; measured on one synthetic pattern: Append 1.281 B/value, 0 rewrites, 2.1 µs aggregate vs Reseal 4.125 B/value, 8.4 M values rewritten (`entries/2026-11-25-aed-4-reseal-vs-append.md`). OPEN: real write patterns (D-AED-6) |
+| D-AED-5 | Dispatch once per sealed slice; ns and bytes against the i32 path | In PR (partial) — `slice_count_sum_where`: literal resolved once per slice at its exponent, Count/Sum per extent, equal to the per-value oracle; per-slice runs 25–43 ns/64 lanes, dispatch cost below noise (`entries/2026-11-25-aed-5-per-slice-dispatch.md`). OPEN: PM9/PM17 kernels (ndarray #438) and the U8/U16 lane seam |
 | D-AED-6 | Real coefficient ranges and redundant zeros (workbooks, logs, telemetry) | Queued (needs real samples) |
-| D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | Queued |
-| D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | Queued |
+| D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | In PR — `detect_decimal` (coarsest exponent, range, width, `Lexical`) and `merge_decimal` (config wins, never rounds) in the probe; float artefacts refused with their reason (`entries/2026-11-25-aed-7-decimal-detection.md`). OPEN: production admission (D-LANESOCK), no numeric `PgType` in intake |
+| D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | In PR — `DecimalRecipe::compile_vrl` (decimal literals in VRL source, resolved at the field's exponent, no `f64`) and `sum`; equal to the oracle and to the structured path, exponent change refused (`entries/2026-11-25-aed-8-vrl-decimal-literals.md`). OPEN: Vector ingress (D-VRL-RECIPE-0); production admission (D-LANESOCK) |
 
 ### Registered source profiles (2026-11-25)
 
@@ -3654,7 +3654,7 @@ Plan: [registered-source-profiles-v1](../plans/registered-source-profiles-v1.md)
 |---|---|---|
 | D-RSP-0 | Census and plan | In PR, docs only |
 | D-RSP-1 | Declared-and-validated intake path (skip detection on fully declared columns; `Verdict::Declared`, no manufactured agreement) | In PR — `Shape::build` admits a fully declared column without `detect_column`; `detections()` counter; tests `declared_columns_are_not_detected_and_read_as_discovered`, `partly_configured_column_is_still_detected`, `declared_column_still_validates_every_cell` (disable run red) |
-| D-RSP-2 | Source-scoped IRIs supplied by the caller; one registered class across tenants (borrowed BindStore/ClassView, per-tenant frames and code tables) | Queued |
+| D-RSP-2 | Source-scoped IRIs supplied by the caller; one registered class across tenants (borrowed BindStore/ClassView, per-tenant frames and code tables) | In PR — `SourceProfile` (one registered class, source IRIs, shared `BindStore`) and `Table::from_rows_in` (per-tenant frames, map and code tables); foreign frames refused, codes never mix (`entries/2026-11-25-rsp-2-source-profiles.md`). OPEN: scope issuer (D-LANESOCK) |
 | D-RSP-3 | Measure semantics: unit, temporal kind, lawful aggregation (PropertySpec declares vs MethodBinding enforces) | Queued (decision needed) |
 | D-RSP-4 | Meaning witness (version meaning by IRI) | Queued |
 | D-RSP-5 | One field seam for Quack and VRL; semantic differences pinned, not merged | In PR (partial) — row-type contract shipped on both frontends: one literal lookup `Table::literal_code` (`""` → code 0 under `EmptyText`), VRL presence test for code 0, `FieldKind::Bool`/`Literal::Bool` in Quack, `AbortBool` in VRL; the nine row-type tests pass on both (disable runs red per frontend), PG parity `open = true` / `open <> true`. OPEN: the field-by-IRI seam (`predicate_iri → column, code space, exponent, validity`); Quack still binds by column name |

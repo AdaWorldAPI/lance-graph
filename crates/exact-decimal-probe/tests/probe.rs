@@ -8,6 +8,7 @@ use lance_graph_intake::{ColumnConfig, ShapeConfig, Table};
 use lance_graph_mask_risc::{words_for, Out};
 use lance_graph_vrl::{Recipe, Witness};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 /// `"1.20"` and `"1.2"` are one number; trailing zeros of an integer are a
 /// coarser exponent; a negative zero is the established zero.
@@ -557,4 +558,821 @@ fn slice_boundaries_out_of_order_are_refused() {
             "{bad:?}"
         );
     }
+}
+
+/// Slices that seal at PM9, PM17 and past it, each with an established
+/// zero, a negative value and an absent cell, across a word boundary.
+fn width_slices() -> Vec<SealedSlice> {
+    let s2 = Exp::scale(2);
+    let long = |big: &'static str| -> Vec<Option<&'static str>> {
+        (0..70)
+            .map(|i| match i % 7 {
+                0 => None,
+                1 => Some("0"),
+                2 => Some("-3"),
+                3 => Some(big),
+                _ => Some("12"),
+            })
+            .collect()
+    };
+    [long("255"), long("-65535"), long("70000.25")]
+        .iter()
+        .map(|cells| seal(cells, s2).unwrap())
+        .collect()
+}
+
+/// FAILS IF: a slice is not stored at the narrowest width that holds it,
+/// or reads back other values, another presence or another order than it
+/// was sealed with.
+#[test]
+fn a_sealed_slice_round_trips_at_its_physical_width() {
+    let sealed = width_slices();
+    let widths: Vec<&str> = sealed
+        .iter()
+        .map(|s| PhysicalSlice::store(s).width())
+        .collect();
+    assert_eq!(widths, ["PM9", "PM17", "i32"]);
+    for s in &sealed {
+        let p = PhysicalSlice::store(s);
+        assert_eq!(p.load(), *s, "{}", p.width());
+        for i in 0..s.coefficients.len() {
+            let want = s.present[i].then_some(s.coefficients[i]);
+            assert_eq!(p.get(i), want, "{} value {i}", p.width());
+        }
+        let bits: Vec<bool> = (0..s.coefficients.len())
+            .map(|i| p.presence()[i / 64] >> (i % 64) & 1 == 1)
+            .collect();
+        assert_eq!(bits, s.present, "{}: presence is P ∨ M ≠ 0", p.width());
+    }
+}
+
+/// FAILS IF: an established zero is stored as untouched, an absent cell as
+/// `+0`, a negative value with the positive polarity, or a `-0` is ever
+/// written.
+#[test]
+fn p_times_m_keeps_absent_and_established_zero_apart() {
+    let s = seal(&[None, Some("0"), Some("-7"), Some("7")], Exp::scale(2)).unwrap();
+    let p = PhysicalSlice::store(&s);
+    let Lanes::Pm9 { mag, pos } = &p.lanes else {
+        panic!("PM9 expected, got {}", p.width())
+    };
+    let pos = pos[0];
+    let lane = |i: usize| (pos >> i & 1 == 1, mag[i]);
+    assert_eq!(lane(0), (false, 0), "absent: untouched");
+    assert_eq!(lane(1), (true, 0), "established +0");
+    assert_eq!(lane(2), (false, 7), "-7");
+    assert_eq!(lane(3), (true, 7), "+7");
+    assert_eq!(p.presence(), vec![0b1110]);
+}
+
+/// FAILS IF: a stored PM9 block is not Abakus's representation: adding
+/// the untouched block must give it back, and subtracting it from itself
+/// must leave `+0` exactly where a value was established.
+#[test]
+fn a_pm9_block_is_abakus_arithmetic_input() {
+    use ndarray::hpc::abakus::pm::{add_pm, sub_pm, Pm};
+    let s = &width_slices()[0];
+    let p = PhysicalSlice::store(s);
+    assert_eq!(p.width(), "PM9");
+    let blocks: Vec<Pm> = (0..s.coefficients.len().div_ceil(64))
+        .map(|w| p.pm_block(w).unwrap())
+        .collect();
+    assert_eq!(blocks.len(), 2, "the slice crosses a block");
+    for b in &blocks {
+        assert_eq!(add_pm(*b, Pm::untouched()).exact(), Some(*b));
+        let zero = sub_pm(*b, *b).exact().expect("no carry");
+        assert_eq!(zero.mag.to_array(), [0u8; 64]);
+        assert_eq!(zero.pos, ndarray::hpc::abakus::pm::touched(*b));
+    }
+}
+
+/// FAILS IF: PM9 storage costs more than one magnitude byte and one
+/// polarity bit per value, or the resident Abakus register is mistaken for
+/// the storage layout (it is padded to its SIMD alignment).
+#[test]
+fn pm9_is_stored_packed_not_as_resident_registers() {
+    let s = &width_slices()[0];
+    let p = PhysicalSlice::store(s);
+    let n = s.coefficients.len();
+    assert_eq!(p.bytes(), DESCRIPTOR_BYTES + n + n.div_ceil(64) * 8);
+    let register = std::mem::size_of::<ndarray::hpc::abakus::pm::Pm>();
+    assert!(register >= 72, "a Pm register holds 64 bytes and a u64");
+    println!("resident Pm register: {register} bytes");
+}
+
+/// Columns shaped like the three sources the plan names, each with the
+/// exponent a hand declaration gives it.
+fn decimal_samples() -> Vec<(&'static str, Vec<Option<&'static str>>, Exp)> {
+    vec![
+        // Log lines: request durations in milliseconds, one absent.
+        (
+            "log duration_ms",
+            vec![Some("12.5"), Some("3.25"), None, Some("100"), Some("0.75")],
+            Exp::scale(2),
+        ),
+        // JSON telemetry: CPU percent with one decimal, negative drift.
+        (
+            "json cpu_pct",
+            vec![Some("37.5"), Some("0.0"), Some("99.9"), Some("-0.1")],
+            Exp::scale(1),
+        ),
+        // Graph-report-shaped: storage in GB with a trailing-zero scale.
+        (
+            "graph storage_gb",
+            vec![Some("250.00"), Some("1.50"), Some("0.25"), None],
+            Exp::scale(2),
+        ),
+    ]
+}
+
+/// FAILS IF: a decimal column of a log, JSON or Graph-report shape does not
+/// detect as a decimal at the coarsest exponent that reads every value, its
+/// range or support is wrong, or the declaration disagrees with detection.
+#[test]
+fn decimal_text_detects_as_an_exact_decimal_and_agrees_with_its_declaration() {
+    for (name, cells, declared) in decimal_samples() {
+        let detected = detect_decimal(&cells);
+        let DecimalReading::Decimal {
+            exp,
+            min,
+            max,
+            provenance,
+            support,
+            ..
+        } = detected.clone()
+        else {
+            panic!("{name}: {detected:?}")
+        };
+        assert_eq!(exp, declared, "{name}");
+        assert_eq!(provenance, Provenance::Lexical);
+        let present: Vec<i32> = cells
+            .iter()
+            .flatten()
+            .map(|t| parse_exact(t, exp).unwrap())
+            .collect();
+        assert_eq!(
+            (min, max),
+            (
+                *present.iter().min().unwrap(),
+                *present.iter().max().unwrap()
+            ),
+            "{name}"
+        );
+        assert_eq!(support, present.len(), "{name}");
+        let merged =
+            merge_decimal(&cells, &detected, Some(DecimalDecl::Decimal(declared))).unwrap();
+        assert_eq!(
+            merged,
+            (DecimalColumn::Decimal(declared), DecimalVerdict::Agrees),
+            "{name}"
+        );
+    }
+}
+
+/// FAILS IF: the same column, today, detects as anything but text in
+/// intake: the decimal reading is an addition, not a change to intake.
+#[test]
+fn intake_still_detects_decimal_text_as_text() {
+    for (name, cells, _) in decimal_samples() {
+        let d = lance_graph_intake::detect_column(&cells);
+        assert_eq!(d.col.ty, PgType::Text, "{name}: {:?}", d.col);
+    }
+}
+
+/// FAILS IF: a column with a binary-float artefact is read as a decimal,
+/// a short decimal is mistaken for one, or the artefact is rounded instead
+/// of refused. An explicit `f64` declaration is what such a column gets.
+#[test]
+fn a_float_artefact_column_is_refused_as_decimal() {
+    let cells = [Some("0.1"), Some("0.30000000000000004"), Some("0.2")];
+    let detected = detect_decimal(&cells);
+    assert_eq!(
+        detected,
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::FloatArtefact
+        }
+    );
+    let merged = merge_decimal(&cells, &detected, None).unwrap();
+    assert_eq!(merged.0, DecimalColumn::Text, "never silently a decimal");
+    let f64_decl = merge_decimal(&cells, &detected, Some(DecimalDecl::F64)).unwrap();
+    assert_eq!(f64_decl.0, DecimalColumn::F64);
+    assert!(matches!(f64_decl.1, DecimalVerdict::Differs { .. }));
+    // Fifteen significant digits round-trip through f64, so they are not
+    // an artefact; this one is refused only because it leaves `i32`.
+    assert_eq!(
+        detect_decimal(&[Some("0.123456789012345")]),
+        DecimalReading::Refused {
+            row: 0,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
+}
+
+/// FAILS IF: a declaration coarser than the data rounds instead of
+/// refusing, exponent notation or overflow detects as a decimal, or an
+/// integer column claims the decimal reading.
+#[test]
+fn decimal_detection_never_rounds() {
+    let cells = [Some("1.25"), Some("2.5")];
+    let detected = detect_decimal(&cells);
+    assert!(matches!(
+        merge_decimal(&cells, &detected, Some(DecimalDecl::Decimal(Exp::scale(1)))),
+        Err(DecimalRefusal::NotExact { .. })
+    ));
+    assert_eq!(
+        detect_decimal(&[Some("1.5"), Some("1e3")]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Malformed
+        }
+    );
+    assert_eq!(
+        detect_decimal(&[Some("0.5"), Some("3000000000")]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
+    assert_eq!(
+        detect_decimal(&[Some("12"), None, Some("-4")]),
+        DecimalReading::NotDecimal
+    );
+    // A valid decimal past `i128` is out of range, not malformed.
+    assert_eq!(
+        detect_decimal(&[
+            Some("1.5"),
+            Some("123456789012345678901234567890123456789.1")
+        ]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
+}
+
+/// The owner of a decimal field: the intake table holding its coefficients,
+/// and the descriptor (exponent, width) its sealed slice was stored at. The
+/// frame is the table's own seal, so the declaration is witnessed with the
+/// data version.
+struct Owned<'t> {
+    table: &'t Table,
+    iri: String,
+    exp: Exp,
+    width: Option<PmWidth>,
+}
+
+impl FieldExps for Owned<'_> {
+    fn exp_of(&self, iri: &str) -> Option<Exp> {
+        (iri == self.iri).then_some(self.exp)
+    }
+    fn width_of(&self, iri: &str) -> Option<PmWidth> {
+        if iri == self.iri {
+            self.width
+        } else {
+            None
+        }
+    }
+    fn frame(&self) -> Option<lance_graph_dt64::dr::Frame> {
+        Some(self.table.frame())
+    }
+    fn check_frame(
+        &self,
+        frame: &lance_graph_dt64::dr::Frame,
+    ) -> Result<(), lance_graph_dt64::dr::FrameRefusal> {
+        self.table.witness().frames.check(frame)
+    }
+}
+
+fn owned_recipe(owner: &Owned<'_>, filters: &[(Op, &str)]) -> DecimalRecipe {
+    let t = owner.table;
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    let filters: Vec<DecimalFilter<'_>> = filters
+        .iter()
+        .map(|&(op, literal)| DecimalFilter {
+            path: ".a",
+            predicate_iri: &owner.iri,
+            op,
+            literal,
+        })
+        .collect();
+    DecimalRecipe::compile(
+        ".a = .properties.amount.value",
+        &filters,
+        owner,
+        t.witness().view,
+        class,
+    )
+    .unwrap()
+}
+
+/// FAILS IF: a recipe resolved under the owner's descriptor runs after the
+/// width moved, after a data write left exponent and width alone, or on
+/// another table with the same class, fields, row count and descriptor; or
+/// if it refuses on its own unchanged owner.
+#[test]
+fn a_recipe_is_refused_under_a_moved_width_exponent_or_frame() {
+    let (mut t, iri) = table();
+    let s2 = Exp::scale(2);
+    // The column's sealed slice: |c| <= 12345, so PM17.
+    let width = Some(PmWidth::Pm17);
+    let r = {
+        let owner = Owned {
+            table: &t,
+            iri: iri.clone(),
+            exp: s2,
+            width,
+        };
+        let r = owned_recipe(&owner, &[(Op::Ge, "1.205")]);
+        assert_eq!(
+            r.count(&witness(&t), &owner).unwrap(),
+            3,
+            "unchanged owner runs"
+        );
+        r
+    };
+
+    // Another table, equal in class, fields, rows and descriptor: its frame
+    // is another store's seal.
+    let (other, _) = table();
+    let foreign = Owned {
+        table: &other,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&other), &foreign),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::ForeignFrame
+        ))
+    );
+
+    // The original owner's declaration over another table's lanes: the
+    // executing witness is another store.
+    let owner = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&other), &owner),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::ForeignFrame
+        ))
+    );
+
+    // A write that moves no descriptor still moves the frame.
+    t.append(&[vec![Some("6"), Some("700")]]).unwrap();
+    let moved = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&t), &moved),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::SourceChanged
+        ))
+    );
+
+    // A write that widens the slice is named by the width.
+    t.append(&[vec![Some("7"), Some("7000000")]]).unwrap();
+    let wider = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width: Some(PmWidth::Pm25),
+    };
+    assert_eq!(
+        r.count(&witness(&t), &wider),
+        Err(RecipeRefusal::WidthChanged {
+            predicate_iri: iri.clone(),
+            resolved: width,
+            now: Some(PmWidth::Pm25),
+        })
+    );
+
+    // Recompiled under the current owner, it runs again.
+    let again = owned_recipe(&wider, &[(Op::Ge, "1.205")]);
+    assert_eq!(
+        again.count(&witness(&t), &wider).unwrap(),
+        3,
+        "7.00 and 70000.00 drop"
+    );
+}
+
+/// Batches that trigger each D-AED-4 event in turn: a plain batch, one
+/// whose value leaves PM9 (wider), one with a finer exponent, one that is
+/// all absent, and one that is coarse again.
+fn event_batches() -> Vec<Vec<Option<&'static str>>> {
+    vec![
+        vec![Some("1.25"), None, Some("-0.50"), Some("2.00")],
+        vec![Some("300.75"), Some("0.01")],
+        vec![Some("0.125"), Some("-1.5")],
+        vec![None, None],
+        vec![Some("4"), Some("10")],
+    ]
+}
+
+/// N, S, Q of every value written so far, read directly at `exp`.
+fn written_sums(batches: &[Vec<Option<&str>>], exp: Exp) -> (u64, i128, u128) {
+    let all: Vec<i128> = batches
+        .iter()
+        .flatten()
+        .flatten()
+        .map(|t| i128::from(parse_exact(t, exp).unwrap()))
+        .collect();
+    let s = all.iter().sum();
+    let q = all.iter().map(|c| (c * c) as u128).sum();
+    (all.len() as u64, s, q)
+}
+
+/// FAILS IF: under either policy, after any event, the aggregates aligned
+/// per slice differ from the values read directly, a value is lost or
+/// reordered, or a policy produces the other's slice shape.
+#[test]
+fn every_event_stays_exact_under_both_policies() {
+    let batches = event_batches();
+    for policy in [Policy::Reseal, Policy::Append] {
+        let mut log = SliceLog::new(policy, Exp::scale(3));
+        let mut events = Vec::new();
+        for (k, b) in batches.iter().enumerate() {
+            events.push(log.append(b).unwrap());
+            let c = log.combined().unwrap();
+            assert_eq!(
+                (c.n, c.s, c.q),
+                written_sums(&batches[..=k], c.exp),
+                "{policy:?} after batch {k}"
+            );
+        }
+        let values: Vec<Option<String>> = log
+            .slices()
+            .iter()
+            .flat_map(|p| {
+                (0..p.len).map(move |i| p.get(i).map(|c| format(i64::from(c), p.exp, 3).unwrap()))
+            })
+            .collect();
+        let want: Vec<Option<String>> = batches
+            .iter()
+            .flatten()
+            .map(|t| {
+                t.map(|t| {
+                    format(
+                        i64::from(parse_exact(t, Exp::scale(3)).unwrap()),
+                        Exp::scale(3),
+                        3,
+                    )
+                    .unwrap()
+                })
+            })
+            .collect();
+        assert_eq!(values, want, "{policy:?}: identity order");
+        match policy {
+            Policy::Reseal => {
+                assert_eq!(log.slices().len(), 1);
+                assert_eq!(
+                    events[1],
+                    Event::Resealed {
+                        wider: true,
+                        finer: false
+                    }
+                );
+                assert_eq!(
+                    events[2],
+                    // 300.75 at scale 3 is 300750: finer resolution widens too.
+                    Event::Resealed {
+                        wider: true,
+                        finer: true
+                    }
+                );
+                assert!(log.rewritten > 0);
+            }
+            Policy::Append => {
+                assert_eq!(log.slices().len(), batches.len());
+                assert_eq!(log.rewritten, 0, "sealed slices are never rewritten");
+            }
+        }
+    }
+}
+
+/// FAILS IF: a reseal rewrites a slice a reader still holds, or the reader
+/// sees its slice change; the write must land in a new slice instead.
+#[test]
+fn a_witnessed_slice_is_never_rewritten() {
+    let mut log = SliceLog::new(Policy::Reseal, Exp::scale(2));
+    log.append(&[Some("1.00"), Some("2.00")]).unwrap();
+    let held = log.pin(0);
+    let before = (*held).clone();
+    assert_eq!(
+        log.append(&[Some("3.50")]).unwrap(),
+        Event::NewSlice { witnessed: true }
+    );
+    assert!(Arc::ptr_eq(&held, &log.slices()[0]));
+    assert_eq!(*held, before);
+    let c = log.combined().unwrap();
+    assert_eq!((c.s, c.exp), (65, Exp::scale(1)), "1 + 2 + 3.5 at scale 1");
+    assert_eq!(log.compact(), Err(LogRefusal::Witnessed { k: 0 }));
+    drop(held);
+    // Released, the tail is resealed again: 3.5 and 0.25 at scale 2 are
+    // 350 and 25, past PM9.
+    assert_eq!(
+        log.append(&[Some("0.25")]).unwrap(),
+        Event::Resealed {
+            wider: true,
+            finer: true
+        }
+    );
+    assert_eq!(log.slices().len(), 2);
+}
+
+/// FAILS IF: a lane-wise Abakus addition that carries does not promote the
+/// slice to the width its exact sum needs, one that does not carry
+/// promotes, or a carried lane is not its exact sum.
+#[test]
+fn an_abakus_carry_promotes_the_slice() {
+    let s0 = Exp(0);
+    let slice = |v: &[Option<&str>]| PhysicalSlice::store(&seal(v, s0).unwrap());
+    let mut log = SliceLog::new(Policy::Reseal, s0);
+    log.append(&[Some("200"), Some("-5"), None, Some("0")])
+        .unwrap();
+    let small = slice(&[Some("50"), Some("5"), None, Some("1")]);
+    assert_eq!(log.add_into(0, &small), Ok(false));
+    assert_eq!(log.slices()[0].width(), "PM9");
+    let big = slice(&[Some("100"), Some("-1"), Some("3"), None]);
+    assert_eq!(log.add_into(0, &big), Ok(true), "250 + 100 leaves PM9");
+    let p = &log.slices()[0];
+    assert_eq!(p.width(), "PM17");
+    let got: Vec<Option<i32>> = (0..p.len).map(|i| p.get(i)).collect();
+    assert_eq!(got, [Some(350), Some(-1), Some(3), Some(1)]);
+    let held = log.pin(0);
+    assert_eq!(log.add_into(0, &big), Err(LogRefusal::Witnessed { k: 0 }));
+    drop(held);
+}
+
+/// FAILS IF: compaction does not demote to the coarsest exponent and the
+/// narrowest width that hold every value, or changes an aggregate.
+#[test]
+fn compaction_demotes_to_the_smallest_lawful_slice() {
+    let mut log = SliceLog::new(Policy::Append, Exp::scale(2));
+    log.append(&[Some("100.00"), Some("70000")]).unwrap();
+    log.append(&[Some("-20.50")]).unwrap();
+    let before = log.combined().unwrap();
+    log.append(&[None]).unwrap();
+    // Remove the value that needs the width, then compact.
+    let mut demote = SliceLog::new(Policy::Append, Exp::scale(2));
+    demote.append(&[Some("100.00"), Some("30")]).unwrap();
+    demote.append(&[Some("-20.50"), None]).unwrap();
+    demote.compact().unwrap();
+    let p = &demote.slices()[0];
+    assert_eq!(demote.slices().len(), 1);
+    assert_eq!((p.exp, p.width()), (Exp::scale(1), "PM17"));
+    let whole = {
+        let mut l = SliceLog::new(Policy::Append, Exp::scale(2));
+        l.append(&[Some("100"), Some("30"), Some("-20")]).unwrap();
+        l.compact().unwrap();
+        (l.slices()[0].exp, l.slices()[0].width())
+    };
+    assert_eq!(whole, (Exp(1), "PM9"), "tens demote to exponent 1 and PM9");
+    log.compact().unwrap();
+    let after = log.combined().unwrap();
+    assert_eq!(
+        (after.n, after.s, after.q, after.exp),
+        (before.n, before.s, before.q, before.exp)
+    );
+}
+
+/// FAILS IF: compaction panics on values that cancel to zero at a fine
+/// exponent, or stops demoting at exponent 0 when the values are multiples
+/// of a power of ten (codex on #2191).
+#[test]
+fn compaction_demotes_past_zero_and_survives_cancellation() {
+    let slice = |v: &[Option<&str>], e: Exp| PhysicalSlice::store(&seal(v, e).unwrap());
+    let fine = Exp::scale(10);
+    let mut log = SliceLog::new(Policy::Reseal, fine);
+    log.append(&[Some("0.0000000001")]).unwrap();
+    assert_eq!(
+        log.add_into(0, &slice(&[Some("-0.0000000001")], fine)),
+        Ok(false)
+    );
+    log.compact().unwrap();
+    let p = &log.slices()[0];
+    assert_eq!(
+        (p.exp, p.get(0)),
+        (Exp(0), Some(0)),
+        "cancelled to an established zero"
+    );
+
+    let mut log = SliceLog::new(Policy::Reseal, Exp(0));
+    log.append(&[Some("151")]).unwrap();
+    assert_eq!(log.add_into(0, &slice(&[Some("149")], Exp(0))), Ok(true));
+    assert_eq!(log.slices()[0].width(), "PM17");
+    log.compact().unwrap();
+    let p = &log.slices()[0];
+    assert_eq!((p.exp, p.get(0), p.width()), (Exp(2), Some(3), "PM9"));
+}
+
+/// Sealed slices at three exponents laid end to end: coefficients, the
+/// presence plane, the boundaries, each slice's exponent and every value.
+type MixedSlices = (
+    Vec<i32>,
+    Vec<u64>,
+    Vec<usize>,
+    Vec<Exp>,
+    Vec<Option<(i32, Exp)>>,
+);
+
+fn mixed_slices() -> MixedSlices {
+    let batches: [&[Option<&str>]; 3] = [
+        &[
+            Some("1.25"),
+            None,
+            Some("-0.50"),
+            Some("2.00"),
+            Some("1.20"),
+        ],
+        &[Some("1.205"), Some("0.001"), None, Some("1.2")],
+        &[Some("300"), Some("2"), Some("0"), None, Some("-7")],
+    ];
+    let (mut coef, mut bounds, mut exps, mut values) =
+        (Vec::new(), vec![0], Vec::new(), Vec::new());
+    let mut present = Vec::new();
+    for b in batches {
+        let s = seal(b, Exp::scale(3)).unwrap();
+        for (c, p) in s.coefficients.iter().zip(&s.present) {
+            coef.push(*c);
+            present.push(*p);
+            values.push(p.then_some((*c, s.exp)));
+        }
+        bounds.push(coef.len());
+        exps.push(s.exp);
+    }
+    let mut plane = vec![0u64; words_for(coef.len())];
+    for (i, p) in present.iter().enumerate() {
+        plane[i / 64] |= u64::from(*p) << (i % 64);
+    }
+    (coef, plane, bounds, exps, values)
+}
+
+/// FAILS IF: a decimal threshold dispatched once per slice, at each slice's
+/// own exponent, counts or sums other values than comparing every value
+/// exactly, for any operator, or the slices do not span three exponents.
+#[test]
+fn a_threshold_dispatched_per_slice_equals_the_per_value_oracle() {
+    let (coef, plane, bounds, exps, values) = mixed_slices();
+    assert_eq!(exps, [Exp::scale(2), Exp::scale(3), Exp(0)]);
+    for (op, literal) in [
+        (Op::Ge, "1.205"),
+        (Op::Lt, "1.205"),
+        (Op::Eq, "2"),
+        (Op::Ne, "1.2"),
+        (Op::Le, "0"),
+        (Op::Gt, "-0.5"),
+    ] {
+        let (n, s, at) = slice_count_sum_where(&coef, &plane, &bounds, &exps, op, literal).unwrap();
+        let kept: Vec<(i32, Exp)> = values
+            .iter()
+            .flatten()
+            .copied()
+            .filter(|&(c, e)| oracle(i64::from(c), e, op, literal))
+            .collect();
+        let want_s: i128 = kept
+            .iter()
+            .map(|&(c, e)| i128::from(c) * 10i128.pow((e.0 - at.0) as u32))
+            .sum();
+        assert_eq!((n, s), (kept.len() as u64, want_s), "{op:?} {literal}");
+    }
+}
+
+/// FAILS IF: valid per-slice input is refused: a zero sum aligned across
+/// exponents 40 apart, or a comparison slice after a slice whose literal
+/// resolved to every value (codex on #2192).
+#[test]
+fn per_slice_dispatch_accepts_zero_sums_and_mixed_program_shapes() {
+    assert_eq!(
+        slice_count_sum_where(&[1, 0], &[3], &[0, 1, 2], &[Exp(-20), Exp(20)], Op::Eq, "0"),
+        Ok((1, 0, Exp(-20)))
+    );
+    // 1 at exponent 0 differs from 1.2 for every value; 12 at scale 1 is 1.2.
+    assert_eq!(
+        slice_count_sum_where(
+            &[1, 12],
+            &[3],
+            &[0, 1, 2],
+            &[Exp(0), Exp(-1)],
+            Op::Ne,
+            "1.2"
+        ),
+        Ok((1, 10, Exp(-1)))
+    );
+}
+
+fn vrl_recipe(t: &Table, src: &str, exps: &dyn FieldExps) -> DecimalRecipe {
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    DecimalRecipe::compile_vrl(src, exps, t.witness().view, class).unwrap()
+}
+
+/// FAILS IF: a decimal literal written in VRL source counts or sums other
+/// rows than the same filter given as a structured decimal filter and than
+/// comparing every value exactly, is refused once the field's exponent
+/// moves, or a comparison on a field with no declared exponent stops being
+/// plain VRL.
+#[test]
+fn a_vrl_decimal_literal_equals_the_oracle_and_is_witnessed() {
+    let (t, iri) = table();
+    let w = witness(&t);
+    let s2 = Exp::scale(2);
+    let exps = Declared(BTreeMap::from([(iri.clone(), s2)]));
+    let amounts = ["123.45", "0.00", "-0.50", "1.20"];
+    let kept = |op: Op, lit: &str| -> (u64, i64) {
+        let k: Vec<i64> = amounts
+            .iter()
+            .map(|a| i64::from(parse_exact(a, s2).unwrap()))
+            .filter(|&c| !oracle(c, s2, op, lit))
+            .collect();
+        // The absent row is undecided, so it is never kept.
+        (k.len() as u64, k.iter().sum())
+    };
+    for (op, sym, lit) in [
+        (Op::Ge, ">=", "1.205"),
+        (Op::Lt, "<", "0"),
+        (Op::Eq, "==", "1.2"),
+        (Op::Ne, "!=", "123.450"),
+    ] {
+        let src = format!(".a = .properties.amount.value\nif .a {sym} {lit} {{ abort }}");
+        let r = vrl_recipe(&t, &src, &exps);
+        let structured = decimal_recipe(&t, &iri, &[(op, lit)], s2);
+        let got = (r.count(&w, &exps).unwrap(), r.sum(&w, &exps, "a").unwrap());
+        assert_eq!(got, kept(op, lit), "{src}");
+        assert_eq!(got.0, structured.count(&w, &exps).unwrap(), "{src}");
+    }
+
+    // The same literal through the field path, not an alias.
+    let r = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .properties.amount.value >= 1.205 { abort }",
+        &exps,
+    );
+    assert_eq!(r.count(&w, &exps).unwrap(), kept(Op::Ge, "1.205").0);
+
+    // A moved exponent refuses the run.
+    let moved = Declared(BTreeMap::from([(iri.clone(), Exp::scale(3))]));
+    assert!(matches!(
+        r.count(&w, &moved),
+        Err(RecipeRefusal::ExpChanged { .. })
+    ));
+
+    // `id` has no declared exponent: its integer comparison stays plain VRL.
+    let plain = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .properties.id.value == 2 { abort }",
+        &exps,
+    );
+    assert_eq!(plain.count(&w, &exps).unwrap(), 4);
+    // A decimal literal on a field with no exponent is still refused by VRL.
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    assert!(DecimalRecipe::compile_vrl(
+        "if .properties.id.value >= 1.5 { abort }",
+        &exps,
+        t.witness().view,
+        class
+    )
+    .is_err());
+}
+
+/// FAILS IF: a decimal comparison through an alias of an alias falls back
+/// to plain VRL, or a comparison extracted before the alias is reassigned
+/// or deleted filters another field (codex on #2193).
+#[test]
+fn vrl_decimal_filters_follow_aliases_and_keep_their_field() {
+    let (t, iri) = table();
+    let w = witness(&t);
+    let exps = Declared(BTreeMap::from([(iri.clone(), Exp::scale(2))]));
+    // 123.45 >= 2 drops; 0.00, -0.50 and 1.20 stay.
+    let chained = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.b = .a\nif .b >= 2 { abort }",
+        &exps,
+    );
+    assert_eq!(chained.count(&w, &exps).unwrap(), 3);
+    let fractional = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.b = .a\nif .b >= 1.205 { abort }",
+        &exps,
+    );
+    assert_eq!(fractional.count(&w, &exps).unwrap(), 3);
+    let reassigned = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .a >= 1.205 { abort }\n.a = .properties.id.value",
+        &exps,
+    );
+    assert_eq!(reassigned.count(&w, &exps).unwrap(), 3);
+    let deleted = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.k = .properties.id.value\nif .a >= 1.205 { abort }\ndel(.a)",
+        &exps,
+    );
+    assert_eq!(deleted.count(&w, &exps).unwrap(), 3);
 }
