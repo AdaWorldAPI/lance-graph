@@ -165,6 +165,8 @@ const UNFINISHED: u32 = 1;
 const RUNNING: u32 = 2;
 const ROOT: u32 = 3;
 const NO_PLANE: u32 = 4; // Present(dry_run): no presence plane bound
+const LATE_PRESENT: u32 = 5; // Present only in the second effect
+const NO_PRESENT: u32 = 6; // no presence operand at all
 
 /// `f4 = NOT present(finished_at)`, `f5 = f4 AND present(started_at)`.
 fn unfinished_mask() -> Vec<Effect> {
@@ -197,6 +199,22 @@ fn methods() -> Vec<MethodBinding> {
             NO_PLANE,
             vec![
                 step(4, W_NOT, vec![Arg::Present(F_DRY)]),
+                step(5, W_POP, vec![Arg::Field(4)]),
+            ],
+        ),
+        method(
+            LATE_PRESENT,
+            vec![
+                step(4, W_EQ, vec![Arg::Field(F_DRY), Arg::Const(0)]),
+                step(5, W_NOT, vec![Arg::Present(F_PARENT)]),
+                step(6, W_AND, vec![Arg::Field(4), Arg::Field(5)]),
+                step(7, W_POP, vec![Arg::Field(6)]),
+            ],
+        ),
+        method(
+            NO_PRESENT,
+            vec![
+                step(4, W_EQ, vec![Arg::Field(F_DRY), Arg::Const(0)]),
                 step(5, W_POP, vec![Arg::Field(4)]),
             ],
         ),
@@ -645,6 +663,29 @@ fn a_presence_operand_over_codec9_lanes_is_refused() {
             field: F_PARENT
         }
     );
+}
+
+/// The refusal looks at every effect, not only the first: a presence operand
+/// in the second effect is refused and named by its own effect index.
+#[test]
+fn a_presence_operand_in_a_later_effect_is_refused() {
+    let f = Fixture::with_lanes(Some(layout(LaneWidth::Bits9)));
+    assert_eq!(
+        f.try_prepare(LATE_PRESENT).unwrap_err(),
+        ExecRefusal::PresenceIsSign {
+            effect: 1,
+            field: F_PARENT
+        }
+    );
+}
+
+/// The guard stays silent where it has nothing to refuse: a Codec9 class whose
+/// method reads no presence operand prepares, as it does without a layout.
+#[test]
+fn a_codec9_method_without_a_presence_operand_prepares() {
+    let f = Fixture::with_lanes(Some(layout(LaneWidth::Bits9)));
+    assert!(f.try_prepare(NO_PRESENT).is_ok());
+    assert!(Fixture::new().try_prepare(NO_PRESENT).is_ok());
 }
 
 /// The twin: 8-bit lanes keep `P = 0 => value 0`, so the plane alone is
