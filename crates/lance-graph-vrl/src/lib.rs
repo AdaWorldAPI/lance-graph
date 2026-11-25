@@ -125,6 +125,9 @@ pub enum Refusal {
     Exec(ExecError),
     /// [`Recipe::rows_at`] was given a recipe with a drop term.
     FiltersAtPositions,
+    /// A lane read by [`Recipe::rows_at`] does not hold as many rows as the
+    /// first read lane.
+    LaneLength { field: u8, len: usize, need: usize },
     /// A position passed to [`Recipe::rows_at`] lies past the lanes.
     PositionOutOfRange { at: u32, n_rows: usize },
 }
@@ -820,6 +823,26 @@ impl Recipe {
             .map_err(|e| Refusal::Binding(LaneRefusal::Frame(e)))?;
         let lanes = self.lanes(w, None)?;
         let n_rows = lanes.get()[0].len();
+        // `exec` checks these shapes on the fold path; a lookup reads the
+        // lanes directly, so it checks them here before any position.
+        let need = words_for(n_rows);
+        for (i, (lane, plane)) in lanes.get().iter().zip(lanes.planes()).enumerate() {
+            let field = self.reads[i];
+            if lane.len() != n_rows {
+                return Err(Refusal::LaneLength {
+                    field,
+                    len: lane.len(),
+                    need: n_rows,
+                });
+            }
+            if plane.len() != need {
+                return Err(Refusal::PresenceLength {
+                    field,
+                    words: plane.len(),
+                    need,
+                });
+            }
+        }
         if let Some(&at) = positions.iter().find(|&&p| p as usize >= n_rows) {
             return Err(Refusal::PositionOutOfRange { at, n_rows });
         }
@@ -1009,11 +1032,20 @@ pub enum Datum {
     U32(u32),
 }
 
-impl From<Datum> for i64 {
-    fn from(d: Datum) -> i64 {
-        match d {
-            Datum::I32(v) => i64::from(v),
-            Datum::U32(v) => i64::from(v),
+impl Datum {
+    /// The signed value; `None` for a text code, which is not a number.
+    pub fn as_i32(self) -> Option<i32> {
+        match self {
+            Datum::I32(v) => Some(v),
+            Datum::U32(_) => None,
+        }
+    }
+
+    /// A text column's code; `None` for a signed value.
+    pub fn as_code(self) -> Option<u32> {
+        match self {
+            Datum::U32(c) => Some(c),
+            Datum::I32(_) => None,
         }
     }
 }

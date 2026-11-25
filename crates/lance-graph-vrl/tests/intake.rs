@@ -50,16 +50,19 @@ fn a_lookup_reads_the_rows_of_its_keys_in_list_order() {
     assert_eq!(rows.len(), 3);
     let col = |n: &str| rows.names().iter().position(|x| x == n).unwrap();
     let (id, region, qty) = (col("id"), col("region"), col("qty"));
-    let ids: Vec<i64> = (0..3).map(|i| i64::from(rows.get(i, id))).collect();
+    let ids: Vec<i64> = (0..3)
+        .map(|i| i64::from(rows.get(i, id).as_i32().unwrap()))
+        .collect();
     assert_eq!(ids, [3, 1, 3]);
     let names: Vec<String> = (0..3)
         .map(|i| match rows.get(i, region) {
             Datum::U32(code) => t.code_key("region", code).unwrap(),
-            other => panic!("region is a text column, got {other:?}"),
+            other @ Datum::I32(_) => panic!("region is a text column, got {other:?}"),
         })
         .collect();
     assert_eq!(names, ["east", "north", "east"]);
-    assert_eq!(i64::from(rows.get(1, qty)), 10);
+    assert_eq!(rows.get(1, qty).as_i32(), Some(10));
+    assert_eq!(rows.get(0, region).as_i32(), None, "a code is not a number");
     assert!(rows.present(1, qty));
     assert!(!rows.present(0, qty), "key 3 has no qty");
 }

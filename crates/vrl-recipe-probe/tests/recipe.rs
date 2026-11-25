@@ -16,7 +16,12 @@ fn events(rows: &Rows<'_>) -> Vec<Event> {
             rows.names()
                 .iter()
                 .enumerate()
-                .map(|(c, n)| (n.clone(), i64::from(rows.get(r, c))))
+                .map(|(c, n)| {
+                    (
+                        n.clone(),
+                        i64::from(rows.get(r, c).as_i32().expect("an i32 column")),
+                    )
+                })
                 .collect()
         })
         .collect()
@@ -437,5 +442,47 @@ fn a_prepared_sum_is_refused_by_a_recipe_with_swapped_outputs() {
     assert_eq!(
         b.run_into(&p, &witness(&w, &src), &mut scratch, Out::None),
         Err(Refusal::NotThisRecipe)
+    );
+}
+
+/// A lookup reads lanes directly, so it checks their shapes itself: a
+/// presence plane shorter than its lane, or a lane shorter than the first,
+/// is refused before any position is read.
+#[test]
+fn a_lookup_refuses_a_short_plane_or_lane() {
+    let r = compile(".n = .key\n.a = .properties.amount.value");
+    let mut short_plane = Source::random(128, 12);
+    short_plane.presence[3] = Some(vec![u64::MAX]);
+    let w = bind(&short_plane, &all_fields());
+    let under = w.binding.frame().clone();
+    assert_eq!(
+        r.rows_at(&witness(&w, &short_plane), &[0], &under)
+            .map(|rows| rows.len()),
+        Err(Refusal::PresenceLength {
+            field: 3,
+            words: 1,
+            need: 2
+        })
+    );
+    let mut short_lane = Source::random(128, 12);
+    short_lane.lanes[3].truncate(64);
+    let w = bind(&short_lane, &all_fields());
+    let under = w.binding.frame().clone();
+    assert_eq!(
+        r.rows_at(&witness(&w, &short_lane), &[0], &under)
+            .map(|rows| rows.len()),
+        Err(Refusal::LaneLength {
+            field: 3,
+            len: 64,
+            need: 128
+        })
+    );
+    let fine = Source::random(128, 12);
+    let w = bind(&fine, &all_fields());
+    let under = w.binding.frame().clone();
+    assert_eq!(
+        r.rows_at(&witness(&w, &fine), &[0, 127], &under)
+            .map(|rows| rows.len()),
+        Ok(2)
     );
 }
