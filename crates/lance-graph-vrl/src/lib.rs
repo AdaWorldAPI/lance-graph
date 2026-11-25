@@ -896,4 +896,60 @@ mod tests {
             assert!(parse(src).is_err(), "{src:?} parsed");
         }
     }
+
+    use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
+
+    struct View(Vec<FieldRef>);
+
+    impl ClassView for View {
+        fn fields(&self, _: ClassId) -> &[FieldRef] {
+            &self.0
+        }
+        fn template(&self, _: ClassId) -> DisplayTemplate {
+            DisplayTemplate::Detail
+        }
+        fn dolce_category_id(&self, _: ClassId) -> u8 {
+            0
+        }
+    }
+
+    fn view(n: usize) -> View {
+        let mut labels = vec!["key".to_owned()];
+        labels.extend((1..n).map(|i| format!("f{i}")));
+        View(
+            labels
+                .iter()
+                .map(|l| FieldRef::new(format!("t:{l}"), l.as_str()))
+                .collect(),
+        )
+    }
+
+    fn props(n: usize) -> String {
+        (1..n)
+            .map(|i| format!(".o{i} = .properties.f{i}.value"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn reading_more_fields_than_the_lane_array_holds_is_refused() {
+        let v = view(MAX_READS + 2);
+        assert!(Recipe::compile(&props(MAX_READS + 1), &v, 1).is_ok());
+        assert_eq!(
+            Recipe::compile(&props(MAX_READS + 2), &v, 1).unwrap_err(),
+            Refusal::TooManyReads {
+                reads: MAX_READS + 1
+            }
+        );
+    }
+
+    #[test]
+    fn a_deleted_output_still_reads_the_field_that_anchors_the_population() {
+        let v = view(3);
+        let r = Recipe::compile(".id = .key\ndel(.id)", &v, 1).unwrap();
+        assert!(r.outputs().is_empty());
+        assert_eq!(r.fields().count(), 1);
+        let kept = Recipe::compile(".id = .key", &v, 1).unwrap();
+        assert_eq!(kept.fields().count(), 1);
+    }
 }
