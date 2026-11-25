@@ -696,6 +696,24 @@ impl Table {
             .map(|key| key.0.clone())
     }
 
+    /// The code a text column, named by its predicate IRI, gives `text`
+    /// under `frame`: the inverse of [`Table::code_key_at`]. `None` for a
+    /// string the column has not seen, an unknown IRI or a non-text column.
+    /// What a recipe's text literal is resolved through
+    /// (`lance-graph-vrl`'s `Recipe::resolve_text`).
+    pub fn code_for(&self, frame: &Frame, predicate_iri: &str, text: &str) -> Option<u32> {
+        let column = self
+            .view
+            .fields
+            .iter()
+            .find(|f| f.predicate_iri == predicate_iri)?;
+        let k = self.shape.iter().position(|c| c.name == column.label)?;
+        let space = self.spaces.get(k)?.as_ref()?;
+        self.codes
+            .code(frame, space, &ValueKey(text.to_owned()))
+            .ok()
+    }
+
     /// [`Table::code_key_at`] under the current frame.
     #[doc(hidden)]
     pub fn code_key(&self, column: &str, code: u32) -> Option<String> {
