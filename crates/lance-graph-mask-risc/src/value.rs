@@ -88,6 +88,8 @@ pub enum LaneKind {
     U32,
     /// `LaneRef::U64`.
     U64,
+    /// `LaneRef::U8`.
+    U8,
     /// `LaneRef::Strided`.
     Strided,
 }

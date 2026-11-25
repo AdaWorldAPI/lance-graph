@@ -24,6 +24,11 @@ pub enum LaneRef<'a> {
     /// cannot alias a 12-in-16-byte stride anyway — that is what
     /// [`LaneRef::Strided`] is for.
     U64(&'a [u64]),
+    /// Unsigned 8-bit lane, read only by [`Pred::EqU8`] and [`Pred::NeU8`].
+    /// A Codec9 field's magnitudes are one: with its polarity plane as a
+    /// mask, `EqU8 { v: 0 }` gives `Z`, and the established values are
+    /// `P ∨ ¬Z` (`abakus::pm::touched`).
+    U8(&'a [u8]),
     /// A field VIEW over unchanged record bytes: record `i`'s field starts at
     /// `bytes[first_offset + i * stride]`. Nothing is extracted — a
     /// `NodeRow` column stays inside its 512-byte rows, and any number of
@@ -57,6 +62,7 @@ impl LaneRef<'_> {
             LaneRef::I32(v) => v.len(),
             LaneRef::U32(v) => v.len(),
             LaneRef::U64(v) => v.len(),
+            LaneRef::U8(v) => v.len(),
             LaneRef::Strided(v) => v.records,
         }
     }
@@ -141,6 +147,10 @@ pub enum Pred {
     EqU32 { lane: u16, v: u32 },
     /// `lane[i] != v`.
     NeU32 { lane: u16, v: u32 },
+    /// `lane[i] == v` (`u8` lane, exact).
+    EqU8 { lane: u16, v: u8 },
+    /// `lane[i] != v` (`u8` lane).
+    NeU8 { lane: u16, v: u8 },
     /// `((lane[i] ^ pattern) & care) == 0` over a `u32` lane.
     MatchU32 { lane: u16, pattern: u32, care: u32 },
     /// `((lane[i] ^ pattern) & care) == 0` over a `u64` lane.
