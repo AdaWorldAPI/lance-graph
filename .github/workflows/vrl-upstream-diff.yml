@@ -39,6 +39,9 @@ jobs:
       - name: Admission gate (S2)
         working-directory: lance-graph
         run: cargo test -p lance-graph-vrl --features ${{ matrix.pin }} --test admission
+      - name: Presence matrix (null, missing, zero, false, empty)
+        working-directory: lance-graph
+        run: cargo test -p lance-graph-vrl --features ${{ matrix.pin }} --test presence_matrix
       - name: Parser against upstream's AST (S3)
         working-directory: lance-graph
         run: cargo test -p lance-graph-vrl --features ${{ matrix.pin }} --test parser_oracle
