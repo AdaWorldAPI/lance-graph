@@ -231,3 +231,75 @@ fn literals_resolved_before_an_append_are_refused() {
     ));
     assert_eq!(resolved(&t, src).count(&witness(&t)).unwrap(), 3);
 }
+
+/// A table whose `note` spells absence as empty text: keys 1 and 4 have no
+/// note (`''` and NULL alike), keys 2 and 3 have one.
+fn notes() -> Table {
+    use lance_graph_contract::pg_row::AbsentAs;
+    let rows: Vec<Vec<Option<&str>>> = vec![
+        vec![Some("1"), Some("")],
+        vec![Some("2"), Some("late")],
+        vec![Some("3"), Some("early")],
+        vec![Some("4"), None],
+    ];
+    let mut config = ShapeConfig {
+        key: Some("id".to_owned()),
+        ..ShapeConfig::default()
+    };
+    config.columns.insert(
+        "note".to_owned(),
+        lance_graph_intake::ColumnConfig {
+            absent: Some(AbsentAs::EmptyText),
+            ..Default::default()
+        },
+    );
+    Table::from_rows("notes", 0x2B07_0002, &["id", "note"], &rows, &config).unwrap()
+}
+
+/// Row-type contract, text: `""` is absence (code 0), never a value, so
+/// `== ""` and `!= ""` are presence tests decided at every row. Both
+/// frontends resolve the literal through the table and agree.
+///
+/// FAILS IF: `== ""` keeps other rows than the absent ones, `!= ""` other
+/// rows than the present ones, a row is left unknown by the comparison, or
+/// Quack and VRL disagree.
+#[test]
+fn text_equality_to_empty_is_a_presence_test_on_both_frontends() {
+    let mut t = notes();
+    let n = ".n = .properties.note.value\n";
+    {
+        let w = witness(&t);
+        // A row is dropped where the term holds, so what stays is its negation.
+        let kept = |src: &str| {
+            let rows = resolved(&t, &format!("{n}{src}"))
+                .materialize_rows(&w)
+                .unwrap();
+            let ids: Vec<u32> = rows.positions().to_vec();
+            (ids, rows.unknown())
+        };
+        assert_eq!(
+            kept("if .n != \"\" { abort }"),
+            (vec![0, 3], 0),
+            "== \"\" keeps the absent rows"
+        );
+        assert_eq!(
+            kept("if .n == \"\" { abort }"),
+            (vec![1, 2], 0),
+            "!= \"\" keeps the present rows"
+        );
+    }
+
+    let quack = |t: &mut Table, d: lance_graph_quack::bind::Draft| {
+        let q = t.bind(&d).unwrap();
+        let r = t.select_bound(&q).unwrap();
+        t.count_of(&r).unwrap()
+    };
+    let eq = lance_graph_quack::bind::table("notes").where_eq("note", "");
+    assert_eq!(quack(&mut t, eq), 2);
+    let ne = lance_graph_quack::bind::table("notes").where_cmp(
+        "note",
+        lance_graph_quack::bind::Op::Ne,
+        "",
+    );
+    assert_eq!(quack(&mut t, ne), 2);
+}

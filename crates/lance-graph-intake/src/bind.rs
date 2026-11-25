@@ -27,7 +27,7 @@
 //! nullable text column, which keeps `''` and NULL apart.
 
 use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding};
-use lance_graph_dt64::dr::{Frame, ValueKey};
+use lance_graph_dt64::dr::Frame;
 use lance_graph_pg_row::{bound_validity, BOUND_LIVE};
 use lance_graph_quack::bind::{
     BindError, Binder, BoundField, CodeWitness, Draft, FieldKind, Pattern, TableId, TypedQuery,
@@ -122,13 +122,7 @@ impl Binder for Table {
 
     fn code(&self, table: TableId, field: Col, literal: &str) -> Option<u32> {
         let k = self.column_of(table, field)?;
-        if literal.is_empty() && self.empty_absent(k) {
-            return Some(0);
-        }
-        let space = self.spaces.get(k)?.as_ref()?;
-        self.codes
-            .code(&self.owner.frame, space, &ValueKey(literal.to_owned()))
-            .ok()
+        self.literal_code(&self.owner.frame, k, literal)
     }
 
     fn codes_matching(&self, table: TableId, field: Col, pattern: &Pattern) -> Option<Vec<u32>> {

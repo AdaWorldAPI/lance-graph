@@ -701,6 +701,8 @@ impl Table {
     /// The code a text column, named by its predicate IRI, gives `text`
     /// under `frame`: the inverse of [`Table::code_key_at`]. `None` for a
     /// string the column has not seen, an unknown IRI or a non-text column.
+    /// `""` gives code 0, the column's absence, when the column spells
+    /// absence as empty text: the row type decides, not the frontend.
     /// What a recipe's text literal is resolved through
     /// (`lance-graph-vrl`'s `Recipe::resolve_text`).
     pub fn code_for(&self, frame: &Frame, predicate_iri: &str, text: &str) -> Option<u32> {
@@ -710,7 +712,16 @@ impl Table {
             .iter()
             .find(|f| f.predicate_iri == predicate_iri)?;
         let k = self.shape.iter().position(|c| c.name == column.label)?;
+        self.literal_code(frame, k, text)
+    }
+
+    /// The code column `k` gives a text literal under `frame`: the one
+    /// lookup both frontends resolve literals through.
+    pub(crate) fn literal_code(&self, frame: &Frame, k: usize, text: &str) -> Option<u32> {
         let space = self.spaces.get(k)?.as_ref()?;
+        if text.is_empty() && self.shape[k].col.absent == AbsentAs::EmptyText {
+            return Some(0);
+        }
         self.codes
             .code(frame, space, &ValueKey(text.to_owned()))
             .ok()

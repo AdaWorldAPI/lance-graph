@@ -1039,31 +1039,58 @@ impl Recipe {
             },
         ];
         let mut terms = Vec::with_capacity(self.drop.len() + self.text.len());
+        let term = |pred| {
+            vec![MaskOp::Pred {
+                pred,
+                under: None,
+                dst: TERM,
+            }]
+        };
         for &(field, cmp, t) in &self.drop {
             let lane = self.lane(field)?;
-            terms.push((lane, cmp.pred(lane, t), Pred::EqI32 { lane, v: 0 }));
+            terms.push((lane, term(cmp.pred(lane, t)), Pred::EqI32 { lane, v: 0 }));
         }
         if !self.text.is_empty() {
             let codes = self.codes.as_ref().ok_or(Refusal::TextUnresolved)?;
             for ((field, eq, _), code) in self.text.iter().zip(&codes.of) {
                 let lane = self.lane(*field)?;
-                let term = match (code, eq) {
+                // Code 0 is the row type's absence, never a stored string:
+                // comparing with it is a presence test, decided at every
+                // row, so no row is left unknown by it.
+                if *code == Some(0) {
+                    let presence = Operand::Plane(lane);
+                    let ops = if *eq {
+                        vec![
+                            all(TERM),
+                            MaskOp::AndNot {
+                                a: s(TERM),
+                                b: presence,
+                                dst: TERM,
+                            },
+                        ]
+                    } else {
+                        vec![MaskOp::And {
+                            a: presence,
+                            b: presence,
+                            dst: TERM,
+                        }]
+                    };
+                    terms.push((lane, ops, Pred::Range { lo: 0, hi: 0 }));
+                    continue;
+                }
+                let pred = match (code, eq) {
                     (Some(v), true) => Pred::EqU32 { lane, v: *v },
                     (Some(v), false) => Pred::NeU32 { lane, v: *v },
                     // No row holds a string the field never coded.
                     (None, true) => Pred::Range { lo: 0, hi: 0 },
                     (None, false) => Pred::Range { lo: 0, hi },
                 };
-                terms.push((lane, term, Pred::EqU32 { lane, v: 0 }));
+                terms.push((lane, term(pred), Pred::EqU32 { lane, v: 0 }));
             }
         }
         for (lane, term, zero) in terms {
+            ops.extend(term);
             ops.extend([
-                MaskOp::Pred {
-                    pred: term,
-                    under: None,
-                    dst: TERM,
-                },
                 MaskOp::Pred {
                     pred: zero,
                     under: None,
