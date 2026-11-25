@@ -10,6 +10,33 @@ use lance_graph_vector::{
     output_profile, vector_remap, Ack, Cell, Event, GlueRefusal, Refusal, VectorRoute, EVENT_ID,
 };
 use lance_graph_vrl::{Datum, Recipe, Witness};
+use vrl::value::{ObjectMap, Value};
+
+/// One event as Vector holds it after the remap.
+fn ev(id: &str, rev: &str, fields: &[(&str, Value)]) -> Value {
+    let mut lg = ObjectMap::new();
+    lg.insert("event_id".into(), Value::from(id));
+    lg.insert("schema_rev".into(), Value::from(rev));
+    let mut m = ObjectMap::new();
+    m.insert("lg".into(), Value::Object(lg));
+    for (k, v) in fields {
+        m.insert((*k).into(), v.clone());
+    }
+    Value::Object(m)
+}
+
+fn int(i: i64) -> Value {
+    Value::Integer(i)
+}
+
+fn text(s: &str) -> Value {
+    Value::from(s)
+}
+
+/// Hand Vector's values to the route, in place.
+fn land(route: &mut VectorRoute, evs: &[Value]) -> Ack {
+    route.receive_values(&evs.iter().collect::<Vec<_>>())
+}
 
 const SOURCE: u32 = 0x2B0A_0001;
 const OUTPUT: u32 = 0x2B0A_0002;
@@ -72,10 +99,13 @@ fn raw() -> Vec<Vec<Option<&'static str>>> {
 /// Written by hand, so it is an oracle independent of the polyfill. An absent
 /// amount is left out: how upstream VRL treats `null < 0` is the S1
 /// differential's question, not this one.
-const VECTOR_OUT: &str = r#"{"lg":{"event_id":"e1","schema_rev":"1"},"host":"north","amt":12}
-{"lg":{"event_id":"e3","schema_rev":"1"},"host":"north","amt":7}
-{"lg":{"event_id":"e4","schema_rev":"1"},"host":"east","amt":40}
-"#;
+fn vector_out() -> Vec<Value> {
+    vec![
+        ev("e1", "1", &[("host", text("north")), ("amt", int(12))]),
+        ev("e3", "1", &[("host", text("north")), ("amt", int(7))]),
+        ev("e4", "1", &[("host", text("east")), ("amt", int(40))]),
+    ]
+}
 
 fn recipe(profile: &Arc<SourceProfile>) -> (Recipe, Table) {
     let t = Table::from_rows_in("raw", profile, &["id", "region", "amount"], &raw()).unwrap();
@@ -142,7 +172,10 @@ fn the_program_declares_the_profile_its_output_lands_in() {
         [
             ("amt", "dd:host/cpu_milli"),
             ("host", "dd:host/region"),
-            EVENT_ID,
+            EVENT_ID[0],
+            EVENT_ID[1],
+            EVENT_ID[2],
+            EVENT_ID[3],
             ("lg.seq", "lg:seq"),
         ]
     );
@@ -180,7 +213,10 @@ fn vector_output_and_the_polyfill_converge() {
         .collect();
 
     let mut route = route();
-    assert_eq!(route.receive(VECTOR_OUT).status(), 200);
+    assert!(matches!(
+        land(&mut route, &vector_out()),
+        Ack::Committed { .. }
+    ));
     let landed = landed(route.table());
     assert_eq!(landed, polyfill);
     assert_eq!(
@@ -195,19 +231,19 @@ fn vector_output_and_the_polyfill_converge() {
 
 /// FAILS IF: a retried batch appends again, a replay with a misfit value is
 /// acknowledged, a repeat inside one batch is appended twice, or a wrong
-/// schema revision or an unknown field appends anything or answers other
-/// than 400.
+/// schema revision, an unknown field, a nested value or a float appends
+/// anything instead of refusing the batch.
 #[test]
 fn a_retry_changes_nothing_and_a_refusal_appends_nothing() {
     let mut route = route();
     assert_eq!(
-        route.receive(VECTOR_OUT),
+        land(&mut route, &vector_out()),
         Ack::Committed {
             appended: 3,
             duplicates: 0
         }
     );
-    let retry = route.receive(VECTOR_OUT);
+    let retry = land(&mut route, &vector_out());
     assert_eq!(
         retry,
         Ack::Committed {
@@ -215,54 +251,67 @@ fn a_retry_changes_nothing_and_a_refusal_appends_nothing() {
             duplicates: 3
         }
     );
-    assert_eq!(retry.status(), 200);
     assert_eq!(route.table().len(), 3);
 
-    let repeat = r#"{"lg":{"event_id":"e9","schema_rev":"1"},"host":"west","amt":1}
-{"lg":{"event_id":"e9","schema_rev":"1"},"host":"west","amt":1}"#;
+    let e9 = ev("e9", "1", &[("host", text("west")), ("amt", int(1))]);
+    let repeat = [e9.clone(), e9];
     assert_eq!(
-        route.receive(repeat),
+        land(&mut route, &repeat),
         Ack::Committed {
             appended: 1,
             duplicates: 1
         }
     );
 
-    let bad_replay = r#"{"lg":{"event_id":"e1","schema_rev":"1"},"host":"north","amt":"many"}"#;
+    let bad_replay = [ev(
+        "e1",
+        "1",
+        &[("host", text("north")), ("amt", text("many"))],
+    )];
     assert!(matches!(
-        route.receive(bad_replay),
+        land(&mut route, &bad_replay),
         Ack::Refused(Refusal::Intake(_))
     ));
 
-    let stale = r#"{"lg":{"event_id":"e10","schema_rev":"2"},"host":"west","amt":1}"#;
-    let refused = route.receive(stale);
-    assert_eq!(refused.status(), 400);
+    let stale = [ev("e10", "2", &[("host", text("west")), ("amt", int(1))])];
+    let refused = land(&mut route, &stale);
     assert!(matches!(
         refused,
-        Ack::Refused(Refusal::SchemaRev { line: 1, .. })
+        Ack::Refused(Refusal::SchemaRev { event: 1, .. })
     ));
-    let unknown = r#"{"lg":{"event_id":"e11","schema_rev":"1"},"cpu":1}"#;
+    let unknown = [ev("e11", "1", &[("cpu", int(1))])];
     assert!(matches!(
-        route.receive(unknown),
+        land(&mut route, &unknown),
         Ack::Refused(Refusal::UnknownField { .. })
     ));
-    let misfit = r#"{"lg":{"event_id":"e12","schema_rev":"1"},"host":"x","amt":"many"}"#;
+    let misfit = [ev(
+        "e12",
+        "1",
+        &[("host", text("x")), ("amt", text("many"))],
+    )];
     assert!(matches!(
-        route.receive(misfit),
+        land(&mut route, &misfit),
         Ack::Refused(Refusal::Intake(_))
     ));
-    let nested = r#"{"lg":{"event_id":"e13","schema_rev":"1"},"host":{"name":"x"}}"#;
+    let mut inner = ObjectMap::new();
+    inner.insert("name".into(), text("x"));
+    let nested = [ev("e13", "1", &[("host", Value::Object(inner))])];
     assert!(matches!(
-        route.receive(nested),
-        Ack::Refused(Refusal::NotScalar { line: 1, .. })
+        land(&mut route, &nested),
+        Ack::Refused(Refusal::NotScalar { event: 1, .. })
+    ));
+    let float = [ev("e14", "1", &[("amt", Value::from_f64_or_zero(1.5))])];
+    assert!(matches!(
+        land(&mut route, &float),
+        Ack::Refused(Refusal::NotScalar { event: 1, .. })
     ));
     assert_eq!(route.table().len(), 4, "refused batches appended nothing");
 }
 
-/// FAILS IF: typed events handed over by a sink inside Vector land other
-/// than the same events through NDJSON.
+/// FAILS IF: typed events land other than the same events as Vector's own
+/// values.
 #[test]
-fn typed_events_land_as_ndjson_does() {
+fn typed_events_land_as_vector_values_do() {
     let mut typed = route();
     let events = [
         Event {
@@ -278,7 +327,7 @@ fn typed_events_land_as_ndjson_does() {
         Event {
             event_id: "e4",
             schema_rev: Some("1"),
-            fields: vec![("host", Cell::Text("east")), ("amt", Cell::Number("40"))],
+            fields: vec![("host", Cell::Text("east")), ("amt", Cell::Int(40))],
         },
     ];
     assert_eq!(
@@ -288,9 +337,9 @@ fn typed_events_land_as_ndjson_does() {
             duplicates: 0
         }
     );
-    let mut json = route();
-    json.receive(VECTOR_OUT);
-    assert_eq!(landed(typed.table()), landed(json.table()));
+    let mut values = route();
+    land(&mut values, &vector_out());
+    assert_eq!(landed(typed.table()), landed(values.table()));
 
     let absent = [Event {
         event_id: "e5",
@@ -298,9 +347,16 @@ fn typed_events_land_as_ndjson_does() {
         fields: vec![("host", Cell::Text("west")), ("amt", Cell::Absent)],
     }];
     typed.receive_events(&absent);
-    json.receive(r#"{"lg":{"event_id":"e5","schema_rev":"1"},"host":"west","amt":null}"#);
+    land(
+        &mut values,
+        &[ev(
+            "e5",
+            "1",
+            &[("host", text("west")), ("amt", Value::Null)],
+        )],
+    );
     assert_eq!(landed(typed.table())[3], ("west".to_owned(), None));
-    assert_eq!(landed(typed.table()), landed(json.table()));
+    assert_eq!(landed(typed.table()), landed(values.table()));
 }
 
 /// FAILS IF: the landed table is not queryable through Quack's binder: the
@@ -309,7 +365,7 @@ fn typed_events_land_as_ndjson_does() {
 fn quack_reads_what_vector_landed() {
     use lance_graph_quack::bind::{table as draft, Op};
     let mut route = route();
-    route.receive(VECTOR_OUT);
+    land(&mut route, &vector_out());
     let t = route.table_mut();
     let count = |t: &mut Table, d| {
         let q = t.bind(&d).unwrap();
@@ -335,11 +391,21 @@ fn the_vector_remap_projects_onto_the_outputs() {
         format!("{PROGRAM}\n. = {{\"lg\": .lg, \"amt\": .amt, \"host\": .host}}\n")
     );
 
-    let unprojected = r#"{"lg":{"event_id":"e1","schema_rev":"1"},"host":"north","amt":12,"properties":{"region":{"value":"north"},"amount":{"value":12}}}"#;
+    let mut props = ObjectMap::new();
+    props.insert("region".into(), text("north"));
+    let unprojected = [ev(
+        "e1",
+        "1",
+        &[
+            ("host", text("north")),
+            ("amt", int(12)),
+            ("properties", Value::Object(props)),
+        ],
+    )];
     let mut route = route();
     assert!(matches!(
-        route.receive(unprojected),
-        Ack::Refused(Refusal::NotScalar { line: 1, .. })
+        land(&mut route, &unprojected),
+        Ack::Refused(Refusal::NotScalar { event: 1, .. })
     ));
     assert_eq!(route.table().len(), 0);
 }

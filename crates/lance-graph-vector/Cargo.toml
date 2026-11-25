@@ -5,16 +5,17 @@ edition = "2021"
 rust-version = "1.99.0"
 publish = false
 license = "MIT OR Apache-2.0"
-description = "Vector as an upstream of lance-graph, with lance-graph-vrl as the glue: one VRL program runs in Vector and, compiled by lance-graph-vrl, declares the intake profile its output lands in. The NDJSON route Vector's http sink posts to decodes each line once, checks the schema revision, drops duplicate event ids, and appends to the tenant's table."
+description = "Vector as an upstream of lance-graph, with lance-graph-vrl as the glue: one VRL program runs in Vector and, compiled by lance-graph-vrl, declares the intake profile its output lands in. In one process with Vector, the route places typed events (or Vector's own vrl Values) straight into lanes, nothing serialized: schema revision checked, duplicate event ids dropped, the tenant's table appended all or nothing."
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-intake = { path = "../lance-graph-intake" }
 lance-graph-vrl = { path = "../lance-graph-vrl" }
-# The wire format at the boundary only: each NDJSON line is decoded once into
-# the row shape intake takes. `raw_value` keeps a number's own text, so a
-# decimal never passes through f64.
-serde_json = { version = "1", features = ["raw_value"] }
+# Vector's own value type (`LogEvent::value()`), read in place by
+# `receive_values`; the `value` feature only. The fork at
+# Vector's locked vrl rev, so the combined binary holds one `vrl` (patch
+# Vector's `vectordotdev/vrl` source to this one).
+vrl = { git = "https://github.com/AdaWorldAPI/vrl.git", rev = "7738f74e039df4d92ee5370d1f0d7d522f73e97a", default-features = false, features = ["value"] }
 
 [dev-dependencies]
 lance-graph-quack = { path = "../lance-graph-quack" }
