@@ -414,7 +414,8 @@ fn held_positions_are_refused_after_the_source_moves() {
 
 /// Two recipes that read the same fields and drop the same rows but swap
 /// their outputs are different recipes: a sum prepared for one is refused
-/// by the other. A clone keeps its original's identity and runs it.
+/// by the other. A recipe compiled again from the same source is the same
+/// recipe and runs it.
 #[test]
 fn a_prepared_sum_is_refused_by_a_recipe_with_swapped_outputs() {
     use lance_graph_mask_risc::Out;
@@ -427,8 +428,7 @@ fn a_prepared_sum_is_refused_by_a_recipe_with_swapped_outputs() {
     assert!(a
         .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
         .is_ok());
-    assert!(a
-        .clone()
+    assert!(compile(".a = .key\n.b = .properties.amount.value")
         .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
         .is_ok());
     assert_eq!(
