@@ -123,6 +123,9 @@ pub enum Refusal {
     },
     /// mask-risc refused the program or its operands.
     Exec(ExecError),
+    /// A recipe names a field it does not read. Not reachable through
+    /// [`Recipe::compile`].
+    NotARead { field: u8 },
     /// [`Recipe::rows_at`] was given a recipe with a drop term.
     FiltersAtPositions,
     /// A lane read by [`Recipe::rows_at`] does not hold as many rows as the
@@ -488,12 +491,16 @@ impl Recipe {
         self.out.iter().map(|(n, _)| n.as_str()).collect()
     }
 
-    /// Every field a recipe names is in `reads` by construction (outputs and
-    /// terms are what `reads` is built from).
-    fn lane(&self, field: u8) -> u16 {
-        let at = self.reads.iter().position(|&f| f == field);
-        debug_assert!(at.is_some(), "field {field} is not a read of this recipe");
-        at.unwrap_or(0) as u16
+    /// The program lane of `field`. Every field a recipe names is in `reads`
+    /// by construction (outputs and terms are what `reads` is built from), so
+    /// the refusal is not reachable through `compile`; it stands in for a
+    /// silent fallback to lane 0.
+    fn lane(&self, field: u8) -> Result<u16, Refusal> {
+        self.reads
+            .iter()
+            .position(|&f| f == field)
+            .map(|at| at as u16)
+            .ok_or(Refusal::NotARead { field })
     }
 
     /// The recipe's lanes, borrowed under ONE DT64 check, in `reads` order,
@@ -606,7 +613,7 @@ impl Recipe {
             n_rows,
             Terminal::MaskedSumI32 {
                 mask: Operand::Scratch(0),
-                lane: self.lane(field),
+                lane: self.lane(field)?,
             },
             Some(field),
         )
@@ -787,7 +794,7 @@ impl Recipe {
                 bits &= bits - 1;
             }
         }
-        Ok(self.rows(frame, lanes, positions))
+        self.rows(frame, lanes, positions)
     }
 
     /// The rows at `positions`, in list order, repeats kept: a key lookup,
@@ -816,11 +823,9 @@ impl Recipe {
         if !self.drop.is_empty() {
             return Err(Refusal::FiltersAtPositions);
         }
-        // The frame check `LaneBinding::borrow_all_at` makes, ahead of the one
-        // full binding check in `lanes`.
-        w.frames
-            .check(under)
-            .map_err(|e| Refusal::Binding(LaneRefusal::Frame(e)))?;
+        // The frame check `LaneBinding::borrow_all_at` makes, shared with it,
+        // ahead of the one full binding check in `lanes`.
+        LaneBinding::check_positions_frame(w.frames, under).map_err(Refusal::Binding)?;
         let lanes = self.lanes(w, None)?;
         let n_rows = lanes.get()[0].len();
         // `exec` checks these shapes on the fold path; a lookup reads the
@@ -846,19 +851,29 @@ impl Recipe {
         if let Some(&at) = positions.iter().find(|&&p| p as usize >= n_rows) {
             return Err(Refusal::PositionOutOfRange { at, n_rows });
         }
-        Ok(self.rows(under.clone(), lanes, positions.to_vec()))
+        self.rows(under.clone(), lanes, positions.to_vec())
     }
 
-    fn rows<'a>(&self, frame: Frame, lanes: Lanes<'a>, positions: Vec<u32>) -> Rows<'a> {
-        let lane_of = |field: u8| lanes.get()[usize::from(self.lane(field))];
-        let presence_of = |field: u8| lanes.planes()[usize::from(self.lane(field))];
-        Rows {
+    fn rows<'a>(
+        &self,
+        frame: Frame,
+        lanes: Lanes<'a>,
+        positions: Vec<u32>,
+    ) -> Result<Rows<'a>, Refusal> {
+        let mut cols = Vec::with_capacity(self.out.len());
+        let mut planes = Vec::with_capacity(self.out.len());
+        for (_, f) in &self.out {
+            let at = usize::from(self.lane(*f)?);
+            cols.push(lanes.get()[at]);
+            planes.push(lanes.planes()[at]);
+        }
+        Ok(Rows {
             frame,
             names: self.out.iter().map(|(n, _)| n.clone()).collect(),
-            lanes: self.out.iter().map(|(_, f)| lane_of(*f)).collect(),
-            presence: self.out.iter().map(|(_, f)| presence_of(*f)).collect(),
+            lanes: cols,
+            presence: planes,
             positions,
-        }
+        })
     }
 
     /// The population program, three-valued (EXO-294). Each term is a
@@ -896,7 +911,7 @@ impl Recipe {
             },
         ];
         for &(field, cmp, t) in &self.drop {
-            let lane = self.lane(field);
+            let lane = self.lane(field)?;
             ops.extend([
                 MaskOp::Pred {
                     pred: cmp.pred(lane, t),
