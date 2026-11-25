@@ -23,7 +23,7 @@
 
 use lance_graph_contract::class_view::{ClassId, ClassView};
 use lance_graph_dt64::PresenceSource;
-use lance_graph_mask_risc::exec::{execute_into, Scratch};
+use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::{
     Foreign, GroupKey, LaneRef, MaskOp, Operand, Out, Planes, PowerSums, Pred, Program, Terminal,
 };
@@ -466,6 +466,143 @@ pub fn slice_sums(
         &mut scratch,
         Out::PowerSums(&mut out),
     )?;
+    Ok(out)
+}
+
+/// The established-value mask of the coefficient lane: `presence ∨ c ≠ 0`.
+fn established_ops() -> Vec<MaskOp> {
+    vec![
+        MaskOp::Pred {
+            pred: Pred::NeI32 { lane: 0, v: 0 },
+            under: None,
+            dst: 0,
+        },
+        MaskOp::Or {
+            a: Operand::Scratch(0),
+            b: Operand::Plane(0),
+            dst: 0,
+        },
+    ]
+}
+
+/// The extents `bounds` names: slice `k` is rows `bounds[k]..bounds[k + 1]`.
+/// `bounds` starts at 0, ends at `n_rows` and never decreases.
+fn extents(
+    bounds: &[usize],
+    n_rows: usize,
+) -> Result<impl Iterator<Item = std::ops::Range<usize>> + '_, lance_graph_mask_risc::ExecError> {
+    let ordered = bounds.first() == Some(&0)
+        && bounds.last() == Some(&n_rows)
+        && bounds.windows(2).all(|w| w[0] <= w[1]);
+    if !ordered {
+        return Err(lance_graph_mask_risc::ExecError::ExtentOutOfRange {
+            lo: bounds.first().copied().unwrap_or(0),
+            hi: bounds.last().copied().unwrap_or(0),
+            n_rows,
+        });
+    }
+    Ok(bounds.windows(2).map(|w| w[0]..w[1]))
+}
+
+/// Per-slice N and S with no slice-id lane: two extent passes per sealed
+/// slice (`Count`, `MaskedSumI32`) over the lanes in place. Slice `k` is
+/// rows `bounds[k]..bounds[k + 1]`; boundaries need not be word-aligned.
+pub fn slice_counts_sums(
+    coefficients: &[i32],
+    presence: &[u64],
+    bounds: &[usize],
+) -> Result<Vec<(u64, i64)>, lance_graph_mask_risc::ExecError> {
+    let n_rows = coefficients.len();
+    let count = Program::new(
+        established_ops(),
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
+    );
+    let sum = Program::new(
+        established_ops(),
+        Terminal::MaskedSumI32 {
+            mask: Operand::Scratch(0),
+            lane: 0,
+        },
+    );
+    let masks = [presence];
+    let lanes = [LaneRef::I32(coefficients)];
+    let planes = Planes {
+        n_rows,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let mut scratch = Scratch::for_program(&count, n_rows)?;
+    let mut out = Vec::with_capacity(bounds.len().saturating_sub(1));
+    for extent in extents(bounds, n_rows)? {
+        let n = match execute_extent(
+            &count,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::None,
+            extent.clone(),
+        )? {
+            lance_graph_mask_risc::Value::Count(n) => n as u64,
+            other => unreachable!("Count returns a count, got {other:?}"),
+        };
+        let s = match execute_extent(
+            &sum,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::None,
+            extent,
+        )? {
+            lance_graph_mask_risc::Value::SumI64(s) => s,
+            other => unreachable!("MaskedSumI32 returns a sum, got {other:?}"),
+        };
+        out.push((n, s));
+    }
+    Ok(out)
+}
+
+/// Per-slice N, S, Q by sealed-slice boundaries instead of a slice-id lane:
+/// one `GroupPowerSumsI32` extent pass per slice. Σx² exists only grouped,
+/// so the pass is keyed by `zeros`, one group for every row: a lane the
+/// caller allocates once per table length and reuses for every slice and
+/// every boundary change, where the slice-id lane is rebuilt whenever a
+/// boundary moves. `zeros.len()` must be `coefficients.len()`.
+pub fn slice_sums_by_bounds(
+    coefficients: &[i32],
+    presence: &[u64],
+    bounds: &[usize],
+    zeros: &[u32],
+) -> Result<Vec<PowerSums>, lance_graph_mask_risc::ExecError> {
+    let n_rows = coefficients.len();
+    let program = Program::new(
+        established_ops(),
+        Terminal::GroupPowerSumsI32 {
+            mask: Operand::Scratch(0),
+            key: GroupKey::Lane(1),
+            val: 0,
+        },
+    );
+    let masks = [presence];
+    let lanes = [LaneRef::I32(coefficients), LaneRef::U32(zeros)];
+    let planes = Planes {
+        n_rows,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let mut scratch = Scratch::for_program(&program, n_rows)?;
+    let mut out = vec![PowerSums::default(); bounds.len().saturating_sub(1)];
+    for (sink, extent) in out.iter_mut().zip(extents(bounds, n_rows)?) {
+        execute_extent(
+            &program,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::PowerSums(std::slice::from_mut(sink)),
+            extent,
+        )?;
+    }
     Ok(out)
 }
 
