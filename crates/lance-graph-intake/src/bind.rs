@@ -9,10 +9,10 @@
 //!     → SelectionRef                                   DR-owned positions
 //! ```
 //!
-//! Only signed-integer lanes (`FieldKind::I32`) and text-code lanes
-//! (`FieldKind::Code`) bind: Quack's membrane has no unsigned, boolean or
-//! date literal kind, so a field of those encodings is not offered and binds
-//! as `BindError::UnknownField`.
+//! Signed-integer lanes (`FieldKind::I32`), text-code lanes
+//! (`FieldKind::Code`) and boolean lanes (`FieldKind::Bool`) bind. Quack's
+//! membrane has no unsigned or date literal kind, so a field of those
+//! encodings is not offered and binds as `BindError::UnknownField`.
 //!
 //! # Declared empty-as-absent text columns
 //!
@@ -27,7 +27,7 @@
 //! nullable text column, which keeps `''` and NULL apart.
 
 use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding};
-use lance_graph_dt64::dr::{Frame, ValueKey};
+use lance_graph_dt64::dr::Frame;
 use lance_graph_pg_row::{bound_validity, BOUND_LIVE};
 use lance_graph_quack::bind::{
     BindError, Binder, BoundField, CodeWitness, Draft, FieldKind, Pattern, TableId, TypedQuery,
@@ -110,6 +110,7 @@ impl Binder for Table {
         let kind = match self.shape[k].col.encoding {
             LaneEncoding::Signed => FieldKind::I32,
             LaneEncoding::TextCode => FieldKind::Code,
+            LaneEncoding::Bool => FieldKind::Bool,
             _ => return None,
         };
         let col = u16::try_from(k).ok()?;
@@ -122,13 +123,7 @@ impl Binder for Table {
 
     fn code(&self, table: TableId, field: Col, literal: &str) -> Option<u32> {
         let k = self.column_of(table, field)?;
-        if literal.is_empty() && self.empty_absent(k) {
-            return Some(0);
-        }
-        let space = self.spaces.get(k)?.as_ref()?;
-        self.codes
-            .code(&self.owner.frame, space, &ValueKey(literal.to_owned()))
-            .ok()
+        self.literal_code(&self.owner.frame, k, literal)
     }
 
     fn codes_matching(&self, table: TableId, field: Col, pattern: &Pattern) -> Option<Vec<u32>> {
@@ -229,7 +224,11 @@ mod tests {
             (n.kind, n.validity),
             (FieldKind::I32, Some(bound_validity(2)))
         );
-        assert!(t.field(id, "ok").is_none(), "boolean has no literal kind");
+        let ok = t.field(id, "ok").expect("ok");
+        assert_eq!(
+            (ok.kind, ok.validity),
+            (FieldKind::Bool, Some(bound_validity(3)))
+        );
         assert_eq!(t.code(id, Col(1), ""), Some(0));
         assert!(t.code(id, Col(1), "zzz").is_none());
     }

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use lance_graph_contract::pg_row::{write_cell, AbsentAs, LaneEncoding, PgColumn, PgType};
 use lance_graph_intake::pg::{write_selection, CollectRows, CopyText};
 use lance_graph_intake::{
-    detect_column, detect_key, ColumnConfig, IntakeRefusal, ShapeConfig, Table, Verdict,
+    detect_column, detect_key, detections, ColumnConfig, IntakeRefusal, ShapeConfig, Table, Verdict,
 };
 use lance_graph_pg_row::{PgRowRefusal, PgRows};
 use lance_graph_quack::bind::{table as draft, BindError};
@@ -214,7 +214,7 @@ fn config_forcing_text_differs_and_reads_as_text() {
     let table = small_table(&config).expect("table");
     let n = &table.shape()[1];
     assert_eq!(n.col, TEXT);
-    assert_eq!(n.detected.col, INT4);
+    assert_eq!(n.detected.as_ref().expect("detected").col, INT4);
     assert_eq!(n.verdict, Verdict::Differs { detected: INT4 });
     assert_eq!(table.shape()[0].verdict, Verdict::DetectedOnly);
 
@@ -240,12 +240,101 @@ fn config_equal_to_detection_agrees() {
         ColumnConfig {
             ty: Some(PgType::Int4),
             encoding: Some(LaneEncoding::Signed),
-            absent: Some(AbsentAs::Null),
+            absent: None,
         },
     );
     let table = small_table(&config).expect("table");
     assert_eq!(table.shape()[1].verdict, Verdict::Agrees);
     assert_eq!(table.shape()[0].verdict, Verdict::DetectedOnly);
+}
+
+fn declare(config: &mut ShapeConfig, name: &str, col: PgColumn) {
+    config.columns.insert(
+        name.to_owned(),
+        ColumnConfig {
+            ty: Some(col.ty),
+            encoding: Some(col.encoding),
+            absent: Some(col.absent),
+        },
+    );
+}
+
+/// FAILS IF: a table whose every column is declared still detects a column,
+/// reports a verdict other than `Declared`, or reads differently from the
+/// same rows taken by discovery. The discovery run detecting both columns is
+/// the twin that shows the counter counts.
+#[test]
+fn declared_columns_are_not_detected_and_read_as_discovered() {
+    let before = detections();
+    let discovered = small_table(&ShapeConfig::default()).expect("discovered");
+    assert_eq!(detections() - before, 2);
+
+    let mut config = ShapeConfig::default();
+    declare(&mut config, "id", INT4);
+    declare(&mut config, "n", INT4);
+    config.key = Some("id".to_owned());
+    let before = detections();
+    let declared = small_table(&config).expect("declared");
+    assert_eq!(detections() - before, 0);
+
+    for c in declared.shape() {
+        assert_eq!(c.verdict, Verdict::Declared, "{}", c.name);
+        assert_eq!(c.detected, None, "{}", c.name);
+    }
+    let cols = |t: &Table| t.shape().iter().map(|c| c.col).collect::<Vec<_>>();
+    assert_eq!(cols(&declared), cols(&discovered));
+    let (d, s) = (
+        declared.select_all().expect("declared read"),
+        discovered.select_all().expect("discovered read"),
+    );
+    assert_eq!(d.types, s.types);
+    assert_eq!(d.rows, s.rows);
+}
+
+/// FAILS IF: a column that gives only some of its values skips detection;
+/// only a column with all three is declared.
+#[test]
+fn partly_configured_column_is_still_detected() {
+    let mut config = ShapeConfig::default();
+    declare(&mut config, "id", INT4);
+    config.columns.insert(
+        "n".to_owned(),
+        ColumnConfig {
+            ty: Some(PgType::Int4),
+            encoding: Some(LaneEncoding::Signed),
+            absent: None,
+        },
+    );
+    let before = detections();
+    let table = small_table(&config).expect("table");
+    assert_eq!(detections() - before, 1);
+    assert_eq!(table.shape()[0].verdict, Verdict::Declared);
+    assert_eq!(table.shape()[1].verdict, Verdict::Agrees);
+}
+
+/// FAILS IF: skipping detection skips validation: a cell that does not fit
+/// its declared column is accepted at build or at append.
+#[test]
+fn declared_column_still_validates_every_cell() {
+    let mut config = ShapeConfig::default();
+    declare(&mut config, "id", INT4);
+    declare(&mut config, "n", INT4);
+    config.key = Some("id".to_owned());
+    let rows: Grid = vec![vec![Some("1"), Some("10")], vec![Some("2"), Some("x")]];
+    let refused = Table::from_rows("small", 0x2B03_0001, &["id", "n"], &rows, &config);
+    assert!(
+        matches!(&refused, Err(IntakeRefusal::Cell { column, row: 1, .. }) if column == "n"),
+        "{:?}",
+        refused.err()
+    );
+
+    let mut table = small_table(&config).expect("table");
+    let refused = table.append(&[vec![Some("4"), Some("x")]]);
+    assert!(
+        matches!(refused, Err(IntakeRefusal::ShapeChanged { ref column, .. }) if column == "n"),
+        "{refused:?}"
+    );
+    assert_eq!(table.select_all().expect("read").rows.len(), 3);
 }
 
 /// FAILS IF: a config entry or key naming no column is accepted.
@@ -1303,14 +1392,14 @@ fn pg_or_skip() -> Option<Pg> {
 
 /// FAILS IF: a literal bound through Quack's membrane keeps a different
 /// multiset of rows than PostgreSQL's `WHERE`, if `title = ''` (a present
-/// empty string in a NULL-absent column) keeps a NULL title, or if a field
-/// with no literal kind in the membrane is offered.
+/// empty string in a NULL-absent column) keeps a NULL title, or if an
+/// integer literal binds to a boolean field.
 #[test]
 fn a_bound_literal_equals_postgresql() {
     let (mut ticket, rows, deleted) = live_tickets();
     let live = |r: usize| !deleted[r];
     type Keep = fn(&[Option<String>]) -> bool;
-    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 5] = [
+    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 7] = [
         (
             "title = 'vpn'",
             draft("ticket").where_eq("title", "vpn"),
@@ -1334,6 +1423,14 @@ fn a_bound_literal_equals_postgresql() {
             draft("ticket").where_cmp("priority", lance_graph_quack::bind::Op::Lt, 0i32),
             |r| int(r, 5).is_some_and(|p| p < 0),
         ),
+        ("open = true", draft("ticket").where_eq("open", true), |r| {
+            r[3].as_deref() == Some("t")
+        }),
+        (
+            "open <> true",
+            draft("ticket").where_cmp("open", lance_graph_quack::bind::Op::Ne, true),
+            |r| r[3].as_deref() == Some("f"),
+        ),
     ];
     let mut ours = Vec::new();
     for (sql, d, keep) in cases {
@@ -1353,7 +1450,7 @@ fn a_bound_literal_equals_postgresql() {
     }
     assert!(matches!(
         ticket.bind(&draft("ticket").where_eq("open", 1i32)),
-        Err(IntakeRefusal::Bind(BindError::UnknownField { .. }))
+        Err(IntakeRefusal::Bind(BindError::KindMismatch { .. }))
     ));
 
     let Some(pg) = pg_or_skip() else { return };

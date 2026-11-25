@@ -70,6 +70,10 @@ pub enum FieldKind {
     /// A `U32` lane of numeric identities issued by the binder's codebook.
     /// Textual literals for it are resolved by [`Binder::code`].
     Code,
+    /// A `U32` lane of established booleans, `1` true and `0` false. An
+    /// absent value is untouched: its validity bit decides it, never its
+    /// stored `0`, so it is not an established false.
+    Bool,
 }
 
 /// A field, after its name has been resolved.
@@ -195,6 +199,14 @@ pub enum Literal {
     Text(String),
     /// An integer.
     Int(i64),
+    /// A boolean.
+    Bool(bool),
+}
+
+impl From<bool> for Literal {
+    fn from(v: bool) -> Self {
+        Literal::Bool(v)
+    }
 }
 
 impl From<&str> for Literal {
@@ -597,6 +609,18 @@ impl Draft {
                 match p.op {
                     Op::Ne => Cmp::NeU32(id),
                     _ => Cmp::EqU32(id),
+                }
+            }
+            (FieldKind::Bool, Literal::Bool(v)) => {
+                let v = u32::from(*v);
+                match p.op {
+                    Op::Eq => Cmp::EqU32(v),
+                    Op::Ne => Cmp::NeU32(v),
+                    _ => {
+                        return Err(BindError::Unordered {
+                            field: p.field.clone(),
+                        })
+                    }
                 }
             }
             _ => return Err(mismatch()),

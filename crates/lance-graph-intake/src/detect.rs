@@ -153,8 +153,18 @@ fn text_absent() -> AbsentAs {
     AbsentAs::Null
 }
 
+thread_local! {
+    static DETECTIONS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many columns this thread has detected. A declared column adds none.
+pub fn detections() -> u64 {
+    DETECTIONS.with(std::cell::Cell::get)
+}
+
 /// The shape of one column from its cells, `None` being NULL.
 pub fn detect_column(cells: &[Option<&str>]) -> Detected {
+    DETECTIONS.with(|n| n.set(n.get() + 1));
     let present: Vec<(usize, &str)> = cells
         .iter()
         .enumerate()

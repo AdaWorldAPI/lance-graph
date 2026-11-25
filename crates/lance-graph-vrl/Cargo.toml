@@ -19,3 +19,5 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # The end-to-end lookup test reads an intake table through its witness parts.
 lance-graph-intake = { path = "../lance-graph-intake" }
 lance-graph-pg-row = { path = "../lance-graph-pg-row" }
+# The row-type contract tests run the same predicate through Quack.
+lance-graph-quack = { path = "../lance-graph-quack" }
