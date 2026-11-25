@@ -1,5 +1,6 @@
-//! Register contract recipes: the VRL read/rename/filter subset, lowered onto
-//! the existing witnessed path (D-VRL-RECIPE-0). Moved here from the
+//! VRL recipes over the register contract (not Magic Sets / crepe rewrites, not
+//! the NARS tactic recipes): the VRL read/rename/filter subset, lowered onto the
+//! existing witnessed path (D-VRL-RECIPE-0). Moved here from the
 //! `vrl-recipe-probe` lab, which keeps the reference interpreter and the
 //! parity tests.
 //!
