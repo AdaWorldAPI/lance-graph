@@ -1,3 +1,10 @@
+## 2026-11-25 — exact decimals: research reconciliation and an isolated i32 semantic probe (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `.claude/knowledge/exact-decimal-reconciliation.md` (new): exact decimal = `coefficient × 10^exponent`; coefficient width, decimal scale and presentation precision kept independent. Cross-references ndarray #438/#439, D-DRISA, D-LANESOCK, LG #2160/#2175/#2177/#2178, EXO-174. Production admission stays closed (D-LANESOCK).
+- `crates/exact-decimal-probe` (new lab crate, workspace-excluded): exact lexical parse, literal thresholds resolved at prepare time (exact-rational oracle), COUNT(rows) vs COUNT(values), a prepared filter refused under a changed declared exponent, `f64` as an explicit shortest-round-trip policy with provenance, slice sealing that removes redundant powers of ten before choosing a #438 width, and per-slice N/S/Q from one `GroupPowerSumsI32` pass combined by aligning aggregates. A semantic reference on the i32 lane, not a storage decision.
+
 ## 2026-11-25 — VRL text equality on code lanes; unknown count on Rows (in PR, not on main)
 
 ### Current Contract Inventory — net delta
