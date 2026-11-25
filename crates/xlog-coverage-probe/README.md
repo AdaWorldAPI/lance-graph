@@ -144,7 +144,25 @@ no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
 datafrog, datafrog_reason, reference, reference_nonempty, reference_reason,
 route (empty, `set` or `reach`).
-The census is committed as `census-28b41f5.tsv` (2026-11-25, EXO-400). It was taken at XLOG
+The census is committed as `census-d6de529.tsv` (2026-11-25, EXO-457). It was taken at XLOG
+`d6de529` (xlog#15: correlated two-bound magic demand as a binary seed relation; a `Project`
+over a multi-key `Join` runs through the recipe flattening instead of being refused) against
+the native Cube at lance-graph `fc90ba1`. Against `census-dff3270.tsv` (below, now in git
+history) the counts are unchanged (114 oracle-agrees, 67 refused, 49 refused-on-data,
+0 oracle-disagrees) and exactly 2 rows changed, both only in their refusal reason: the `dry`
+rule of `test_epistemic_gpu_wcoj_execution.rs` (literals 262 and 264) now reaches the
+flattening and is refused there (`multi-way fallback Join`, was `Project over Join`).
+
+The previous census, `census-dff3270.tsv` (2026-11-25, EXO-457). It was taken at XLOG
+`dff3270` (xlog#13 + #14: magic-set seeds lowered to cube semijoins, `Restrict` from
+lance-graph#2207) against the native Cube at lance-graph `fc90ba1`. With the file-path prefix
+stripped it is byte-identical to `census-28b41f5.tsv` (now in git history): 230 rules,
+114 oracle-agrees, 67 refused, 49 refused-on-data, 0 oracle-disagrees, routes unchanged. No
+corpus file uses `#pragma magic_sets` (0 of 47), so this census shows only that the magic
+lowering changed nothing else; the magic witnesses are xlog-cube's `route_c` tests and its
+`magic_scaling` example.
+
+The previous census, `census-28b41f5.tsv` (2026-11-25, EXO-400). It was taken at XLOG
 `28b41f5` (xlog#12: a non-recursive derived binary head is a recipe for its readers, EXO-396)
 against the native Cube at lance-graph `11e8e01`. Against `census-1435111.tsv` (now in git
 history), exactly 5 rows changed and nothing else moved: 114 oracle-agrees (was 109),
