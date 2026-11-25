@@ -3628,3 +3628,19 @@ Plan path: `.claude/plans/polyglot-container-query-membrane-v1.md`. Research gro
 ### DT64-QB cross-session first seam (2026-10-26)
 
 **Coordination result, DOCS ONLY:** [borrowed Quack binding design](../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md) narrows DT64-0..5: first read-only, source-attested binding with original DTO identity, schema/catalogue version, actual owner + physical snapshot, local-focus/codebook witnesses, permission/completeness, borrowed input lanes and *separate reusable compiled recipe*. DT64 does not evaluate business predicates or native numerics; Quack/RelAlg/R2IL/mask-risc execute; ndarray does numeric kernels; D-NAM/EXO-152 owns numeric method certificates. Not one of ClassView FieldMask, DR address, 64 predicate slots or Palette256 numeric code is interchangeable. **Eight candidates** = catalogue 08/11/12/13/14/17/18/32 from dir-sim/Exchange/SAP (unary kept unary); compare scalar oracle ↔ Quack ↔ optional DR64². #1792 **MERGED** proves in-borrow stability and falsifies escaped Keep (1,032 old vs 31 fresh); complete mutation/source-snapshot reuse witness still **OPEN**. No code, physical DR³, runtime, source write or permission admission.
+
+### Adaptive exact-decimal binding (2026-11-25)
+
+Plan: [adaptive-exact-decimal-binding-v1](../plans/adaptive-exact-decimal-binding-v1.md). Oracle: `crates/exact-decimal-probe` (#2182).
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-AED-0 | Plan, oracle boundary (#2182 unchanged) | In PR, docs only |
+| D-AED-1 | Slice boundaries instead of the U32 slice-id lane (ungrouped N/S exist; ungrouped Σx² does not) | Queued |
+| D-AED-2 | One sealed slice stored at its #438 width (PM9, then PM17) in the canonical owner | Queued |
+| D-AED-3 | Width and exponent as bookmarks witnessed with the frame | Queued |
+| D-AED-4 | Promotion, finer resolution, demotion: reseal vs append a slice | Queued |
+| D-AED-5 | Dispatch once per sealed slice; ns and bytes against the i32 path | Queued |
+| D-AED-6 | Real coefficient ranges and redundant zeros (workbooks, logs, telemetry) | Queued (needs real samples) |
+| D-AED-7 | Schema-on-write detection of exact decimals in intake (today decimal text detects as text) | Queued |
+| D-AED-8 | VRL and log ingestion over decimal fields (literals resolved at prepare, no `f64`) | Queued |
