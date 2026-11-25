@@ -3656,7 +3656,7 @@ Plan: [registered-source-profiles-v1](../plans/registered-source-profiles-v1.md)
 | D-RSP-2 | Source-scoped IRIs supplied by the caller; one registered class across tenants (borrowed BindStore/ClassView, per-tenant frames and code tables) | Queued |
 | D-RSP-3 | Measure semantics: unit, temporal kind, lawful aggregation (PropertySpec declares vs MethodBinding enforces) | Queued (decision needed) |
 | D-RSP-4 | Meaning witness (version meaning by IRI) | Queued |
-| D-RSP-5 | One field seam for Quack and VRL; semantic differences pinned, not merged | Queued |
+| D-RSP-5 | One field seam for Quack and VRL; semantic differences pinned, not merged | In PR (partial) — row-type contract shipped on both frontends: one literal lookup `Table::literal_code` (`""` → code 0 under `EmptyText`), VRL presence test for code 0, `FieldKind::Bool`/`Literal::Bool` in Quack, `AbortBool` in VRL; the nine row-type tests pass on both (disable runs red per frontend), PG parity `open = true` / `open <> true`. OPEN: the field-by-IRI seam (`predicate_iri → column, code space, exponent, validity`); Quack still binds by column name |
 | D-RSP-6 | Harvest declarations (ogar-az AttrDef, field policy, CSDL/OpenAPI where present); never measure semantics | Queued |
 | D-RSP-7 | Cross-source measure equivalence by canonical IRI + exact conversion + identity evidence + oracle | Queued |
 | D-RSP-8 | `source-profile-probe` vertical slice (arms A–D, Quack and VRL, measured separately) | Queued |
