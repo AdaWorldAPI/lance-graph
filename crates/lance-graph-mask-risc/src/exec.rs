@@ -24,8 +24,8 @@
 
 use ndarray::simd::{
     blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_strided_to_mask, eq_u32_to_mask,
-    eq_u32_to_mask_under, eq_u32_via_to_mask, ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask,
-    gt_i32_to_mask_under, le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask,
+    eq_u32_to_mask_under, eq_u32_via_to_mask, eq_u8_to_mask, ge_i32_to_mask, ge_i32_to_mask_under,
+    gt_i32_to_mask, gt_i32_to_mask_under, le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask,
     lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
     mask_any, mask_gather_u32, mask_gather_u32_under, mask_not, mask_not_assign, mask_or,
     mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign,
@@ -38,7 +38,7 @@ use ndarray::simd::{
     masked_group_sum_i32, masked_group_sum_i32_via, masked_group_sum_sym_i32,
     masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via, masked_key_run_count_u32,
     masked_max_i32, masked_min_i32, masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask,
-    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, ne_u8_to_mask, popcount_batch_u64,
     ternary_match_strided16_to_mask, ternary_match_strided_to_mask, ternary_match_u32_to_mask,
     ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
     CrossPowerSums, KeyRunCarry, PowerSums,
@@ -507,6 +507,21 @@ fn lane_u32<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [u32] {
     }
 }
 
+fn lane_u8<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [u8] {
+    match planes.lanes[usize::from(lane)] {
+        LaneRef::U8(v) => rows_of(v, t),
+        _ => &[],
+    }
+}
+
+/// `dst &= gate`: the `_under` form for the byte predicates, which have no
+/// gated facade member. Word-wise over the tile's mask words.
+fn and_gate(dst: &mut [u64], gate: &[u64]) {
+    for (d, g) in dst.iter_mut().zip(gate) {
+        *d &= *g;
+    }
+}
+
 fn lane_u64<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [u64] {
     match planes.lanes[usize::from(lane)] {
         LaneRef::U64(v) => rows_of(v, t),
@@ -605,6 +620,18 @@ fn run_pred<'a>(
         (Pred::EqU32 { lane, v }, None) => eq_u32_to_mask(lane_u32(planes, lane, t), v, dst),
         (Pred::EqU32 { lane, v }, Some(u)) => {
             eq_u32_to_mask_under(lane_u32(planes, lane, t), v, read(planes, s, u, t), dst)
+        }
+        (Pred::EqU8 { lane, v }, gate) => {
+            eq_u8_to_mask(lane_u8(planes, lane, t), v, dst);
+            if let Some(u) = gate {
+                and_gate(dst, read(planes, s, u, t));
+            }
+        }
+        (Pred::NeU8 { lane, v }, gate) => {
+            ne_u8_to_mask(lane_u8(planes, lane, t), v, dst);
+            if let Some(u) = gate {
+                and_gate(dst, read(planes, s, u, t));
+            }
         }
         (Pred::NeU32 { lane, v }, None) => ne_u32_to_mask(lane_u32(planes, lane, t), v, dst),
         (Pred::NeU32 { lane, v }, Some(u)) => {

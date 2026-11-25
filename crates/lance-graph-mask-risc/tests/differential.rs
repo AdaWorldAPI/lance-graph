@@ -29,6 +29,8 @@ struct Fixture {
     /// fixture is vacuous — `out` equals lane 0 under every mask, so swapping
     /// the branches in either implementation changes nothing.
     i32s_b: Vec<i32>,
+    /// A `u8` lane (index 4): Codec9 magnitudes, zero rare by construction.
+    u8s: Vec<u8>,
 }
 
 impl Fixture {
@@ -63,6 +65,11 @@ impl Fixture {
             u64s[8] = 0x1000;
         }
         let i32s_b = (0..n).map(|_| -1 - (lcg(&mut s) % 500) as i32).collect();
+        let mut u8s: Vec<u8> = (0..n).map(|_| (lcg(&mut s) % 256) as u8).collect();
+        if n > 8 {
+            u8s[7] = 0;
+            u8s[8] = 5;
+        }
         Self {
             n,
             masks,
@@ -70,6 +77,7 @@ impl Fixture {
             u32s,
             u64s,
             i32s_b,
+            u8s,
         }
     }
 
@@ -86,6 +94,7 @@ impl Fixture {
             LaneRef::U32(&self.u32s),
             LaneRef::U64(&self.u64s),
             LaneRef::I32(&self.i32s_b),
+            LaneRef::U8(&self.u8s),
         ];
         let planes = Planes {
             n_rows: self.n,
@@ -173,6 +182,7 @@ impl Fixture {
             LaneRef::U32(&self.u32s),
             LaneRef::U64(&self.u64s),
             LaneRef::I32(&self.i32s_b),
+            LaneRef::U8(&self.u8s),
         ];
         let planes = Planes {
             n_rows: self.n,
@@ -212,6 +222,9 @@ fn all_preds() -> Vec<Pred> {
             pattern: 0x1000,
             care: 0xF000,
         },
+        Pred::EqU8 { lane: 4, v: 0 },
+        Pred::NeU8 { lane: 4, v: 0 },
+        Pred::EqU8 { lane: 4, v: 5 },
     ]
 }
 
@@ -235,7 +248,10 @@ fn every_predicate_with_and_without_a_gate() {
                 });
                 let p = Program::new(ops, Terminal::Keep { mask: S0 });
                 f.run(&p, &format!("{pred:?} under {under:?}"));
-                let is_ne = matches!(pred, Pred::NeI32 { .. } | Pred::NeU32 { .. });
+                let is_ne = matches!(
+                    pred,
+                    Pred::NeI32 { .. } | Pred::NeU32 { .. } | Pred::NeU8 { .. }
+                );
                 if n >= 3 && !is_ne && under.is_none() {
                     let c = Program::new(
                         vec![MaskOp::Pred {
@@ -637,5 +653,94 @@ fn range_out_of_bounds_is_refused_identically() {
                 "Range {{ {lo}, {hi} }} @ n={n}: must be refused as out of bounds"
             );
         }
+    }
+}
+
+/// FAILS IF: the Codec9 readings over a magnitude lane and its polarity plane
+/// differ from the codeword oracle. With S the selection, P the polarity and
+/// Z = `EqU8 { v: 0 }`: established values are `S ∧ (P ∨ ¬Z)`, hydration
+/// demand (untouched) is `S ∧ ¬P ∧ Z`. Every one of the 512 codewords occurs.
+#[test]
+fn codec9_present_and_absent_counts_match_the_codeword_oracle() {
+    let n = 65_536;
+    let mut s = 29u64;
+    let codes: Vec<u16> = (0..n)
+        .map(|i| {
+            if i < 512 {
+                i as u16
+            } else {
+                (lcg(&mut s) % 512) as u16
+            }
+        })
+        .collect();
+    let mags: Vec<u8> = codes.iter().map(|&c| (c & 0xff) as u8).collect();
+    let mut pos = vec![0u64; words_for(n)];
+    let mut sel = vec![0u64; words_for(n)];
+    for (i, &c) in codes.iter().enumerate() {
+        pos[i / 64] |= u64::from(c >> 8 & 1) << (i % 64);
+        sel[i / 64] |= u64::from(!lcg(&mut s).is_multiple_of(3)) << (i % 64);
+    }
+    let picked = |i: usize| sel[i / 64] >> (i % 64) & 1 == 1;
+    let want_present = (0..n).filter(|&i| picked(i) && codes[i] != 0).count();
+    let want_absent = (0..n).filter(|&i| picked(i) && codes[i] == 0).count();
+    // Anti-vacuity: both populations are real, and they partition the selection.
+    assert!(want_absent > 0 && want_present > want_absent);
+    assert_eq!(
+        want_present + want_absent,
+        (0..n).filter(|&i| picked(i)).count()
+    );
+
+    let masks: Vec<&[u64]> = vec![&sel, &pos];
+    let lanes = [LaneRef::U8(&mags)];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let present = Program::new(
+        vec![
+            MaskOp::Pred {
+                pred: Pred::NeU8 { lane: 0, v: 0 },
+                under: None,
+                dst: 0,
+            },
+            MaskOp::Or {
+                a: P1,
+                b: S0,
+                dst: 1,
+            },
+            MaskOp::And {
+                a: P0,
+                b: S1,
+                dst: 2,
+            },
+        ],
+        Terminal::Count {
+            mask: Operand::Scratch(2),
+        },
+    );
+    let absent = Program::new(
+        vec![
+            MaskOp::AndNot {
+                a: P0,
+                b: P1,
+                dst: 0,
+            },
+            MaskOp::Pred {
+                pred: Pred::EqU8 { lane: 0, v: 0 },
+                under: Some(S0),
+                dst: 1,
+            },
+        ],
+        Terminal::Count { mask: S1 },
+    );
+    for (p, want) in [(&present, want_present), (&absent, want_absent)] {
+        let mut scratch = Scratch::for_program(p, n).expect("scratch");
+        let got = execute(p, &planes, &mut scratch, None).expect("execute");
+        assert_eq!(got, Value::Count(want));
+        assert_eq!(
+            reference_execute(p, &planes, None).expect("oracle"),
+            Value::Count(want)
+        );
     }
 }

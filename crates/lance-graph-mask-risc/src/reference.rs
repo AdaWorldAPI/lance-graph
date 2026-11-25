@@ -58,6 +58,7 @@ fn kind_of(lane: &LaneRef<'_>) -> LaneKind {
         LaneRef::I32(_) => LaneKind::I32,
         LaneRef::U32(_) => LaneKind::U32,
         LaneRef::U64(_) => LaneKind::U64,
+        LaneRef::U8(_) => LaneKind::U8,
         LaneRef::Strided(_) => LaneKind::Strided,
     }
 }
@@ -82,6 +83,7 @@ fn pred_lane_and_kind(pred: Pred) -> Option<(u16, LaneKind)> {
             (lane, LaneKind::U32)
         }
         Pred::MatchU64 { lane, .. } => (lane, LaneKind::U64),
+        Pred::EqU8 { lane, .. } | Pred::NeU8 { lane, .. } => (lane, LaneKind::U8),
         // The fk is this table's lane; the foreign lane is checked separately
         // (`validate`'s `Pred` arm), against the OTHER address space.
         Pred::EqU32Via { fk, .. } => (fk, LaneKind::U32),
@@ -891,6 +893,10 @@ fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize)
         LaneRef::U64(v) => v[row],
         _ => 0,
     };
+    let u8_at = |lane: u16| match planes.lanes[usize::from(lane)] {
+        LaneRef::U8(v) => v[row],
+        _ => 0,
+    };
     // Both strided readers are the zero-fallback `validate` already licenses
     // for every other lane closure here: `check_strided` (via `check_lane`)
     // has already proven `lane` is `LaneKind::Strided` and in bounds for the
@@ -920,6 +926,8 @@ fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize)
         Pred::NeI32 { lane, v } => i32_at(planes, lane, row) != v,
         Pred::EqU32 { lane, v } => u32_at(lane) == v,
         Pred::NeU32 { lane, v } => u32_at(lane) != v,
+        Pred::EqU8 { lane, v } => u8_at(lane) == v,
+        Pred::NeU8 { lane, v } => u8_at(lane) != v,
         Pred::MatchU32 {
             lane,
             pattern,
