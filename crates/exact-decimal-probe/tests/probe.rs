@@ -558,3 +558,103 @@ fn slice_boundaries_out_of_order_are_refused() {
         );
     }
 }
+
+/// Slices that seal at PM9, PM17 and past it, each with an established
+/// zero, a negative value and an absent cell, across a word boundary.
+fn width_slices() -> Vec<SealedSlice> {
+    let s2 = Exp::scale(2);
+    let long = |big: &'static str| -> Vec<Option<&'static str>> {
+        (0..70)
+            .map(|i| match i % 7 {
+                0 => None,
+                1 => Some("0"),
+                2 => Some("-3"),
+                3 => Some(big),
+                _ => Some("12"),
+            })
+            .collect()
+    };
+    [long("255"), long("-65535"), long("70000.25")]
+        .iter()
+        .map(|cells| seal(cells, s2).unwrap())
+        .collect()
+}
+
+/// FAILS IF: a slice is not stored at the narrowest width that holds it,
+/// or reads back other values, another presence or another order than it
+/// was sealed with.
+#[test]
+fn a_sealed_slice_round_trips_at_its_physical_width() {
+    let sealed = width_slices();
+    let widths: Vec<&str> = sealed
+        .iter()
+        .map(|s| PhysicalSlice::store(s).width())
+        .collect();
+    assert_eq!(widths, ["PM9", "PM17", "i32"]);
+    for s in &sealed {
+        let p = PhysicalSlice::store(s);
+        assert_eq!(p.load(), *s, "{}", p.width());
+        for i in 0..s.coefficients.len() {
+            let want = s.present[i].then_some(s.coefficients[i]);
+            assert_eq!(p.get(i), want, "{} value {i}", p.width());
+        }
+        let bits: Vec<bool> = (0..s.coefficients.len())
+            .map(|i| p.presence()[i / 64] >> (i % 64) & 1 == 1)
+            .collect();
+        assert_eq!(bits, s.present, "{}: presence is P ∨ M ≠ 0", p.width());
+    }
+}
+
+/// FAILS IF: an established zero is stored as untouched, an absent cell as
+/// `+0`, a negative value with the positive polarity, or a `-0` is ever
+/// written.
+#[test]
+fn p_times_m_keeps_absent_and_established_zero_apart() {
+    let s = seal(&[None, Some("0"), Some("-7"), Some("7")], Exp::scale(2)).unwrap();
+    let p = PhysicalSlice::store(&s);
+    let Lanes::Pm9 { mag, pos } = &p.lanes else {
+        panic!("PM9 expected, got {}", p.width())
+    };
+    let pos = pos[0];
+    let lane = |i: usize| (pos >> i & 1 == 1, mag[i]);
+    assert_eq!(lane(0), (false, 0), "absent: untouched");
+    assert_eq!(lane(1), (true, 0), "established +0");
+    assert_eq!(lane(2), (false, 7), "-7");
+    assert_eq!(lane(3), (true, 7), "+7");
+    assert_eq!(p.presence(), vec![0b1110]);
+}
+
+/// FAILS IF: a stored PM9 block is not Abakus's representation: adding
+/// the untouched block must give it back, and subtracting it from itself
+/// must leave `+0` exactly where a value was established.
+#[test]
+fn a_pm9_block_is_abakus_arithmetic_input() {
+    use ndarray::hpc::abakus::pm::{add_pm, sub_pm, Pm};
+    let s = &width_slices()[0];
+    let p = PhysicalSlice::store(s);
+    assert_eq!(p.width(), "PM9");
+    let blocks: Vec<Pm> = (0..s.coefficients.len().div_ceil(64))
+        .map(|w| p.pm_block(w).unwrap())
+        .collect();
+    assert_eq!(blocks.len(), 2, "the slice crosses a block");
+    for b in &blocks {
+        assert_eq!(add_pm(*b, Pm::untouched()).exact(), Some(*b));
+        let zero = sub_pm(*b, *b).exact().expect("no carry");
+        assert_eq!(zero.mag.to_array(), [0u8; 64]);
+        assert_eq!(zero.pos, ndarray::hpc::abakus::pm::touched(*b));
+    }
+}
+
+/// FAILS IF: PM9 storage costs more than one magnitude byte and one
+/// polarity bit per value, or the resident Abakus register is mistaken for
+/// the storage layout (it is padded to its SIMD alignment).
+#[test]
+fn pm9_is_stored_packed_not_as_resident_registers() {
+    let s = &width_slices()[0];
+    let p = PhysicalSlice::store(s);
+    let n = s.coefficients.len();
+    assert_eq!(p.bytes(), DESCRIPTOR_BYTES + n + n.div_ceil(64) * 8);
+    let register = std::mem::size_of::<ndarray::hpc::abakus::pm::Pm>();
+    assert!(register >= 72, "a Pm register holds 64 bytes and a u64");
+    println!("resident Pm register: {register} bytes");
+}

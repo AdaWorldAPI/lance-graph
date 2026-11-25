@@ -933,3 +933,193 @@ mod tests {
         assert_eq!(threshold(Op::Gt, &max, Exp(0)), Ok(Threshold::Never));
     }
 }
+
+// ---- D-AED-2: a sealed slice at its physical width ------------------------
+
+use ndarray::hpc::abakus::pm::{touched, Pm};
+use ndarray::simd::U8x64;
+
+/// The lanes of a [`PhysicalSlice`]. P×M follows the DR512 law: `P=0, M=0`
+/// is untouched (absent), `P=0, M>0` is `-M`, `P=1` is `+M`, so `P=1, M=0`
+/// is the established `+0` and `-0` is never stored.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Lanes {
+    /// PM9: one magnitude byte and one polarity bit per value, packed.
+    /// [`PhysicalSlice::pm_block`] lends 64 of them as an Abakus [`Pm`]
+    /// register. A resident `Pm` is padded to its SIMD alignment (128 bytes
+    /// on AVX-512), so it is the arithmetic operand, not the storage.
+    Pm9 { mag: Vec<u8>, pos: Vec<u64> },
+    /// PM17: a `u16` magnitude per value and one polarity bit per value.
+    /// Storage only: Abakus has no PM17 arithmetic (an ndarray #438
+    /// deliverable).
+    Pm17 { mag: Vec<u16>, pos: Vec<u64> },
+    /// Past PM17: the `i32` coefficient and a presence plane, as today.
+    I32 { coef: Vec<i32>, present: Vec<u64> },
+}
+
+/// A sealed slice stored at the narrowest width that holds it. Identity
+/// order is the row order: value `i` is lane `i`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PhysicalSlice {
+    pub exp: Exp,
+    pub len: usize,
+    pub lanes: Lanes,
+}
+
+/// Bytes of a slice descriptor: exponent, width tag and length.
+pub const DESCRIPTOR_BYTES: usize = 1 + 1 + 8;
+
+impl PhysicalSlice {
+    /// Store `slice` at its width: PM9, PM17, else `i32`.
+    pub fn store(slice: &SealedSlice) -> PhysicalSlice {
+        let len = slice.coefficients.len();
+        let words = len.div_ceil(64);
+        // (polarity, magnitude) of value `i`.
+        let pm = |i: usize| -> (bool, u32) {
+            let c = slice.coefficients[i];
+            (slice.present[i] && c >= 0, c.unsigned_abs())
+        };
+        let lanes = match slice.width {
+            Some(PmWidth::Pm9) => {
+                let mut pos = vec![0u64; words];
+                let mag = (0..len)
+                    .map(|i| {
+                        let (p, v) = pm(i);
+                        pos[i / 64] |= u64::from(p) << (i % 64);
+                        v as u8
+                    })
+                    .collect();
+                Lanes::Pm9 { mag, pos }
+            }
+            Some(PmWidth::Pm17) => {
+                let mut pos = vec![0u64; words];
+                let mag = (0..len)
+                    .map(|i| {
+                        let (p, v) = pm(i);
+                        pos[i / 64] |= u64::from(p) << (i % 64);
+                        v as u16
+                    })
+                    .collect();
+                Lanes::Pm17 { mag, pos }
+            }
+            _ => {
+                let mut present = vec![0u64; words];
+                for (i, &p) in slice.present.iter().enumerate() {
+                    present[i / 64] |= u64::from(p) << (i % 64);
+                }
+                Lanes::I32 {
+                    coef: slice.coefficients.clone(),
+                    present,
+                }
+            }
+        };
+        PhysicalSlice {
+            exp: slice.exp,
+            len,
+            lanes,
+        }
+    }
+
+    /// The width the lanes are stored at.
+    pub fn width(&self) -> &'static str {
+        match self.lanes {
+            Lanes::Pm9 { .. } => "PM9",
+            Lanes::Pm17 { .. } => "PM17",
+            Lanes::I32 { .. } => "i32",
+        }
+    }
+
+    /// Value `i`: `None` when untouched, else the coefficient at `exp`.
+    pub fn get(&self, i: usize) -> Option<i32> {
+        assert!(i < self.len, "value {i} out of range");
+        let (p, m) = match &self.lanes {
+            Lanes::Pm9 { mag, pos } => (pos[i / 64] >> (i % 64) & 1 == 1, u32::from(mag[i])),
+            Lanes::Pm17 { mag, pos } => (pos[i / 64] >> (i % 64) & 1 == 1, u32::from(mag[i])),
+            Lanes::I32 { coef, present } => {
+                return (present[i / 64] >> (i % 64) & 1 == 1).then_some(coef[i]);
+            }
+        };
+        match (p, m) {
+            (false, 0) => None,
+            (false, m) => Some(-(m as i32)),
+            (true, m) => Some(m as i32),
+        }
+    }
+
+    /// Presence, one bit per value: `P ∨ M ≠ 0`. For PM9 this is Abakus's
+    /// `touched` per block.
+    pub fn presence(&self) -> Vec<u64> {
+        let tail = |w: usize, bits: u64| {
+            let used = self.len - w * 64;
+            if used >= 64 {
+                bits
+            } else {
+                bits & ((1u64 << used) - 1)
+            }
+        };
+        match &self.lanes {
+            Lanes::Pm9 { pos, .. } => (0..pos.len())
+                .map(|w| tail(w, touched(self.pm_block(w).expect("PM9"))))
+                .collect(),
+            Lanes::Pm17 { mag, pos } => pos
+                .iter()
+                .enumerate()
+                .map(|(w, &p)| {
+                    let nonzero = mag[w * 64..(w * 64 + 64).min(self.len)]
+                        .iter()
+                        .enumerate()
+                        .fold(0u64, |acc, (j, &m)| acc | u64::from(m != 0) << j);
+                    tail(w, p | nonzero)
+                })
+                .collect(),
+            Lanes::I32 { present, .. } => present.clone(),
+        }
+    }
+
+    /// Values `64·w .. 64·w + 64` of a PM9 slice as an Abakus register,
+    /// the tail padded untouched. `None` for another width.
+    pub fn pm_block(&self, w: usize) -> Option<Pm> {
+        let Lanes::Pm9 { mag, pos } = &self.lanes else {
+            return None;
+        };
+        let lo = w * 64;
+        let hi = (lo + 64).min(mag.len());
+        let mut lanes = [0u8; 64];
+        lanes[..hi - lo].copy_from_slice(&mag[lo..hi]);
+        Some(Pm {
+            mag: U8x64::from_array(lanes),
+            pos: pos[w],
+        })
+    }
+
+    /// Back to the sealed slice it was stored from.
+    pub fn load(&self) -> SealedSlice {
+        let mut coefficients = Vec::with_capacity(self.len);
+        let mut present = Vec::with_capacity(self.len);
+        let mut max_magnitude = 0u64;
+        for i in 0..self.len {
+            let v = self.get(i);
+            present.push(v.is_some());
+            let c = v.unwrap_or(0);
+            max_magnitude = max_magnitude.max(u64::from(c.unsigned_abs()));
+            coefficients.push(c);
+        }
+        SealedSlice {
+            exp: self.exp,
+            coefficients,
+            present,
+            max_magnitude,
+            width: PmWidth::for_magnitude(max_magnitude),
+        }
+    }
+
+    /// Bytes held: descriptor, magnitudes, polarity or presence plane.
+    pub fn bytes(&self) -> usize {
+        DESCRIPTOR_BYTES
+            + match &self.lanes {
+                Lanes::Pm9 { mag, pos } => mag.len() + pos.len() * 8,
+                Lanes::Pm17 { mag, pos } => mag.len() * 2 + pos.len() * 8,
+                Lanes::I32 { coef, present } => coef.len() * 4 + present.len() * 8,
+            }
+    }
+}
