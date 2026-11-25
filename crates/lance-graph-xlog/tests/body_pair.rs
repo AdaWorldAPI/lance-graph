@@ -487,3 +487,180 @@ fn or_across_frames_is_refused() {
     assert_eq!(a.or_assign(&b), Err(BodyRefusal::ForeignAnswer));
     assert_eq!(a.pairs(), 1, "a refused OR leaves the answer unchanged");
 }
+
+// ── EXO-457: the semijoin with a one-column set ─────────────────────────
+
+/// `{ (b[u], b[v]) }` over every binding that satisfies every atom and keeps
+/// each restricted variable inside its set, by nested loops over global ids.
+fn restricted_oracle(
+    rels: &[Vec<(u32, u32)>],
+    atoms: &[Atom],
+    k: usize,
+    restrict: &[(u8, &[u32])],
+    [u, v]: [u8; 2],
+) -> BTreeSet<(u32, u32)> {
+    witness_oracle(rels, atoms, k, &[])
+        .into_iter()
+        .filter(|b| {
+            restrict
+                .iter()
+                .all(|(x, s)| s.contains(&b[usize::from(*x)]))
+        })
+        .map(|b| (b[usize::from(u)], b[usize::from(v)]))
+        .collect()
+}
+
+fn magic_edges() -> Vec<(u32, u32)> {
+    vec![(1, 2), (2, 3), (10, 11), (11, 12)]
+}
+
+/// FAILS IF: the restriction is dropped (every source answers) or applied to
+/// the wrong variable. `reach(X, Y) :- magic(X), edge(X, Y)` with the seed
+/// `{1}` is `{(1,2)}`; the two-hop body under the same seed is `{(1,3)}`.
+/// Every demand of the chain equals the oracle, restricted on each variable.
+#[test]
+fn a_restriction_is_the_semijoin_with_a_set() {
+    use lance_graph_xlog::cube::{Restrict, SetExpr};
+    let rels = [magic_edges()];
+    let (t, mut cube) = cube_of(&rels);
+    let seed = cube.add_set(&t, &[1]).unwrap();
+    let r = |var| Restrict {
+        var,
+        set: SetExpr::Set(seed),
+    };
+    let one = [atom(0, 0, 1)];
+    let got = cube
+        .body_pair_restricted(&t, &one, 2, &[], &[r(0)], [0, 1])
+        .unwrap();
+    assert_eq!(decode(&t, &got), BTreeSet::from([(1, 2)]));
+    // Negative twin: the same body without the seed answers every source.
+    let all = cube.body_pair(&t, &one, 2, &[], [0, 1]).unwrap();
+    assert_eq!(all.pairs(), 4);
+    let chain = [atom(0, 0, 1), atom(0, 1, 2)];
+    for var in 0..3u8 {
+        for (u, v) in [(0u8, 2u8), (0, 1), (1, 2), (2, 0)] {
+            let got = cube
+                .body_pair_restricted(&t, &chain, 3, &[], &[r(var)], [u, v])
+                .unwrap();
+            let want = restricted_oracle(&rels, &chain, 3, &[(var, &[1])], [u, v]);
+            assert_eq!(decode(&t, &got), want, "restrict {var}, demand ({u},{v})");
+        }
+    }
+    let got = cube
+        .body_pair_restricted(&t, &chain, 3, &[], &[r(0)], [0, 2])
+        .unwrap();
+    assert_eq!(decode(&t, &got), BTreeSet::from([(1, 3)]));
+}
+
+/// FAILS IF: a set expression is not evaluated as one: the restriction is
+/// `Y ∈ column 0 of rel 1 ∧ ¬{2}`, so only `(1,2)`'s partner is excluded.
+#[test]
+fn a_restriction_takes_a_set_expression() {
+    use lance_graph_xlog::cube::{Restrict, SetExpr};
+    let starts = vec![(2, 99), (11, 99), (3, 99)];
+    let rels = [magic_edges(), starts];
+    let (t, mut cube) = cube_of(&rels);
+    let two = cube.add_set(&t, &[2]).unwrap();
+    let set = SetExpr::and_not(SetExpr::column(1, 0), SetExpr::Set(two));
+    let body = [atom(0, 0, 1)];
+    let got = cube
+        .body_pair_restricted(&t, &body, 2, &[], &[Restrict { var: 1, set }], [0, 1])
+        .unwrap();
+    assert_eq!(
+        decode(&t, &got),
+        restricted_oracle(&rels, &body, 2, &[(1, &[11, 3])], [0, 1])
+    );
+    assert_eq!(decode(&t, &got), BTreeSet::from([(10, 11), (2, 3)]));
+}
+
+/// FAILS IF: the witnesses ignore the restriction while the projection
+/// honours it. Two restrictions on one body intersect.
+#[test]
+fn restricted_witnesses_equal_the_oracle() {
+    use lance_graph_xlog::cube::{Restrict, SetExpr};
+    // (5,2) and (2,4) add chains (5,2,3), (5,2,4) and (1,2,4), which the
+    // restrictions must exclude.
+    let mut e = magic_edges();
+    e.extend([(5, 2), (2, 4)]);
+    let rels = [e];
+    let (t, mut cube) = cube_of(&rels);
+    let a = cube.add_set(&t, &[1, 10]).unwrap();
+    let b = cube.add_set(&t, &[3, 12, 2]).unwrap();
+    let chain = [atom(0, 0, 1), atom(0, 1, 2)];
+    let rs = [
+        Restrict {
+            var: 0,
+            set: SetExpr::Set(a),
+        },
+        Restrict {
+            var: 2,
+            set: SetExpr::Set(b),
+        },
+    ];
+    let flat = cube
+        .materialize_restricted_witnesses(&t, &chain, 3, &[], &rs)
+        .unwrap();
+    let got: BTreeSet<Vec<u32>> = flat
+        .chunks(3)
+        .map(|w| w.iter().map(|&g| g as u32).collect())
+        .collect();
+    let want: BTreeSet<Vec<u32>> = witness_oracle(&rels, &chain, 3, &[])
+        .into_iter()
+        .filter(|w| [1, 10].contains(&w[0]) && [3, 12, 2].contains(&w[2]))
+        .collect();
+    assert_eq!(got, want);
+    assert_eq!(got, BTreeSet::from([vec![1, 2, 3], vec![10, 11, 12]]));
+    // Anti-vacuity: without the restrictions the body has five witnesses.
+    assert_eq!(witness_oracle(&rels, &chain, 3, &[]).len(), 5);
+    let count = cube
+        .body_answer_restricted(&t, &chain, 3, &rs)
+        .unwrap()
+        .count;
+    assert_eq!(count, 2);
+}
+
+/// FAILS IF: a bad restriction runs instead of being refused, or a
+/// restricted terminal reads under another table's frame, or the
+/// projection builds rows.
+#[test]
+fn bad_restrictions_and_foreign_frames_are_refused() {
+    use lance_graph_xlog::cube::{CubeRefusal, Restrict, SetExpr};
+    let rels = [magic_edges()];
+    let (t, mut cube) = cube_of(&rels);
+    let seed = cube.add_set(&t, &[1]).unwrap();
+    let body = [atom(0, 0, 1)];
+    let out_of_range = Restrict {
+        var: 5,
+        set: SetExpr::Set(seed),
+    };
+    assert_eq!(
+        cube.body_pair_restricted(&t, &body, 2, &[], &[out_of_range], [0, 1])
+            .err(),
+        Some(BodyRefusal::VarOutOfRange { atom: 1, var: 5 })
+    );
+    let unknown = Restrict {
+        var: 0,
+        set: SetExpr::Set(seed + 7),
+    };
+    assert_eq!(
+        cube.body_pair_restricted(&t, &body, 2, &[], &[unknown], [0, 1])
+            .err(),
+        Some(BodyRefusal::Cube(CubeRefusal::UnknownSet(seed + 7)))
+    );
+    let ok = Restrict {
+        var: 0,
+        set: SetExpr::Set(seed),
+    };
+    let (other, _) = cube_of(&rels);
+    assert!(matches!(
+        cube.body_pair_restricted(&other, &body, 2, &[], std::slice::from_ref(&ok), [0, 1]),
+        Err(BodyRefusal::Cube(_))
+    ));
+    assert!(cube
+        .materialize_restricted_witnesses(&other, &body, 2, &[], std::slice::from_ref(&ok))
+        .is_err());
+    let before = cube.stats().rows_materialized;
+    cube.body_pair_restricted(&t, &body, 2, &[], &[ok], [0, 1])
+        .unwrap();
+    assert_eq!(cube.stats().rows_materialized, before);
+}
