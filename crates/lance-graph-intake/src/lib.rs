@@ -110,6 +110,8 @@ pub enum IntakeRefusal {
     },
     /// A table's columns are not its profile's labels, in order.
     ProfileMismatch { columns: Vec<String> },
+    /// Two fields of a profile name the same predicate IRI.
+    DuplicateIri(String),
     /// A row has another number of cells than there are columns.
     Ragged { row: usize, cells: usize },
     /// No row holds this key.
@@ -528,6 +530,13 @@ impl SourceProfile {
             return Err(IntakeRefusal::Width {
                 columns: fields.len(),
             });
+        }
+        // A lane is found by its IRI, so two fields sharing one would both
+        // read the first one's lane.
+        for (k, (_, iri)) in fields.iter().enumerate() {
+            if fields[..k].iter().any(|(_, other)| other == iri) {
+                return Err(IntakeRefusal::DuplicateIri((*iri).to_owned()));
+            }
         }
         let view = IntakeView {
             class: (class >> 16) as ClassId,

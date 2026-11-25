@@ -1934,3 +1934,23 @@ fn tenants_share_a_profile_but_never_a_frame_or_a_code() {
         Err(IntakeRefusal::ProfileMismatch { .. })
     ));
 }
+
+/// FAILS IF: a profile whose two fields share a predicate IRI is accepted;
+/// both would read the first field's lane (codex on #2194).
+#[test]
+fn a_profile_refuses_two_fields_with_one_iri() {
+    assert!(matches!(
+        SourceProfile::new(
+            0x2B09_0002,
+            &[("id", "source:id"), ("other", "source:id")],
+            ShapeConfig::default()
+        ),
+        Err(IntakeRefusal::DuplicateIri(iri)) if iri == "source:id"
+    ));
+    assert!(SourceProfile::new(
+        0x2B09_0002,
+        &[("id", "source:id"), ("other", "source:other")],
+        ShapeConfig::default()
+    )
+    .is_ok());
+}
