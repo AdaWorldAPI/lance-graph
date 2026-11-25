@@ -109,6 +109,12 @@ pub fn interpret_present(
                     Some(_) => {}
                     None => undecided = true,
                 },
+                // An absent boolean is untouched: it holds neither value.
+                Stmt::AbortBool { path, value } => match read(&top, path)? {
+                    Some(v) if (v != 0) == *value => continue 'rows,
+                    Some(_) => {}
+                    None => undecided = true,
+                },
                 // The reference reads `i32` lanes only; a text literal is
                 // checked against an intake table in lance-graph-vrl's tests.
                 Stmt::AbortText { .. } => {

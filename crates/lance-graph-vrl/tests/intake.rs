@@ -303,3 +303,113 @@ fn text_equality_to_empty_is_a_presence_test_on_both_frontends() {
     );
     assert_eq!(quack(&mut t, ne), 2);
 }
+
+/// A table whose `enabled` is true at keys 1 and 4, false at key 2 and
+/// untouched (absent) at key 3.
+fn accounts() -> Table {
+    let rows: Vec<Vec<Option<&str>>> = vec![
+        vec![Some("1"), Some("t")],
+        vec![Some("2"), Some("f")],
+        vec![Some("3"), None],
+        vec![Some("4"), Some("t")],
+    ];
+    let mut config = ShapeConfig {
+        key: Some("id".to_owned()),
+        ..ShapeConfig::default()
+    };
+    config.columns.insert(
+        "enabled".to_owned(),
+        lance_graph_intake::ColumnConfig {
+            ty: Some(lance_graph_contract::pg_row::PgType::Bool),
+            ..Default::default()
+        },
+    );
+    Table::from_rows("accounts", 0x2B07_0003, &["id", "enabled"], &rows, &config).unwrap()
+}
+
+/// What `if <cond> { abort }` does to `accounts`: how many rows it drops
+/// (the condition is established true), which it keeps, and how many it
+/// leaves unknown. The three partition the table.
+fn decided(t: &Table, cond: &str) -> (usize, Vec<u32>, u64) {
+    let w = witness(t);
+    let rows = recipe(
+        t,
+        &format!(".e = .properties.enabled.value\nif {cond} {{ abort }}"),
+    )
+    .materialize_rows(&w)
+    .unwrap();
+    let kept = rows.positions().to_vec();
+    let unknown = rows.unknown();
+    let dropped = t.len() - kept.len() - usize::try_from(unknown).unwrap();
+    (dropped, kept, unknown)
+}
+
+fn quack_count(t: &mut Table, d: lance_graph_quack::bind::Draft) -> usize {
+    let q = t.bind(&d).unwrap();
+    let r = t.select_bound(&q).unwrap();
+    t.count_of(&r).unwrap()
+}
+
+/// Row-type contract, boolean, tests 1, 2, 6 and 9: `1` evaluates true,
+/// `0` and an absent value evaluate false; only an established `0` equals
+/// false; a decision resting on an absent value is unknown, never an
+/// established false; and `NOT enabled` never selects an absent `enabled`.
+///
+/// FAILS IF: an absent boolean is selected by `enabled`, by `enabled ==
+/// false` or by `!enabled` on either frontend, or is not counted unknown in
+/// VRL, or the two frontends select different rows.
+#[test]
+fn an_absent_boolean_is_never_an_established_false() {
+    use lance_graph_quack::bind::{table as draft, Op};
+    let mut t = accounts();
+    // Positions 0..4 are keys 1..4; position 2 (key 3) is absent.
+    let (dropped, kept, unknown) = decided(&t, ".e");
+    assert_eq!((dropped, kept, unknown), (2, vec![1], 1));
+    for cond in [".e == false", "!.e", ".e != true"] {
+        let (dropped, kept, unknown) = decided(&t, cond);
+        assert_eq!((dropped, kept, unknown), (1, vec![0, 3], 1), "{cond}");
+    }
+    assert_eq!(
+        quack_count(&mut t, draft("accounts").where_eq("enabled", true)),
+        2
+    );
+    assert_eq!(
+        quack_count(&mut t, draft("accounts").where_eq("enabled", false)),
+        1
+    );
+    assert_eq!(
+        quack_count(&mut t, draft("accounts").where_cmp("enabled", Op::Ne, true)),
+        1,
+        "NOT enabled selects key 2 only"
+    );
+}
+
+/// Row-type contract, boolean, tests 3, 4 and 5: presence marks `1` and `0`
+/// and not the absent value; `COUNT(rows)` counts every row; the
+/// established values are the `1`s and `0`s only.
+///
+/// FAILS IF: an absent boolean reads as present, is left out of the row
+/// count, or is counted as an established value on either frontend.
+#[test]
+fn presence_and_counts_keep_an_absent_boolean_apart() {
+    use lance_graph_quack::bind::table as draft;
+    let mut t = accounts();
+    let w = witness(&t);
+    let rows = recipe(&t, ".e = .properties.enabled.value")
+        .materialize_rows(&w)
+        .unwrap();
+    let present: Vec<bool> = (0..rows.len()).map(|r| rows.present(r, 0)).collect();
+    assert_eq!(present, [true, true, false, true]);
+    assert_eq!(rows.len(), 4, "COUNT(rows) counts the absent row");
+    let established = present.iter().filter(|p| **p).count();
+    assert_eq!(established, 3);
+
+    let (t_true, _, _) = decided(&t, ".e");
+    let (t_false, _, _) = decided(&t, "!.e");
+    assert_eq!(t_true + t_false, established);
+
+    assert_eq!(quack_count(&mut t, draft("accounts")), 4);
+    let yes = quack_count(&mut t, draft("accounts").where_eq("enabled", true));
+    let no = quack_count(&mut t, draft("accounts").where_eq("enabled", false));
+    assert_eq!(yes + no, established);
+}

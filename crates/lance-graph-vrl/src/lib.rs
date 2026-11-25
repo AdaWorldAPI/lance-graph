@@ -195,6 +195,7 @@ struct RecipeKey {
     idents: Vec<String>,
     drop: Vec<(u8, Cmp, i32)>,
     text: Vec<(u8, bool, String)>,
+    truth: Vec<(u8, bool)>,
     out: Vec<(String, u8)>,
 }
 
@@ -255,6 +256,13 @@ pub enum Stmt {
         path: Path,
         eq: bool,
         text: String,
+    },
+    /// Abort the event when a boolean field holds the established `value`.
+    /// An absent boolean holds neither: it never establishes a false, so
+    /// `!.f` does not drop it and the event is unknown.
+    AbortBool {
+        path: Path,
+        value: bool,
     },
 }
 
@@ -339,6 +347,30 @@ fn computes(rhs: &str) -> Option<String> {
     None
 }
 
+/// A boolean condition: `.f`, `!.f`, or `.f ==`/`!= true`/`false`.
+/// `None` when the condition is not one.
+fn bool_condition(cond: &str) -> Result<Option<Stmt>, Refusal> {
+    let cond = cond.trim();
+    let toks: Vec<&str> = cond.split_whitespace().collect();
+    let (p, value) = match toks.as_slice() {
+        [p] if p.starts_with('!') => (&p[1..], false),
+        [p] => (*p, true),
+        [p, op, lit @ ("true" | "false")] => {
+            let lit = *lit == "true";
+            match *op {
+                "==" => (*p, lit),
+                "!=" => (*p, !lit),
+                other => return Err(Refusal::Computes(format!("order on a boolean: {other}"))),
+            }
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(Stmt::AbortBool {
+        path: path(p)?,
+        value,
+    }))
+}
+
 /// Parse a recipe's source into its statements. [`Recipe::compile`] lowers
 /// them; a reference interpreter may evaluate them independently.
 pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
@@ -355,6 +387,10 @@ pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
             let block = body.trim().strip_suffix('}').map(str::trim);
             if block != Some("abort") {
                 return Err(Refusal::Computes("if body other than abort".into()));
+            }
+            if let Some(stmt) = bool_condition(cond)? {
+                out.push(stmt);
+                continue;
             }
             if let Some((left, quoted)) = cond.split_once('"') {
                 let text = quoted
@@ -436,6 +472,8 @@ pub struct Recipe {
     /// Rows dropped where a code field equals (`true`) or differs from a
     /// text literal.
     text: Vec<(u8, bool, String)>,
+    /// Rows dropped where a boolean field holds the established value.
+    truth: Vec<(u8, bool)>,
     /// The text literals' codes, set by [`Recipe::resolve_text`].
     codes: Option<Codes>,
     /// Output name -> field, in name order.
@@ -480,6 +518,7 @@ impl Recipe {
         };
         let mut drop = Vec::new();
         let mut text_drop: Vec<(u8, bool, String)> = Vec::new();
+        let mut truth: Vec<(u8, bool)> = Vec::new();
         // The first field the program reads: the population when every output
         // is deleted again and nothing is filtered.
         let mut anchor: Option<u8> = None;
@@ -507,12 +546,18 @@ impl Recipe {
                     anchor.get_or_insert(field);
                     text_drop.push((field, eq, text));
                 }
+                Stmt::AbortBool { path, value } => {
+                    let field = resolve(&bound, &path)?;
+                    anchor.get_or_insert(field);
+                    truth.push((field, value));
+                }
             }
         }
         let mut reads: Vec<u8> = assigned
             .values()
             .chain(drop.iter().map(|(f, _, _)| f))
             .chain(text_drop.iter().map(|(f, _, _)| f))
+            .chain(truth.iter().map(|(f, _)| f))
             .copied()
             .collect();
         reads.sort_unstable();
@@ -532,6 +577,7 @@ impl Recipe {
             reads,
             drop,
             text: text_drop,
+            truth,
             codes: None,
             out: assigned.into_iter().collect(),
             class,
@@ -643,7 +689,8 @@ impl Recipe {
                 };
             if let Some(i) = self.reads.iter().position(|&f| f == field) {
                 let compared = sum == Some(field) || self.drop.iter().any(|t| t.0 == field);
-                let coded = self.text.iter().any(|t| t.0 == field);
+                let coded = self.text.iter().any(|t| t.0 == field)
+                    || self.truth.iter().any(|t| t.0 == field);
                 match lane {
                     LaneRef::I32(_) if coded => return Err(Refusal::NotCode { field }),
                     LaneRef::I32(_) => {}
@@ -684,6 +731,7 @@ impl Recipe {
                 idents: self.idents.clone(),
                 drop: self.drop.clone(),
                 text: self.text.clone(),
+                truth: self.truth.clone(),
                 out: self.out.clone(),
             },
             sum,
@@ -784,6 +832,7 @@ impl Recipe {
             || k.idents != self.idents
             || k.drop != self.drop
             || k.text != self.text
+            || k.truth != self.truth
             || k.out != self.out
         {
             return Err(Refusal::NotThisRecipe);
@@ -945,7 +994,7 @@ impl Recipe {
         V: ClassView + ?Sized,
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
-        if !self.drop.is_empty() || !self.text.is_empty() {
+        if !self.drop.is_empty() || !self.text.is_empty() || !self.truth.is_empty() {
             return Err(Refusal::FiltersAtPositions);
         }
         // The frame check `LaneBinding::borrow_all_at` makes, shared with it,
@@ -1049,6 +1098,15 @@ impl Recipe {
         for &(field, cmp, t) in &self.drop {
             let lane = self.lane(field)?;
             terms.push((lane, term(cmp.pred(lane, t)), Pred::EqI32 { lane, v: 0 }));
+        }
+        for &(field, value) in &self.truth {
+            let lane = self.lane(field)?;
+            let v = u32::from(value);
+            terms.push((
+                lane,
+                term(Pred::EqU32 { lane, v }),
+                Pred::EqU32 { lane, v: 0 },
+            ));
         }
         if !self.text.is_empty() {
             let codes = self.codes.as_ref().ok_or(Refusal::TextUnresolved)?;

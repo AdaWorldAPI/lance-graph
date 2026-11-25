@@ -1392,14 +1392,14 @@ fn pg_or_skip() -> Option<Pg> {
 
 /// FAILS IF: a literal bound through Quack's membrane keeps a different
 /// multiset of rows than PostgreSQL's `WHERE`, if `title = ''` (a present
-/// empty string in a NULL-absent column) keeps a NULL title, or if a field
-/// with no literal kind in the membrane is offered.
+/// empty string in a NULL-absent column) keeps a NULL title, or if an
+/// integer literal binds to a boolean field.
 #[test]
 fn a_bound_literal_equals_postgresql() {
     let (mut ticket, rows, deleted) = live_tickets();
     let live = |r: usize| !deleted[r];
     type Keep = fn(&[Option<String>]) -> bool;
-    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 5] = [
+    let cases: [(&str, lance_graph_quack::bind::Draft, Keep); 7] = [
         (
             "title = 'vpn'",
             draft("ticket").where_eq("title", "vpn"),
@@ -1423,6 +1423,14 @@ fn a_bound_literal_equals_postgresql() {
             draft("ticket").where_cmp("priority", lance_graph_quack::bind::Op::Lt, 0i32),
             |r| int(r, 5).is_some_and(|p| p < 0),
         ),
+        ("open = true", draft("ticket").where_eq("open", true), |r| {
+            r[3].as_deref() == Some("t")
+        }),
+        (
+            "open <> true",
+            draft("ticket").where_cmp("open", lance_graph_quack::bind::Op::Ne, true),
+            |r| r[3].as_deref() == Some("f"),
+        ),
     ];
     let mut ours = Vec::new();
     for (sql, d, keep) in cases {
@@ -1442,7 +1450,7 @@ fn a_bound_literal_equals_postgresql() {
     }
     assert!(matches!(
         ticket.bind(&draft("ticket").where_eq("open", 1i32)),
-        Err(IntakeRefusal::Bind(BindError::UnknownField { .. }))
+        Err(IntakeRefusal::Bind(BindError::KindMismatch { .. }))
     ));
 
     let Some(pg) = pg_or_skip() else { return };
