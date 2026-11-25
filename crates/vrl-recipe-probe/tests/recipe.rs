@@ -411,3 +411,28 @@ fn held_positions_are_refused_after_the_source_moves() {
         Err(lance_graph_dt64::LaneRefusal::Frame(_))
     ));
 }
+
+/// Two recipes that read the same fields and drop the same rows but swap
+/// their outputs are different recipes: a sum prepared for one is refused
+/// by the other. A clone keeps its original's identity and runs it.
+#[test]
+fn a_prepared_sum_is_refused_by_a_recipe_with_swapped_outputs() {
+    use lance_graph_mask_risc::Out;
+    let src = Source::random(64, 10);
+    let w = bind(&src, &all_fields());
+    let a = compile(".a = .key\n.b = .properties.amount.value");
+    let b = compile(".a = .properties.amount.value\n.b = .key");
+    let p = a.prepare_sum(64, "a").unwrap();
+    let mut scratch = p.scratch().unwrap();
+    assert!(a
+        .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
+        .is_ok());
+    assert!(a
+        .clone()
+        .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
+        .is_ok());
+    assert_eq!(
+        b.run_into(&p, &witness(&w, &src), &mut scratch, Out::None),
+        Err(Refusal::NotThisRecipe)
+    );
+}

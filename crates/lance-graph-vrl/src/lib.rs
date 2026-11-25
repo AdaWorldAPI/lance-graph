@@ -146,11 +146,10 @@ impl<'a> Lanes<'a> {
 pub struct Prepared {
     program: Program,
     n_rows: usize,
-    reads: Vec<u8>,
-    /// The preparing recipe's drop terms: with `reads`, its identity. Two
-    /// recipes that read the same fields but drop different rows build
-    /// different programs.
-    drop: Vec<(u8, Cmp, i32)>,
+    /// The preparing recipe's identity. Reads and drop terms alone do not
+    /// tell recipes apart: two recipes can read the same fields and drop the
+    /// same rows yet map an output name to different fields.
+    recipe: u64,
 }
 
 impl Prepared {
@@ -354,7 +353,13 @@ pub struct Recipe {
     /// The predicate each read field named at compile time, in `reads`
     /// order: a witness must bind the same fields, not just the positions.
     idents: Vec<String>,
+    /// Issued once per compile and kept by clones, so a clone runs the
+    /// programs its original prepared.
+    id: u64,
 }
+
+/// The next recipe identity.
+static NEXT_RECIPE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 impl Recipe {
     /// Compile `src` against `class`'s fields in `view`. Every path is
@@ -436,6 +441,7 @@ impl Recipe {
             out: assigned.into_iter().collect(),
             class,
             idents,
+            id: NEXT_RECIPE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         })
     }
 
@@ -531,8 +537,7 @@ impl Recipe {
         Ok(Prepared {
             program: self.program(n_rows, terminal)?,
             n_rows,
-            reads: self.reads.clone(),
-            drop: self.drop.clone(),
+            recipe: self.id,
         })
     }
 
@@ -620,7 +625,7 @@ impl Recipe {
         V: ClassView + ?Sized,
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
-        if p.reads != self.reads || p.drop != self.drop {
+        if p.recipe != self.id {
             return Err(Refusal::NotThisRecipe);
         }
         let lanes = self.lanes(w)?;
