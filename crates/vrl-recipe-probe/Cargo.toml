@@ -22,6 +22,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # this probe adds only the VRL lowering in front of them.
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# The recipe core (compile, prepare, run, positional Rows) lives here now; this
+# probe keeps the reference interpreter and the parity tests.
+lance-graph-recipe = { path = "../lance-graph-recipe" }
 
 [dev-dependencies]
 # The r2il parity test only (tests/r2il_parity.rs): the same recipe as frozen
