@@ -295,6 +295,9 @@ exclude = [
     # the contract only. Verify via
     # `cargo test --manifest-path crates/drisa-register-probe/Cargo.toml`.
     "crates/drisa-register-probe",
+    # D-PM-TILE (EXO-398) lab probe; own workspace root.
+    # `cargo test --manifest-path crates/pm-tile-fold-probe/Cargo.toml`.
+    "crates/pm-tile-fold-probe",
 ]
 resolver = "2"
 

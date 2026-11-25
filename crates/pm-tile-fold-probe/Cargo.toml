@@ -1,0 +1,27 @@
+# D-PM-TILE (EXO-398) LAB: fold P×M sufficient statistics per sealed DR tile
+# and combine them across tiles, refusing a part whose tile frame moved.
+# NOT a workspace member, nothing depends on it, no public contract. Verify with
+#   cargo test --manifest-path crates/pm-tile-fold-probe/Cargo.toml
+#   cargo run --release --manifest-path crates/pm-tile-fold-probe/Cargo.toml --example tile_bench
+[package]
+name = "pm-tile-fold-probe"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.99.0"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "D-PM-TILE lab: N, S, Q, A of Codec9 lanes folded per sealed DR tile and combined exactly, with stale tile parts refused."
+
+# Own workspace root, like the other lab probes.
+[workspace]
+
+[dependencies]
+# Consumed read-only through their public APIs; none is changed.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+# `abakus::pm` and `U8x64`, from the coordinate mask-risc uses.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[features]
+# Disable run: `combine` skips the per-part frame check.
+disable-combine-frame-check = []
