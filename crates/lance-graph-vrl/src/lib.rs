@@ -87,6 +87,12 @@ pub enum Refusal {
     TooManyReads { reads: usize },
     /// A [`Prepared`] program run by a recipe that did not prepare it.
     NotThisRecipe,
+    /// The witness is bound for another class than the recipe was compiled
+    /// for.
+    OtherClass,
+    /// A field the recipe reads names another predicate in the witness's
+    /// view than it did at compile time: the same position, another field.
+    OtherField { field: u8 },
     /// The frame's row count is not the one the program was prepared for.
     RowsChanged { prepared: usize, now: usize },
     /// A field's presence plane does not span the lane's rows (`⌈n/64⌉`
@@ -130,6 +136,10 @@ pub struct Prepared {
     program: Program,
     n_rows: usize,
     reads: Vec<u8>,
+    /// The preparing recipe's drop terms: with `reads`, its identity. Two
+    /// recipes that read the same fields but drop different rows build
+    /// different programs.
+    drop: Vec<(u8, Cmp, i32)>,
 }
 
 impl Prepared {
@@ -137,6 +147,12 @@ impl Prepared {
     /// cold step; reuse it across [`Recipe::run_into`] calls.
     pub fn scratch(&self) -> Result<Scratch<'static>, Refusal> {
         Scratch::for_program(&self.program, self.n_rows).map_err(Refusal::Exec)
+    }
+
+    /// Scratch over the caller's reusable `buf`, sized for this program: the
+    /// borrowed form of [`Prepared::scratch`].
+    pub fn scratch_over<'b>(&self, buf: &'b mut [u64]) -> Result<Scratch<'b>, Refusal> {
+        Scratch::over_for_program(buf, &self.program, self.n_rows).map_err(Refusal::Exec)
     }
 
     /// The row count this program was prepared for.
@@ -266,7 +282,8 @@ pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
             let (cond, body) = rest
                 .split_once('{')
                 .ok_or_else(|| Refusal::Computes("if without a block".into()))?;
-            if body.trim().trim_end_matches('}').trim() != "abort" {
+            let block = body.trim().strip_suffix('}').map(str::trim);
+            if block != Some("abort") {
                 return Err(Refusal::Computes("if body other than abort".into()));
             }
             let toks: Vec<&str> = cond.split_whitespace().collect();
@@ -321,6 +338,11 @@ pub struct Recipe {
     drop: Vec<(u8, Cmp, i32)>,
     /// Output name -> field, in name order.
     out: Vec<(String, u8)>,
+    /// The class the recipe was compiled for.
+    class: ClassId,
+    /// The predicate each read field named at compile time, in `reads`
+    /// order: a witness must bind the same fields, not just the positions.
+    idents: Vec<String>,
 }
 
 impl Recipe {
@@ -355,10 +377,14 @@ impl Recipe {
             }
         };
         let mut drop = Vec::new();
+        // The first field the program reads: the population when every output
+        // is deleted again and nothing is filtered.
+        let mut anchor: Option<u8> = None;
         for stmt in parse(src)? {
             match stmt {
                 Stmt::Assign(name, p) => {
                     let field = resolve(&bound, &p)?;
+                    anchor.get_or_insert(field);
                     bound.insert(name.clone(), field);
                     assigned.insert(name, field);
                 }
@@ -369,7 +395,9 @@ impl Recipe {
                     assigned.remove(&name);
                 }
                 Stmt::Abort { path, cmp, value } => {
-                    drop.push((resolve(&bound, &path)?, cmp, value));
+                    let field = resolve(&bound, &path)?;
+                    anchor.get_or_insert(field);
+                    drop.push((field, cmp, value));
                 }
             }
         }
@@ -380,14 +408,23 @@ impl Recipe {
             .collect();
         reads.sort_unstable();
         reads.dedup();
+        if reads.is_empty() {
+            reads.extend(anchor);
+        }
         if reads.len() > MAX_READS {
             return Err(Refusal::TooManyReads { reads: reads.len() });
         }
+        let idents = reads
+            .iter()
+            .map(|&f| labels[usize::from(f)].predicate_iri.clone())
+            .collect();
         Ok(Self {
             fields: WideFieldMask::from_positions(&reads),
             reads,
             drop,
             out: assigned.into_iter().collect(),
+            class,
+            idents,
         })
     }
 
@@ -427,6 +464,17 @@ impl Recipe {
     {
         if self.reads.is_empty() {
             return Err(Refusal::NoLanes);
+        }
+        // DT64 checks the witness against its own class and basis; this checks
+        // that its class and fields are the ones the recipe was compiled for.
+        if lance_graph_dt64::view_class(w.binding.class()) != self.class {
+            return Err(Refusal::OtherClass);
+        }
+        let fields = w.view.fields(self.class);
+        for (&f, iri) in self.reads.iter().zip(&self.idents) {
+            if fields.get(usize::from(f)).map(|r| &r.predicate_iri) != Some(iri) {
+                return Err(Refusal::OtherField { field: f });
+            }
         }
         let mut lanes = [LaneRef::I32(&[]); MAX_READS];
         let mut presence: [&[u64]; MAX_READS] = [&[]; MAX_READS];
@@ -473,6 +521,7 @@ impl Recipe {
             program: self.program(n_rows, terminal)?,
             n_rows,
             reads: self.reads.clone(),
+            drop: self.drop.clone(),
         })
     }
 
@@ -560,7 +609,7 @@ impl Recipe {
         V: ClassView + ?Sized,
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
-        if p.reads != self.reads {
+        if p.reads != self.reads || p.drop != self.drop {
             return Err(Refusal::NotThisRecipe);
         }
         let lanes = self.lanes(w)?;
@@ -649,8 +698,8 @@ impl Recipe {
 
     /// The only place rows are produced, positionally: mask-risc `Keep` into
     /// one mask, then the kept positions in row order over the borrowed
-    /// lanes. O(rows kept) for the position table; nothing else grows with
-    /// rows.
+    /// lanes. The mask is temporary and takes `⌈n_rows/64⌉` words even when
+    /// no row survives; the returned position table is O(rows kept).
     pub fn materialize_rows<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Rows<'a>, Refusal>
     where
         V: ClassView + ?Sized,
@@ -834,4 +883,17 @@ impl<'a> Rows<'a> {
 
 fn bit(plane: &[u64], row: usize) -> bool {
     plane[row / 64] >> (row % 64) & 1 == 1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_abort_block_must_close_on_its_own_brace() {
+        assert!(parse("if .key == 1 { abort }").is_ok());
+        for src in ["if .key == 1 { abort", "if .key == 1 { abort }}"] {
+            assert!(parse(src).is_err(), "{src:?} parsed");
+        }
+    }
 }
