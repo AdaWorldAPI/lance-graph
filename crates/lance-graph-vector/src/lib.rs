@@ -279,12 +279,14 @@ impl VectorRoute {
             Ok(rows) => rows,
             Err(r) => return Ack::Refused(r),
         };
-        let (rows, duplicates) = rows;
-        let cells: Vec<Vec<Option<&str>>> = rows
-            .iter()
-            .map(|r| r.iter().map(|c| c.as_deref()).collect())
-            .collect();
-        if let Err(e) = self.table.append(&cells) {
+        let (rows, dups) = rows;
+        let duplicates = dups.len();
+        // A skipped duplicate must still fit: a replay that carries a value
+        // its column cannot hold is refused, not acknowledged.
+        if let Err(e) = self.table.observe(&borrowed(&dups)) {
+            return Ack::Refused(Refusal::Intake(e));
+        }
+        if let Err(e) = self.table.append(&borrowed(&rows)) {
             return Ack::Refused(Refusal::Intake(e));
         }
         self.next_seq += rows.len() as i64;
@@ -294,15 +296,19 @@ impl VectorRoute {
         }
     }
 
-    /// The new rows in column order, and how many events were duplicates.
-    /// Reads nothing from the table but its event-id codes.
+    /// The new rows in column order, and the duplicates' rows (checked for
+    /// fit, never appended). Reads nothing from the table but its event-id
+    /// codes.
     #[allow(clippy::type_complexity)]
-    fn rows(&self, items: Vec<Item>) -> Result<(Vec<Vec<Option<String>>>, usize), Refusal> {
+    fn rows(
+        &self,
+        items: Vec<Item>,
+    ) -> Result<(Vec<Vec<Option<String>>>, Vec<Vec<Option<String>>>), Refusal> {
         let frame = self.table.frame();
         let id_col = self.labels.len() - 2;
         let mut seen: BTreeSet<String> = BTreeSet::new();
         let mut rows = Vec::new();
-        let mut duplicates = 0;
+        let mut dups = Vec::new();
         for item in items {
             let line = item.line;
             if item.rev.as_deref() != Some(self.schema_rev.as_str()) {
@@ -320,16 +326,24 @@ impl VectorRoute {
                 row[k] = value;
             }
             let known = self.table.code_for(&frame, EVENT_ID.1, &item.id).is_some();
-            if known || !seen.insert(item.id.clone()) {
-                duplicates += 1;
+            let duplicate = known || !seen.insert(item.id.clone());
+            row[id_col] = Some(item.id);
+            if duplicate {
+                row[id_col + 1] = Some(self.next_seq.to_string());
+                dups.push(row);
                 continue;
             }
-            row[id_col] = Some(item.id);
             row[id_col + 1] = Some((self.next_seq + rows.len() as i64).to_string());
             rows.push(row);
         }
-        Ok((rows, duplicates))
+        Ok((rows, dups))
     }
+}
+
+fn borrowed(rows: &[Vec<Option<String>>]) -> Vec<Vec<Option<&str>>> {
+    rows.iter()
+        .map(|r| r.iter().map(|c| c.as_deref()).collect())
+        .collect()
 }
 
 /// Decode an NDJSON body into events, each line once.
@@ -374,4 +388,27 @@ fn ndjson_items(body: &str) -> Result<Vec<Item>, Refusal> {
         });
     }
     Ok(items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// FAILS IF: a line without `.lg.event_id` decodes, or a number is read
+    /// through `f64` instead of kept as its text.
+    #[test]
+    fn the_decoder_needs_an_event_id_and_keeps_number_text() {
+        assert!(matches!(
+            ndjson_items(r#"{"host":"north"}"#),
+            Err(Refusal::MissingEventId { line: 1 })
+        ));
+        let exact = "12345678901234567890.123456789";
+        let items =
+            ndjson_items(&format!(r#"{{"lg":{{"event_id":"e1"}},"amt":{exact}}}"#)).unwrap();
+        assert_eq!(
+            items[0].fields,
+            [("amt".to_owned(), Some(exact.to_owned()))]
+        );
+        assert_ne!(exact.parse::<f64>().unwrap().to_string(), exact);
+    }
 }

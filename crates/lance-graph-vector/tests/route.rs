@@ -193,9 +193,10 @@ fn vector_output_and_the_polyfill_converge() {
     );
 }
 
-/// FAILS IF: a retried batch appends again, a repeat inside one batch is
-/// appended twice, a wrong schema revision or an unknown field appends
-/// anything or answers other than 400.
+/// FAILS IF: a retried batch appends again, a replay with a misfit value is
+/// acknowledged, a repeat inside one batch is appended twice, or a wrong
+/// schema revision or an unknown field appends anything or answers other
+/// than 400.
 #[test]
 fn a_retry_changes_nothing_and_a_refusal_appends_nothing() {
     let mut route = route();
@@ -226,6 +227,12 @@ fn a_retry_changes_nothing_and_a_refusal_appends_nothing() {
             duplicates: 1
         }
     );
+
+    let bad_replay = r#"{"lg":{"event_id":"e1","schema_rev":"1"},"host":"north","amt":"many"}"#;
+    assert!(matches!(
+        route.receive(bad_replay),
+        Ack::Refused(Refusal::Intake(_))
+    ));
 
     let stale = r#"{"lg":{"event_id":"e10","schema_rev":"2"},"host":"west","amt":1}"#;
     let refused = route.receive(stale);
