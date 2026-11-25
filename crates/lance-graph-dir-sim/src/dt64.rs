@@ -47,6 +47,7 @@
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_dt64::dr::{Axis, Frame, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{CoordSpace, LaneAddr, LaneSource, SchemaRev, SelAddr, SelectionSource};
+use ogar_dir_core::DN_LEVELS;
 use ogar_dir_sim::{Attribute, VersionId};
 
 use lance_graph_contract::class_view::{ClassId, ClassView};
@@ -66,22 +67,59 @@ pub const UPN_IRI: &str = "dir:userPrincipalName";
 /// The predicate of the primary SMTP lane.
 pub const SMTP_IRI: &str = "dir:primarySmtp";
 
-/// The schema revision these lanes serve.
+/// Field 2 of the user lanes: Path1, the first OU level below the naming
+/// context. Path`k` is field `F_PATH1 + k - 1`, up to [`DN_LEVELS`] levels.
+pub const F_PATH1: u8 = 2;
+
+/// The predicate prefix of the OU path lanes: `dir:ouPath/1` is Path1 (the
+/// level directly below the naming context), `dir:ouPath/16` the deepest.
+pub const PATH_IRI_PREFIX: &str = "dir:ouPath/";
+
+/// The schema revision these lanes serve. The path lanes are additive: a
+/// basis without them binds exactly the lanes it did before.
 pub const LANE_REV: SchemaRev = SchemaRev(1);
 
-/// One user attribute of one version, read cell by cell. It holds no values.
+/// The OU path level a predicate names (`dir:ouPath/3` is level 3), if any.
+fn path_level(iri: &str) -> Option<u8> {
+    let digits = iri.strip_prefix(PATH_IRI_PREFIX)?;
+    let k: u8 = digits.parse().ok()?;
+    // One spelling per level: `dir:ouPath/01` and `dir:ouPath/+1` are no lane.
+    ((1..=DN_LEVELS as u8).contains(&k) && digits == k.to_string()).then_some(k)
+}
+
+/// What a user lane reads.
+#[derive(Clone, Copy)]
+enum Read {
+    Attr(Attribute),
+    /// The level code at this 0-based depth of the user's location.
+    Path(usize),
+}
+
+/// One user column of one version, read cell by cell. It holds no values.
+///
+/// A path lane reads the user's location (`Dn128`) at one level. Its value is
+/// that level's code, which identifies an OU among its siblings only: Path`k`
+/// means something together with Path1..Path`k-1`, as a coordinate, and is
+/// never a name. The name is the `OuDictionary`'s, at render time. A user with
+/// no location, or a shallower one, has no value at that level.
 #[derive(Clone, Copy)]
 pub struct UserLane<'a, 's> {
     view: &'a View<'s>,
-    attr: Attribute,
+    read: Read,
 }
 
 impl UserLane<'_, '_> {
-    /// The attribute's value id for the user at `row`; `None` when the user
-    /// has no such value, or `row` is past the version's users.
+    /// The cell's value for the user at `row`; `None` when the user has no
+    /// such value, or `row` is past the version's users.
     pub fn get(&self, row: u32) -> Option<u32> {
         let g = self.view.user_guid(UserOrdinal(u16::try_from(row).ok()?))?;
-        self.view.attr(&g, self.attr).map(|v| v.0)
+        match self.read {
+            Read::Attr(a) => self.view.attr(&g, a).map(|v| v.0),
+            Read::Path(d) => {
+                let dn = self.view.location(&g)??;
+                dn.codes().get(d).map(|&c| u32::from(c))
+            }
+        }
     }
 }
 
@@ -215,7 +253,7 @@ impl LaneSource for DirLanes<'_, '_> {
         let lane = match basis.predicate_iri.as_str() {
             UPN_IRI => F_UPN,
             SMTP_IRI => F_SMTP,
-            _ => return None,
+            iri => F_PATH1 + path_level(iri)? - 1,
         };
         Some(LaneAddr {
             space: self.space(),
@@ -228,14 +266,20 @@ impl LaneSource for DirLanes<'_, '_> {
         if addr.space != self.space() {
             return None;
         }
-        let attr = match addr.lane {
-            0 => Attribute::Upn,
-            1 => Attribute::PrimarySmtp,
-            _ => return None,
+        let read = match addr.lane {
+            0 => Read::Attr(Attribute::Upn),
+            1 => Read::Attr(Attribute::PrimarySmtp),
+            l => {
+                let d = usize::from(l.checked_sub(u16::from(F_PATH1))?);
+                if d >= DN_LEVELS {
+                    return None;
+                }
+                Read::Path(d)
+            }
         };
         Some(UserLane {
             view: self.view,
-            attr,
+            read,
         })
     }
 
@@ -261,6 +305,61 @@ impl SelectionSource for DirLanes<'_, '_> {
         self.selections
             .get(usize::from(addr.sel))
             .map(Vec::as_slice)
+    }
+}
+
+/// The field basis of the user class: UPN, primary SMTP, then the OU path
+/// levels Path1..Path`levels`, each named by its lane's identity.
+///
+/// The naming context (the domain) is the version's scope, one value for the
+/// whole version, so it is not a row field.
+pub struct UserBasis {
+    class: ClassId,
+    fields: Vec<FieldRef>,
+}
+
+impl UserBasis {
+    /// The basis for the view class of `class` with `levels` path levels
+    /// (clamped to [`DN_LEVELS`]). Built once per binding, cold.
+    pub fn new(class: u32, levels: usize) -> Self {
+        let mut fields = vec![
+            FieldRef::new(UPN_IRI, "UPN"),
+            FieldRef::new(SMTP_IRI, "Primary SMTP"),
+        ];
+        fields.extend(
+            (1..=levels.min(DN_LEVELS))
+                .map(|k| FieldRef::new(format!("{PATH_IRI_PREFIX}{k}"), format!("Path{k}"))),
+        );
+        Self {
+            class: lance_graph_dt64::view_class(class),
+            fields,
+        }
+    }
+
+    /// Fields in the basis.
+    pub fn len(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// Whether the basis has no field (it always has UPN and SMTP).
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+    }
+}
+
+impl ClassView for UserBasis {
+    fn fields(&self, class: ClassId) -> &[FieldRef] {
+        if class == self.class {
+            &self.fields
+        } else {
+            &[]
+        }
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
     }
 }
 

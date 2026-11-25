@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-683 entries, 2026-08-06 .. 2026-11-24.
+684 entries, 2026-08-06 .. 2026-11-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-25 | `D-DIRSIM-DT64-PATHS` |  | [2026-11-25-d-dirsim-dt64-paths.md](2026-11-25-d-dirsim-dt64-paths.md) |
 | 2026-11-24 | `xlog-p2-contract` |  | [2026-11-24-xlog-p2-contract.md](2026-11-24-xlog-p2-contract.md) |
 | 2026-11-24 | `xlog-negation-sets` |  | [2026-11-24-xlog-negation-sets.md](2026-11-24-xlog-negation-sets.md) |
 | 2026-11-24 | `xlog-body-pair` |  | [2026-11-24-xlog-body-pair.md](2026-11-24-xlog-body-pair.md) |
