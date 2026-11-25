@@ -114,11 +114,22 @@ This is not a new IR: `Query` stays Quack's and `Recipe` stays VRL's.
 
 **Semantic differences to document, never merge:**
 - an unknown `=` literal is refused in Quack and matches no row in VRL;
-- `''` under `EmptyText` gives code 0 in Quack, while in VRL an absent cell stays undecided;
+- `''` under `EmptyText` gives code 0 in Quack, while in VRL an absent cell stays undecided. **Decided by the row type** (DECISION, operator, 2026-11-25; see below), so this is not a disagreement to settle between the frontends;
 - VRL text has only `==` and `!=`, while Quack has LIKE;
 - VRL keeps UNKNOWN as a separate count, while Quack folds validity into WHERE.
 
-**Gate.** Both frontends bind through the seam and give identical counts and sums on one admitted source. Each difference above is pinned by a test on both sides.
+**Empty and absent literals are decided by the row type** (DECISION, operator, 2026-11-25):
+
+| Row type | Value | Reads as |
+|---|---|---|
+| text | `''` (empty literal) | NaN: absent, never an empty-string value |
+| boolean | `1` | true |
+| boolean | `0` | false |
+| boolean | NaN (absent) | false |
+
+The seam carries this rule per row type, so Quack and VRL apply the same one. Open: how a boolean NaN reading false squares with VRL's three-valued UNKNOWN count for drop terms. The gate must test it on both frontends.
+
+**Gate.** Both frontends bind through the seam and give identical counts and sums on one admitted source. Each remaining difference above is pinned by a test on both sides. The row-type rule for empty and absent literals is pinned on both frontends.
 
 ### D-RSP-6 — harvesting declarations
 **Question.** Seed `PgColumn` (type, absence) and `FieldRef` IRIs from existing declarations:
@@ -205,5 +216,5 @@ Source profile registration stays separate from tenant authorization and data av
 5. **Revision movement on append.** Whether `relation_map` / `coordinates` revisions move on intake append.
 6. **Real data.** Real Graph, EXO and Az units and ranges; this needs operator-named samples.
 7. **OGAR measure law.** Whether OGAR `ActionDef` or ontology already carries measure law.
-8. **The VRL/Quack empty-literal difference.** Pin it with tests before deciding which side, if either, changes.
+8. **Empty literal: settled by row type** (D-RSP-5). Text `''` is NaN (absent); a boolean reads 1 as true and 0 or NaN as false. Still open: how boolean NaN → false meets VRL's three-valued UNKNOWN count.
 9. **Harvest source.** Whether OGAR has a CSDL or OpenAPI harvest elsewhere is unknown.

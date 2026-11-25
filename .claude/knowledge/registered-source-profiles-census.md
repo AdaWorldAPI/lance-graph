@@ -162,6 +162,8 @@ validity)` lookup, owned by the source owner (intake), which both `Binder` and V
    `== ""` resolves to "no code" and an absent cell stays undecided. Orchestrator reading:
    a semantic difference (VRL is three-valued over absence, Quack matches absence through
    code 0), not yet shown to be a defect; pin both with a test before changing either.
+   DECISION (operator, 2026-11-25): settled by row type. Text `''` is NaN (absent, not an
+   empty-string value); boolean `1` → true, `0` → false, NaN → false. See plan D-RSP-5.
 3. VRL text supports `==` and `!=` only, with no order (`vrl/src/lib.rs:67-70`). Quack
    has LIKE (`quack/src/bind.rs:570`).
 4. VRL's three-valued UNKNOWN is a separate count (`vrl/src/lib.rs:723-735`). Quack folds
