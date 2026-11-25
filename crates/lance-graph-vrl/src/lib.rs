@@ -26,7 +26,7 @@
 //!
 //! ## Which "recipe" this is
 //!
-//! Three things in this workspace are called recipes; they do not share code
+//! Four things in this workspace are called recipes; they do not share code
 //! or types, and a consumer should know which one it takes:
 //!
 //! - **This crate (`lance-graph-vrl`):** a VRL read/rename/filter program over
@@ -39,6 +39,16 @@
 //! - **The planner's NARS recipes** (`lance-graph-planner`: `recipe_kernels`,
 //!   `recipes`, `recipe_dispatch`): the tactic runbooks of the thinking stack.
 //!   Not a data read.
+//! - **xlog-cube's Route C recipe** (XLOG `crates/xlog-cube`, EXO-396): a
+//!   non-recursive derived Datalog head kept as its body and substituted into
+//!   readers, instead of being re-added as a relation. Same principle as this
+//!   crate (the stored answer is a recipe, never rows); different language,
+//!   no shared code.
+//!
+//! Lanes are read as contiguous `i32` slices only. A strided lane (for
+//! example a field read in place from 512-byte SoA rows) is refused with
+//! [`Refusal::NotI32`], because mask-risc's strided predicates are `u32`
+//! only. A consumer holds its own contiguous lanes until that changes.
 //!
 //! The VRL subset, one statement per line (or `;`):
 //!
@@ -61,7 +71,7 @@
 use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
-use lance_graph_dt64::dr::FrameStore;
+use lance_graph_dt64::dr::{Frame, FrameStore};
 use lance_graph_dt64::{BindStore, LaneBinding, LaneRefusal, PresenceSource};
 use lance_graph_mask_risc::{
     execute_into, words_for, ExecError, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred,
@@ -79,7 +89,8 @@ pub enum Refusal {
     Binding(LaneRefusal),
     /// The binding does not hold a field the recipe reads.
     NotBound { field: u8 },
-    /// A field the recipe reads is not an `i32` lane.
+    /// A field the recipe reads is not a contiguous `i32` lane (a strided
+    /// lane is refused too; see the crate docs).
     NotI32 { field: u8 },
     /// The recipe reads no field, so it names no population.
     NoLanes,
@@ -725,6 +736,7 @@ impl Recipe {
         };
         let presence_of = |field: u8| lanes.planes()[usize::from(self.lane(field))];
         Ok(Rows {
+            frame: w.binding.frame().clone(),
             names: self.out.iter().map(|(n, _)| n.clone()).collect(),
             lanes: self.out.iter().map(|(_, f)| lane_of(*f)).collect(),
             presence: self.out.iter().map(|(_, f)| presence_of(*f)).collect(),
@@ -841,6 +853,10 @@ const SLOTS: u16 = 5;
 /// is `lanes[c][positions[r]]`, read in place from the borrowed lane.
 #[derive(Debug)]
 pub struct Rows<'a> {
+    /// The seal the positions were taken under. Positions held past this
+    /// call are re-read through `LaneBinding::borrow_all_at` under this
+    /// frame, which refuses them once the source has moved.
+    frame: Frame,
     names: Vec<String>,
     lanes: Vec<&'a [i32]>,
     /// Each column's presence plane, borrowed beside its lane.
@@ -849,6 +865,10 @@ pub struct Rows<'a> {
 }
 
 impl<'a> Rows<'a> {
+    pub fn frame(&self) -> &Frame {
+        &self.frame
+    }
+
     pub fn len(&self) -> usize {
         self.positions.len()
     }

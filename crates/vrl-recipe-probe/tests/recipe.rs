@@ -386,3 +386,28 @@ fn deleting_every_output_keeps_the_population() {
         64
     );
 }
+
+/// Rows carry the seal they were taken under. Held positions re-read
+/// through `borrow_all_at` under that seal are admitted while the source is
+/// unchanged and refused once a write has moved it.
+#[test]
+fn held_positions_are_refused_after_the_source_moves() {
+    let mut src = Source::random(64, 8);
+    let w = bind(&src, &all_fields());
+    let r = compile(".n = .key\nif .key < 0 { abort }");
+    let (frame, held) = {
+        let rows = r.materialize_rows(&witness(&w, &src)).unwrap();
+        (rows.frame().clone(), rows.positions().to_vec())
+    };
+    assert!(!held.is_empty());
+    assert!(w
+        .binding
+        .borrow_all_at(&w.store, &src.frames, &src, &held, &frame)
+        .is_ok());
+    src.advance();
+    assert!(matches!(
+        w.binding
+            .borrow_all_at(&w.store, &src.frames, &src, &held, &frame),
+        Err(lance_graph_dt64::LaneRefusal::Frame(_))
+    ));
+}
