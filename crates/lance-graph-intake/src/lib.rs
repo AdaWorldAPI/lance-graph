@@ -227,7 +227,10 @@ const KEPT_SEL: u16 = u16::MAX;
 /// The source owner: lanes, presence and live planes, the key map and the
 /// selections it issues. It holds the `MapTable`, so its frame store is the
 /// one the key map is sealed under.
-struct Owner {
+/// A table's lanes as DT64 reads them: the lane and presence source a
+/// [`Table`]'s binding resolves through. Opaque; borrowed through
+/// [`Table::witness`] by a reader outside intake (a `lance-graph-vrl` witness).
+pub struct Owner {
     class: u32,
     space: CoordSpace,
     iris: Vec<String>,
@@ -372,7 +375,8 @@ impl LiveSource for Owner {
 
 /// The class built from the detected fields. Used at registration and bind
 /// only; reads go by the bound reference.
-struct IntakeView {
+/// The table's class view; borrowed through [`Table::witness`].
+pub struct IntakeView {
     class: ClassId,
     fields: Vec<FieldRef>,
 }
@@ -455,6 +459,15 @@ impl SelectionRef {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+}
+
+/// A [`Table`]'s witness parts, borrowed together from [`Table::witness`].
+pub struct TableWitness<'t> {
+    pub binding: &'t LaneBinding,
+    pub store: &'t BindStore,
+    pub view: &'t IntakeView,
+    pub frames: &'t FrameStore,
+    pub source: &'t Owner,
 }
 
 /// A table of rows: detected shape, registered class, placed rows and one
@@ -649,8 +662,24 @@ impl Table {
         self.validity_folds.get()
     }
 
-    /// The frame the table's lanes and codes are currently sealed under.
-    #[doc(hidden)]
+    /// The table's DT64 witness, borrowed: what a reader outside intake (a
+    /// `lance-graph-vrl` recipe) checks and borrows lanes through. The table
+    /// stays the owner. The lanes cover every placed row, deleted ones
+    /// included (liveness is intake's own plane); a reader stays on live rows
+    /// through [`Table::live_positions_for_keys`].
+    pub fn witness(&self) -> TableWitness<'_> {
+        TableWitness {
+            binding: &self.binding,
+            store: &self.store,
+            view: &self.view,
+            frames: self.owner.table.frames(),
+            source: &self.owner,
+        }
+    }
+
+    /// The frame the table's lanes and codes are currently sealed under: the
+    /// frame [`Table::live_positions_for_keys`] resolves under, and the one a
+    /// reader of those positions is admitted under.
     pub fn frame(&self) -> Frame {
         self.owner.frame.clone()
     }
@@ -796,7 +825,8 @@ impl Table {
     }
 
     /// The positions of these keys, in list order, duplicates kept; an
-    /// unknown key is refused.
+    /// unknown key is refused. A deleted key's position is returned: the
+    /// reader refuses it ([`PgRowRefusal::DeadPosition`]).
     fn positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
         // Each distinct key is located once per call and reused for its
         // repeats. A sorted Vec of this call's keys is local to the call, so it
@@ -814,6 +844,18 @@ impl Table {
                 .binary_search_by_key(&key, |&(k, _)| k)
                 .map_err(|_| IntakeRefusal::UnknownKey(key))?;
             positions.push(resolved[at].1);
+        }
+        Ok(positions)
+    }
+
+    /// The live positions of these keys under the current frame
+    /// ([`Table::frame`]), in list order, repeats kept: the lookup half a
+    /// reader outside intake needs. An unknown key is refused, and a deleted
+    /// one with the error [`Table::rows_for_keys`] gives for it.
+    pub fn live_positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
+        let positions = self.positions_for_keys(keys)?;
+        if let Some(&at) = positions.iter().find(|&&p| !self.is_live(p)) {
+            return Err(IntakeRefusal::PgRow(PgRowRefusal::DeadPosition { at }));
         }
         Ok(positions)
     }

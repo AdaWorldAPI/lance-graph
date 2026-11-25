@@ -19,7 +19,12 @@ fn events(rows: &Rows<'_>) -> (Vec<Event>, Vec<Vec<String>>) {
             rows.names()
                 .iter()
                 .enumerate()
-                .map(|(c, n)| (n.clone(), i64::from(rows.get(r, c))))
+                .map(|(c, n)| {
+                    (
+                        n.clone(),
+                        i64::from(rows.get(r, c).as_i32().expect("an i32 column")),
+                    )
+                })
                 .collect()
         })
         .collect();

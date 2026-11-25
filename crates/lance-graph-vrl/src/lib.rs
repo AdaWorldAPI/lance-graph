@@ -45,10 +45,17 @@
 //!   crate (the stored answer is a recipe, never rows); different language,
 //!   no shared code.
 //!
-//! Lanes are read as contiguous `i32` slices only. A strided lane (for
-//! example a field read in place from 512-byte SoA rows) is refused with
-//! [`Refusal::NotI32`], because mask-risc's strided predicates are `u32`
-//! only. A consumer holds its own contiguous lanes until that changes.
+//! Lanes are read as contiguous slices: `i32` for any field, and `u32` (a
+//! text column's codes, decoded by the consumer through its code table) for
+//! a field that is only projected, never compared or summed. A strided lane
+//! (for example a field read in place from 512-byte SoA rows) is refused
+//! with [`Refusal::NotI32`], because mask-risc's strided predicates are
+//! `u32` only. A consumer holds its own contiguous lanes until that changes.
+//!
+//! Rows come two ways: [`Recipe::materialize_rows`] folds the drop terms
+//! over every row, and [`Recipe::rows_at`] reads the rows at positions the
+//! source resolved from keys (a lookup such as XVERWEIS), under the frame
+//! they were resolved in.
 //!
 //! The VRL subset, one statement per line (or `;`):
 //!
@@ -89,8 +96,9 @@ pub enum Refusal {
     Binding(LaneRefusal),
     /// The binding does not hold a field the recipe reads.
     NotBound { field: u8 },
-    /// A field the recipe reads is not a contiguous `i32` lane (a strided
-    /// lane is refused too; see the crate docs).
+    /// A field the recipe compares or sums is not a contiguous `i32` lane,
+    /// or a projected field is neither a contiguous `i32` nor `u32` lane (a
+    /// strided lane is refused; see the crate docs).
     NotI32 { field: u8 },
     /// The recipe reads no field, so it names no population.
     NoLanes,
@@ -115,6 +123,13 @@ pub enum Refusal {
     },
     /// mask-risc refused the program or its operands.
     Exec(ExecError),
+    /// [`Recipe::rows_at`] was given a recipe with a drop term.
+    FiltersAtPositions,
+    /// A lane read by [`Recipe::rows_at`] does not hold as many rows as the
+    /// first read lane.
+    LaneLength { field: u8, len: usize, need: usize },
+    /// A position passed to [`Recipe::rows_at`] lies past the lanes.
+    PositionOutOfRange { at: u32, n_rows: usize },
 }
 
 /// The most fields one recipe reads. The lanes are held in a fixed array of
@@ -152,6 +167,8 @@ pub struct Prepared {
     /// fields), so the output map is part of it. Equal recipes share
     /// prepared programs; nothing is counted.
     recipe: RecipeKey,
+    /// The field a sum terminal folds; it must be an `i32` lane.
+    sum: Option<u8>,
 }
 
 /// What makes two compiled recipes the same recipe, compared exactly.
@@ -471,14 +488,21 @@ impl Recipe {
         self.out.iter().map(|(n, _)| n.as_str()).collect()
     }
 
+    /// Every field a recipe names is in `reads` by construction (outputs and
+    /// terms are what `reads` is built from).
     fn lane(&self, field: u8) -> u16 {
-        self.reads.iter().position(|&f| f == field).unwrap_or(0) as u16
+        let at = self.reads.iter().position(|&f| f == field);
+        debug_assert!(at.is_some(), "field {field} is not a read of this recipe");
+        at.unwrap_or(0) as u16
     }
 
     /// The recipe's lanes, borrowed under ONE DT64 check, in `reads` order,
     /// into a fixed array: the accepting path allocates nothing. Refused
     /// before any borrow when the witness fails.
-    fn lanes<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Lanes<'a>, Refusal>
+    /// `sum` is the field a sum terminal folds, if any: it and every field a
+    /// drop term compares must be an `i32` lane. A field that is only
+    /// projected may also be a `u32` lane (a text column's codes).
+    fn lanes<'a, V, S>(&self, w: &Witness<'a, V, S>, sum: Option<u8>) -> Result<Lanes<'a>, Refusal>
     where
         V: ClassView + ?Sized,
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
@@ -514,8 +538,11 @@ impl Recipe {
                     Err(e) => return Err(Refusal::Binding(e)),
                 };
             if let Some(i) = self.reads.iter().position(|&f| f == field) {
-                if !matches!(lane, LaneRef::I32(_)) {
-                    return Err(Refusal::NotI32 { field });
+                let compared = sum == Some(field) || self.drop.iter().any(|t| t.0 == field);
+                match lane {
+                    LaneRef::I32(_) => {}
+                    LaneRef::U32(_) if !compared => {}
+                    _ => return Err(Refusal::NotI32 { field }),
                 }
                 lanes[i] = lane;
                 presence[i] = plane;
@@ -537,7 +564,12 @@ impl Recipe {
     /// Lower the population and `terminal` for a frame of `n_rows` rows.
     /// The cold step: it builds the program once. Run it with
     /// [`Recipe::run_into`] as often as the frame stays `n_rows` rows.
-    fn prepare(&self, n_rows: usize, terminal: Terminal) -> Result<Prepared, Refusal> {
+    fn prepare(
+        &self,
+        n_rows: usize,
+        terminal: Terminal,
+        sum: Option<u8>,
+    ) -> Result<Prepared, Refusal> {
         Ok(Prepared {
             program: self.program(n_rows, terminal)?,
             n_rows,
@@ -547,6 +579,7 @@ impl Recipe {
                 drop: self.drop.clone(),
                 out: self.out.clone(),
             },
+            sum,
         })
     }
 
@@ -557,6 +590,7 @@ impl Recipe {
             Terminal::Count {
                 mask: Operand::Scratch(0),
             },
+            None,
         )
     }
 
@@ -574,6 +608,7 @@ impl Recipe {
                 mask: Operand::Scratch(0),
                 lane: self.lane(field),
             },
+            Some(field),
         )
     }
 
@@ -586,6 +621,7 @@ impl Recipe {
             Terminal::Count {
                 mask: Operand::Scratch(UNKNOWN),
             },
+            None,
         )
     }
 
@@ -598,6 +634,7 @@ impl Recipe {
             Terminal::Keep {
                 mask: Operand::Scratch(0),
             },
+            None,
         )
     }
 
@@ -642,7 +679,7 @@ impl Recipe {
         {
             return Err(Refusal::NotThisRecipe);
         }
-        let lanes = self.lanes(w)?;
+        let lanes = self.lanes(w, p.sum)?;
         let n_rows = lanes.get()[0].len();
         if n_rows != p.n_rows {
             return Err(Refusal::RowsChanged {
@@ -676,7 +713,7 @@ impl Recipe {
         V: ClassView + ?Sized,
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
-        Ok(self.lanes(w)?.get()[0].len())
+        Ok(self.lanes(w, None)?.get()[0].len())
     }
 
     /// How many rows the recipe keeps: mask-risc `Count`, no row is built.
@@ -740,6 +777,7 @@ impl Recipe {
         // Exactly sized: `resize` on an empty Vec rounds up to 4 words.
         let mut mask = vec![0u64; words_for(p.n_rows)];
         let (_, lanes) = self.exec(&p, w, &mut scratch, Out::Mask(&mut mask))?;
+        let frame = w.binding.frame().clone();
         let kept: u32 = mask.iter().map(|w| w.count_ones()).sum();
         let mut positions = Vec::with_capacity(kept as usize);
         for (w, &word) in mask.iter().enumerate() {
@@ -749,18 +787,78 @@ impl Recipe {
                 bits &= bits - 1;
             }
         }
-        let lane_of = |field: u8| match lanes.get()[usize::from(self.lane(field))] {
-            LaneRef::I32(s) => s,
-            _ => unreachable!("lanes() admits i32 lanes only"),
-        };
+        Ok(self.rows(frame, lanes, positions))
+    }
+
+    /// The rows at `positions`, in list order, repeats kept: a key lookup,
+    /// with the positions resolved by the source (for intake,
+    /// `Table::live_positions_for_keys`) under `under`. The positions are
+    /// admitted only while `under` is current, as
+    /// `LaneBinding::borrow_all_at` admits them, and only inside the lanes.
+    /// One frame check and one binding check, as in [`Recipe::run_into`].
+    /// Liveness is the source's: positions from intake's
+    /// `live_positions_for_keys` are live under the frame they came with, and a
+    /// delete moves the frame; positions from anywhere else are not checked.
+    ///
+    /// A projection: a recipe with a drop term is refused
+    /// ([`Refusal::FiltersAtPositions`]), because dropping a looked-up row
+    /// would shift every later key's answer. No mask is built.
+    pub fn rows_at<'a, V, S>(
+        &self,
+        w: &Witness<'a, V, S>,
+        positions: &[u32],
+        under: &Frame,
+    ) -> Result<Rows<'a>, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
+    {
+        if !self.drop.is_empty() {
+            return Err(Refusal::FiltersAtPositions);
+        }
+        // The frame check `LaneBinding::borrow_all_at` makes, ahead of the one
+        // full binding check in `lanes`.
+        w.frames
+            .check(under)
+            .map_err(|e| Refusal::Binding(LaneRefusal::Frame(e)))?;
+        let lanes = self.lanes(w, None)?;
+        let n_rows = lanes.get()[0].len();
+        // `exec` checks these shapes on the fold path; a lookup reads the
+        // lanes directly, so it checks them here before any position.
+        let need = words_for(n_rows);
+        for (i, (lane, plane)) in lanes.get().iter().zip(lanes.planes()).enumerate() {
+            let field = self.reads[i];
+            if lane.len() != n_rows {
+                return Err(Refusal::LaneLength {
+                    field,
+                    len: lane.len(),
+                    need: n_rows,
+                });
+            }
+            if plane.len() != need {
+                return Err(Refusal::PresenceLength {
+                    field,
+                    words: plane.len(),
+                    need,
+                });
+            }
+        }
+        if let Some(&at) = positions.iter().find(|&&p| p as usize >= n_rows) {
+            return Err(Refusal::PositionOutOfRange { at, n_rows });
+        }
+        Ok(self.rows(under.clone(), lanes, positions.to_vec()))
+    }
+
+    fn rows<'a>(&self, frame: Frame, lanes: Lanes<'a>, positions: Vec<u32>) -> Rows<'a> {
+        let lane_of = |field: u8| lanes.get()[usize::from(self.lane(field))];
         let presence_of = |field: u8| lanes.planes()[usize::from(self.lane(field))];
-        Ok(Rows {
-            frame: w.binding.frame().clone(),
+        Rows {
+            frame,
             names: self.out.iter().map(|(n, _)| n.clone()).collect(),
             lanes: self.out.iter().map(|(_, f)| lane_of(*f)).collect(),
             presence: self.out.iter().map(|(_, f)| presence_of(*f)).collect(),
             positions,
-        })
+        }
     }
 
     /// The population program, three-valued (EXO-294). Each term is a
@@ -877,7 +975,7 @@ pub struct Rows<'a> {
     /// frame, which refuses them once the source has moved.
     frame: Frame,
     names: Vec<String>,
-    lanes: Vec<&'a [i32]>,
+    lanes: Vec<LaneRef<'a>>,
     /// Each column's presence plane, borrowed beside its lane.
     presence: Vec<&'a [u64]>,
     positions: Vec<u32>,
@@ -906,9 +1004,15 @@ impl<'a> Rows<'a> {
         &self.positions
     }
 
-    /// Row `r`, column `c`, read from the lane.
-    pub fn get(&self, r: usize, c: usize) -> i32 {
-        self.lanes[c][self.positions[r] as usize]
+    /// Row `r`, column `c`, read from the lane: a signed value, or a text
+    /// column's code (decoded through its code table by the consumer).
+    pub fn get(&self, r: usize, c: usize) -> Datum {
+        let p = self.positions[r] as usize;
+        match self.lanes[c] {
+            LaneRef::I32(l) => Datum::I32(l[p]),
+            LaneRef::U32(l) => Datum::U32(l[p]),
+            _ => unreachable!("lanes() admits i32 and u32 lanes only"),
+        }
     }
 
     /// Whether row `r`, column `c` holds a value: false when it is absent
@@ -916,7 +1020,33 @@ impl<'a> Rows<'a> {
     /// [`Rows::get`].
     pub fn present(&self, r: usize, c: usize) -> bool {
         let p = self.positions[r] as usize;
-        bit(self.presence[c], p) || self.lanes[c][p] != 0
+        bit(self.presence[c], p) || !matches!(self.get(r, c), Datum::I32(0) | Datum::U32(0))
+    }
+}
+
+/// One cell of [`Rows`]: the lane's value as stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Datum {
+    I32(i32),
+    /// A text column's code.
+    U32(u32),
+}
+
+impl Datum {
+    /// The signed value; `None` for a text code, which is not a number.
+    pub fn as_i32(self) -> Option<i32> {
+        match self {
+            Datum::I32(v) => Some(v),
+            Datum::U32(_) => None,
+        }
+    }
+
+    /// A text column's code; `None` for a signed value.
+    pub fn as_code(self) -> Option<u32> {
+        match self {
+            Datum::U32(c) => Some(c),
+            Datum::I32(_) => None,
+        }
     }
 }
 
