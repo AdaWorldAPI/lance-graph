@@ -4,10 +4,11 @@
 mod common;
 
 use common::{all_fields, bind, witness, Source, CODE, LABELS, VIEW_CLASS};
+use common::{interpret, Event};
 use lance_graph_contract::class_view::WideFieldMask;
 use lance_graph_dt64::dr::FrameRefusal;
 use lance_graph_dt64::LaneRefusal;
-use vrl_recipe_probe::{interpret, Event, Recipe, Refusal, Rows};
+use lance_graph_vrl::{Recipe, Refusal, Rows};
 
 /// Positional rows as events, for comparison with the interpreter only.
 fn events(rows: &Rows<'_>) -> Vec<Event> {
@@ -236,7 +237,7 @@ fn a_prepared_program_is_refused_by_another_recipe_or_row_count() {
 /// read through a view with `MAX_READS + 1` fields.
 #[test]
 fn more_reads_than_the_lane_array_holds_are_refused() {
-    use vrl_recipe_probe::MAX_READS;
+    use lance_graph_vrl::MAX_READS;
     let labels: Vec<String> = std::iter::once("key".to_string())
         .chain((1..=MAX_READS).map(|i| format!("f{i}")))
         .collect();

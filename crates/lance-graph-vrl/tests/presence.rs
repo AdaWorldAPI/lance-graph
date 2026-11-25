@@ -5,8 +5,9 @@
 mod common;
 
 use common::{all_fields, bind, witness, Source, LABELS, VIEW_CLASS};
+use common::{interpret_present, Event};
 use lance_graph_dt64::LaneRefusal;
-use vrl_recipe_probe::{interpret_present, Event, Recipe, Refusal, Rows};
+use lance_graph_vrl::{Recipe, Refusal, Rows};
 
 fn compile(src: &str) -> Recipe {
     Recipe::compile(src, &common::View::new(), VIEW_CLASS)
