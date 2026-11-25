@@ -1,3 +1,17 @@
+## ISS-INTAKE-APPEND-LEAVES-THE-FOLD — the duplicate-key check scans every tile per key (2026-11-25)
+
+**Status:** OPEN. **Basis:** MEASURED on a release build, best of 30 runs, batches of 4,096 events as `vrl::value::Value`.
+
+A route batch through `Table::append_values` fails the nanosecond gate. The time grows with the rows the table already holds. The in-place floor, reading `&Value` into an i32 lane and a code lane, is 30 ns per event (123 µs per batch). A fully duplicate batch, which only checks fit, is 242 ns per event.
+
+- **Where it leaves the fold:**
+  - `new_keys` calls `Table::locate` once per new key.
+  - `MapTable::locate` (`crates/lance-graph-dt64/src/dr.rs:1259`) walks every tile. For each one it checks the frame, reads the tile map and binary-searches it.
+  - So the key check costs (batch keys × tiles held) and grows with the table. New-tile placement and commit also cost more than placing the cells does.
+- **Not the cause:** rendering to text, now removed. The event-id dictionary is also gone: the id is a 128-bit hash in four lanes, held in a hash set on the route.
+- **What closes it:** a key check that does not walk every tile per key. Options are key bounds per tile, or one sorted merge per batch. It must be decided against D-REGC-7 (the key map stays the DR tiles, no second registry), then measured in the same harness.
+**Fruit:** High-signal
+
 ## ISS-METHOD-IDENTITY-EXO-50-BLOCKS-FIVE-OPEN-LINES — MethodSignature, MethodRef or MethodKey? (2026-11-22)
 
 **Status:** RESOLVED (regraded 2026-11-22, same day: the row was wrong). The identity is decided: `MethodRef` carries a private `Stamp` with the issuing `BindStore` and the binding digest (`crates/lance-graph-dt64/src/lib.rs:369`, VERIFIED-IN-CODE at `138806961`; decision recorded as EXO-199, implemented in #1979). EXO-50 is the agent-coordination channel, not a method-identity question; the cited entry names the channel the question was raised on. Residual, separate: whether a class basis may change under `SchemaRev` (EXO-370, open). Was: OPEN (EXO-50). **Basis:** CITED, entry re-read 2026-11-22 (`entries/2026-10-31-d-dt64-6-dr-addressing-module.md:13`: "`bind_dr64` waits on the `MethodSignature` vs `MethodRef` identity (EXO-50)").
