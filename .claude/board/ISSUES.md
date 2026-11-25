@@ -1,6 +1,10 @@
 ## ISS-INTAKE-APPEND-LEAVES-THE-FOLD — the duplicate-key check scans every tile per key (2026-11-25)
 
-**Status:** OPEN. **Basis:** MEASURED on a release build, best of 30 runs, batches of 4,096 events as `vrl::value::Value`.
+**Status:** PARTLY RESOLVED (2026-11-25, `entries/2026-11-25-append-without-tile-scan.md`).
+- Monotone keys, the route's `lg.seq` case: closed. Key resolution is now a binary search over derived tile bounds. DT64's `coordinates` revision is now an incremental sum.
+- Overlapping key ranges: still O(tiles) per batch. This is OPEN, pending an operator decision (see the entry).
+
+Was: OPEN. **Basis:** MEASURED on a release build, best of 30 runs, batches of 4,096 events as `vrl::value::Value`.
 
 A route batch through `Table::append_values` fails the nanosecond gate. The time grows with the rows the table already holds. The in-place floor, reading `&Value` into an i32 lane and a code lane, is 30 ns per event (123 µs per batch). A fully duplicate batch, which only checks fit, is 242 ns per event.
 

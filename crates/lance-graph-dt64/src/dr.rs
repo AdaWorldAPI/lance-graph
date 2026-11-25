@@ -880,6 +880,9 @@ pub struct MapTable {
     kept: Vec<Kept>,
 }
 
+/// The coordinates revision of an empty tile set.
+const COORDINATES_BASE: u64 = 0xcbf2_9ce4_8422_2325;
+
 /// One kept mapping, opaque to DR, and the version of this table it was
 /// bound under.
 #[derive(Debug)]
@@ -984,20 +987,30 @@ impl MapTable {
 
     /// FNV-1a over `(tile, map digest)` in tile order, over the CURRENT state
     /// (removed tiles are absent).
+    /// The coordinates revision of a tile set: the wrapping sum of one term
+    /// per mapped tile (its id and its current map's digest). A sum, so an
+    /// advance updates it for the tiles it changes, not by reading every
+    /// tile again.
     fn coordinates(tiles: &BTreeMap<TileId, TileLog>) -> u64 {
+        tiles.iter().fold(COORDINATES_BASE, |h, (tile, log)| {
+            h.wrapping_add(Self::coordinate_term(*tile, log))
+        })
+    }
+
+    /// One tile's term: FNV-1a over its id and its current map's digest, or
+    /// 0 for a tile with no current map.
+    fn coordinate_term(tile: TileId, log: &TileLog) -> u64 {
+        let Some(view) = log.at(RouteVersion(u64::MAX)) else {
+            return 0;
+        };
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for (tile, log) in tiles {
-            let Some(view) = log.at(RouteVersion(u64::MAX)) else {
-                continue;
-            };
-            let bytes = tile
-                .to_le_bytes()
-                .into_iter()
-                .chain(view.digest().to_le_bytes());
-            for b in bytes {
-                h ^= u64::from(b);
-                h = h.wrapping_mul(0x0000_0100_0000_01b3);
-            }
+        for b in tile
+            .to_le_bytes()
+            .into_iter()
+            .chain(view.digest().to_le_bytes())
+        {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
         }
         h
     }
@@ -1061,7 +1074,12 @@ impl MapTable {
         relation_map: u64,
         changes: Vec<(TileId, Option<LocalMap>)>,
     ) {
+        let mut coordinates = self.frames.revisions().coordinates;
         for (tile, map) in changes {
+            let before = self
+                .tiles
+                .get(&tile)
+                .map_or(0, |log| Self::coordinate_term(tile, log));
             match map {
                 Some(m) => self.tiles.entry(tile).or_default().append(version, m),
                 None => {
@@ -1070,8 +1088,13 @@ impl MapTable {
                     }
                 }
             }
+            let after = self
+                .tiles
+                .get(&tile)
+                .map_or(0, |log| Self::coordinate_term(tile, log));
+            coordinates = coordinates.wrapping_sub(before).wrapping_add(after);
         }
-        let coordinates = Self::coordinates(&self.tiles);
+        debug_assert_eq!(coordinates, Self::coordinates(&self.tiles));
         self.frames.advance_at(
             FrameRevisions {
                 source,

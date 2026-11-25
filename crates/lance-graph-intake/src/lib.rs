@@ -303,6 +303,15 @@ pub struct Owner {
     table: MapTable,
     frame: Frame,
     tiles: Vec<TileId>,
+    /// The smallest and the largest key of each tile, aligned with `tiles`.
+    /// A derived description of the DR tiles, recomputed from each changed
+    /// tile's map when an append commits; it never maps a key to a position
+    /// (the tiles do). A bound may be wider than the keys still live: it only
+    /// filters which tiles a key can be in.
+    bounds: Vec<(u64, u64)>,
+    /// Whether the tiles' key ranges are disjoint and ascending in tile
+    /// order, so a key's tile is found by one binary search.
+    ordered: bool,
     /// A kept selection lent as selection [`KEPT_SEL`] while one read is
     /// open: its positions are read from DR's keep log in place, never copied.
     lend: Cell<Option<KeptId>>,
@@ -733,6 +742,8 @@ impl Table {
             table: map_table,
             frame,
             tiles: Vec::new(),
+            bounds: Vec::new(),
+            ordered: true,
             lend: Cell::new(None),
         };
 
@@ -986,21 +997,60 @@ impl Table {
         self.with_validity(&reader, |v| reader.count_where_valid(filter, v))
     }
 
-    /// The position of the row holding `key`, or `None` when no row does.
-    fn locate(&self, key: u64) -> Result<Option<u32>, IntakeRefusal> {
-        match self
+    /// The tiles whose key range holds `key`, by index into the tile list:
+    /// at most one, found by binary search, while the ranges are ordered.
+    fn tiles_holding(&self, key: u64) -> impl Iterator<Item = usize> + '_ {
+        let b = &self.owner.bounds;
+        let ordered = self.owner.ordered.then(|| {
+            let i = b.partition_point(|&(lo, _)| lo <= key);
+            (i > 0 && b[i - 1].1 >= key).then(|| i - 1)
+        });
+        let scan = (!self.owner.ordered).then(|| {
+            b.iter()
+                .enumerate()
+                .filter(move |(_, &(lo, hi))| lo <= key && key <= hi)
+                .map(|(i, _)| i)
+        });
+        ordered
+            .flatten()
+            .into_iter()
+            .chain(scan.into_iter().flatten())
+    }
+
+    /// Whether tile `i` maps `key`, and at which local position.
+    fn local_in(&self, i: usize, key: u64) -> Result<Option<u8>, IntakeRefusal> {
+        let map = self
             .owner
             .table
-            .locate(&self.owner.frame, &self.owner.tiles, key)
-        {
-            Ok((ordinal, local)) => ordinal
-                .checked_mul(TILE_WIDTH as u32)
-                .and_then(|base| base.checked_add(u32::from(local)))
-                .map(Some)
-                .ok_or_else(|| IntakeRefusal::Placement("position overflow".to_owned())),
-            Err(LocateRefusal::Unmapped) => Ok(None),
-            Err(other) => Err(IntakeRefusal::Placement(format!("{other:?}"))),
+            .map(&self.owner.frame, self.owner.tiles[i])
+            .map_err(|refusal| IntakeRefusal::Placement(format!("{refusal:?}")))?;
+        Ok(map.local(key).ok())
+    }
+
+    /// The position of the row holding `key`, or `None` when no row does.
+    /// Only the tiles whose key range holds `key` are read.
+    fn locate(&self, key: u64) -> Result<Option<u32>, IntakeRefusal> {
+        let mut found = None;
+        for i in self.tiles_holding(key) {
+            if let Some(local) = self.local_in(i, key)? {
+                if found.is_some() {
+                    return Err(IntakeRefusal::Placement(format!(
+                        "{:?}",
+                        LocateRefusal::Ambiguous
+                    )));
+                }
+                found = Some((i, local));
+            }
         }
+        found
+            .map(|(i, local)| {
+                u32::try_from(i)
+                    .ok()
+                    .and_then(|ordinal| ordinal.checked_mul(TILE_WIDTH as u32))
+                    .and_then(|base| base.checked_add(u32::from(local)))
+                    .ok_or_else(|| IntakeRefusal::Placement("position overflow".to_owned()))
+            })
+            .transpose()
     }
 
     fn position_of(&self, key: u64) -> Result<u32, IntakeRefusal> {
@@ -1439,7 +1489,26 @@ impl Table {
             self.owner.live[at / 64] |= 1 << (at % 64);
         }
         self.owner.rows = total;
+        let held = self.owner.tiles.len();
+        for (tile, map) in &changes {
+            let Some(map) = map else { continue };
+            let globals = map.view().globals();
+            let range = (
+                globals.iter().copied().min().unwrap_or(0),
+                globals.iter().copied().max().unwrap_or(0),
+            );
+            if held > 0 && *tile == self.owner.tiles[held - 1] {
+                self.owner.bounds[held - 1] = range;
+            } else {
+                self.owner.bounds.push(range);
+            }
+        }
         self.owner.tiles.extend(new_tiles);
+        let b = &self.owner.bounds;
+        self.owner.ordered = self.owner.ordered
+            // The last held tile may have been extended, so its pair with
+            // the tile before it is checked again.
+            && (held.saturating_sub(1).max(1)..b.len()).all(|i| b[i - 1].1 < b[i].0);
 
         self.advance_data(changes);
         self.rebind()?;
@@ -1504,9 +1573,24 @@ impl Table {
         if let Some(pair) = sorted.windows(2).find(|pair| pair[0] == pair[1]) {
             return Err(IntakeRefusal::DuplicateKey(pair[0]));
         }
-        for &key in &keys {
-            if self.locate(key)?.is_some() {
-                return Err(IntakeRefusal::DuplicateKey(key));
+        if self.owner.ordered {
+            for &key in &keys {
+                if self.locate(key)?.is_some() {
+                    return Err(IntakeRefusal::DuplicateKey(key));
+                }
+            }
+        } else {
+            // Overlapping ranges: each tile reads only the batch keys inside
+            // its range, found in the sorted batch, so no key visits every
+            // tile.
+            for (i, &(lo, hi)) in self.owner.bounds.iter().enumerate() {
+                let from = sorted.partition_point(|&k| k < lo);
+                let to = sorted.partition_point(|&k| k <= hi);
+                for &key in &sorted[from..to] {
+                    if self.local_in(i, key)?.is_some() {
+                        return Err(IntakeRefusal::DuplicateKey(key));
+                    }
+                }
             }
         }
         Ok(keys)

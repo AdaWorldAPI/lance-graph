@@ -2122,3 +2122,67 @@ fn positions_bound_refuses_a_stale_or_foreign_query() {
     ticket.append(&cells(&[row])).unwrap();
     assert_eq!(ticket.positions_bound(&q), Err(IntakeRefusal::Stale));
 }
+
+/// A table keyed `id`, `v`, built empty.
+fn keyed() -> Table {
+    let d = |ty, e| ColumnConfig {
+        ty: Some(ty),
+        encoding: Some(e),
+        absent: Some(AbsentAs::Null),
+    };
+    let mut config = ShapeConfig {
+        key: Some("id".into()),
+        ..ShapeConfig::default()
+    };
+    config
+        .columns
+        .insert("id".into(), d(PgType::Int4, LaneEncoding::Signed));
+    config
+        .columns
+        .insert("v".into(), d(PgType::Int4, LaneEncoding::Signed));
+    Table::from_rows("k", 0x2B10_0002, &["id", "v"], &[], &config).unwrap()
+}
+
+fn keyed_rows(keys: impl Iterator<Item = i64>) -> Vec<Vec<Option<Datum<'static>>>> {
+    keys.map(|k| vec![Some(Datum::Int(k)), Some(Datum::Int(k % 7))])
+        .collect()
+}
+
+/// FAILS IF: a key held by an earlier tile is accepted again, or a held key
+/// is not found, whether the tiles' key ranges are ordered (monotone keys)
+/// or overlap (interleaved keys); or a key no tile holds is refused.
+#[test]
+fn keys_are_located_through_tile_bounds_ordered_or_overlapping() {
+    for interleaved in [false, true] {
+        let mut t = keyed();
+        // Three batches of 600 keys: monotone (0..600, 600..1200, ..) or
+        // interleaved (k % 3 == b), so each batch's tiles overlap the others.
+        let batch = |b: i64| -> Vec<i64> {
+            if interleaved {
+                (0..600).map(|i| i * 3 + b).collect()
+            } else {
+                (0..600).map(|i| b * 600 + i).collect()
+            }
+        };
+        for b in 0..3 {
+            t.append_values(&keyed_rows(batch(b).into_iter())).unwrap();
+        }
+        let all: Vec<u64> = (0..1800).collect();
+        let positions = t.live_positions_for_keys(&all).unwrap();
+        assert_eq!(positions.len(), 1800, "interleaved {interleaved}");
+        for probe in [0i64, 599, 600, 1201, 1799] {
+            assert_eq!(
+                t.append_values(&keyed_rows(std::iter::once(probe))),
+                Err(IntakeRefusal::DuplicateKey(probe as u64)),
+                "interleaved {interleaved}: {probe} again"
+            );
+        }
+        assert_eq!(
+            t.append_values(&keyed_rows([5000i64, 1800].into_iter()))
+                .unwrap()
+                .rows,
+            2
+        );
+        assert_eq!(t.live_positions_for_keys(&[1800, 5000]).unwrap().len(), 2);
+    }
+}
