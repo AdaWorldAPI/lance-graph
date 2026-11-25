@@ -1268,3 +1268,111 @@ fn per_slice_dispatch_accepts_zero_sums_and_mixed_program_shapes() {
         Ok((1, 10, Exp(-1)))
     );
 }
+
+fn vrl_recipe(t: &Table, src: &str, exps: &dyn FieldExps) -> DecimalRecipe {
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    DecimalRecipe::compile_vrl(src, exps, t.witness().view, class).unwrap()
+}
+
+/// FAILS IF: a decimal literal written in VRL source counts or sums other
+/// rows than the same filter given as a structured decimal filter and than
+/// comparing every value exactly, is refused once the field's exponent
+/// moves, or a comparison on a field with no declared exponent stops being
+/// plain VRL.
+#[test]
+fn a_vrl_decimal_literal_equals_the_oracle_and_is_witnessed() {
+    let (t, iri) = table();
+    let w = witness(&t);
+    let s2 = Exp::scale(2);
+    let exps = Declared(BTreeMap::from([(iri.clone(), s2)]));
+    let amounts = ["123.45", "0.00", "-0.50", "1.20"];
+    let kept = |op: Op, lit: &str| -> (u64, i64) {
+        let k: Vec<i64> = amounts
+            .iter()
+            .map(|a| i64::from(parse_exact(a, s2).unwrap()))
+            .filter(|&c| !oracle(c, s2, op, lit))
+            .collect();
+        // The absent row is undecided, so it is never kept.
+        (k.len() as u64, k.iter().sum())
+    };
+    for (op, sym, lit) in [
+        (Op::Ge, ">=", "1.205"),
+        (Op::Lt, "<", "0"),
+        (Op::Eq, "==", "1.2"),
+        (Op::Ne, "!=", "123.450"),
+    ] {
+        let src = format!(".a = .properties.amount.value\nif .a {sym} {lit} {{ abort }}");
+        let r = vrl_recipe(&t, &src, &exps);
+        let structured = decimal_recipe(&t, &iri, &[(op, lit)], s2);
+        let got = (r.count(&w, &exps).unwrap(), r.sum(&w, &exps, "a").unwrap());
+        assert_eq!(got, kept(op, lit), "{src}");
+        assert_eq!(got.0, structured.count(&w, &exps).unwrap(), "{src}");
+    }
+
+    // The same literal through the field path, not an alias.
+    let r = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .properties.amount.value >= 1.205 { abort }",
+        &exps,
+    );
+    assert_eq!(r.count(&w, &exps).unwrap(), kept(Op::Ge, "1.205").0);
+
+    // A moved exponent refuses the run.
+    let moved = Declared(BTreeMap::from([(iri.clone(), Exp::scale(3))]));
+    assert!(matches!(
+        r.count(&w, &moved),
+        Err(RecipeRefusal::ExpChanged { .. })
+    ));
+
+    // `id` has no declared exponent: its integer comparison stays plain VRL.
+    let plain = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .properties.id.value == 2 { abort }",
+        &exps,
+    );
+    assert_eq!(plain.count(&w, &exps).unwrap(), 4);
+    // A decimal literal on a field with no exponent is still refused by VRL.
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    assert!(DecimalRecipe::compile_vrl(
+        "if .properties.id.value >= 1.5 { abort }",
+        &exps,
+        t.witness().view,
+        class
+    )
+    .is_err());
+}
+
+/// FAILS IF: a decimal comparison through an alias of an alias falls back
+/// to plain VRL, or a comparison extracted before the alias is reassigned
+/// or deleted filters another field (codex on #2193).
+#[test]
+fn vrl_decimal_filters_follow_aliases_and_keep_their_field() {
+    let (t, iri) = table();
+    let w = witness(&t);
+    let exps = Declared(BTreeMap::from([(iri.clone(), Exp::scale(2))]));
+    // 123.45 >= 2 drops; 0.00, -0.50 and 1.20 stay.
+    let chained = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.b = .a\nif .b >= 2 { abort }",
+        &exps,
+    );
+    assert_eq!(chained.count(&w, &exps).unwrap(), 3);
+    let fractional = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.b = .a\nif .b >= 1.205 { abort }",
+        &exps,
+    );
+    assert_eq!(fractional.count(&w, &exps).unwrap(), 3);
+    let reassigned = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\nif .a >= 1.205 { abort }\n.a = .properties.id.value",
+        &exps,
+    );
+    assert_eq!(reassigned.count(&w, &exps).unwrap(), 3);
+    let deleted = vrl_recipe(
+        &t,
+        ".a = .properties.amount.value\n.k = .properties.id.value\nif .a >= 1.205 { abort }\ndel(.a)",
+        &exps,
+    );
+    assert_eq!(deleted.count(&w, &exps).unwrap(), 3);
+}

@@ -896,6 +896,112 @@ impl DecimalRecipe {
             .map_err(RecipeRefusal::Recipe)
     }
 
+    /// `SUM` of output `output` over the rows the recipe keeps, as a
+    /// coefficient sum at the output field's exponent.
+    pub fn sum<'a, V, S>(
+        &self,
+        w: &Witness<'a, V, S>,
+        exps: &dyn FieldExps,
+        output: &str,
+    ) -> Result<i64, RecipeRefusal>
+    where
+        V: ClassView + ?Sized,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
+    {
+        self.check(exps)?;
+        self.check_witness(w.frames)?;
+        self.recipe.sum(w, output).map_err(RecipeRefusal::Recipe)
+    }
+
+    /// Compile VRL source in which a comparison of a decimal field carries
+    /// a decimal literal: `if .amount >= 1.205 { abort }`. A comparison
+    /// whose field the owner declares an exponent for (`exps`) becomes an
+    /// exact decimal filter, its literal resolved at that exponent and never
+    /// read as `f64`; every other statement is plain VRL, compiled as is.
+    /// A path is a field (`.properties.<label>.value`) or a name assigned
+    /// from one earlier in the source.
+    pub fn compile_vrl<V: ClassView + ?Sized>(
+        src: &str,
+        exps: &dyn FieldExps,
+        view: &V,
+        class: ClassId,
+    ) -> Result<DecimalRecipe, RecipeRefusal> {
+        let fields = view.fields(class);
+        let iri_of = |label: &str| {
+            fields
+                .iter()
+                .find(|f| f.label == label)
+                .map(|f| f.predicate_iri.clone())
+        };
+        let label_of_prop = |p: &str| {
+            p.strip_prefix(".properties.")
+                .and_then(|r| r.strip_suffix(".value"))
+                .map(str::to_owned)
+        };
+        let mut aliases: BTreeMap<String, String> = BTreeMap::new();
+        let mut projection = Vec::new();
+        let mut decimal: Vec<(String, String, Op, String)> = Vec::new();
+        for raw in src.split(['\n', ';']) {
+            let stmt = raw.trim();
+            if let Some(cond) = stmt
+                .strip_prefix("if ")
+                .and_then(|r| r.strip_suffix('}'))
+                .and_then(|r| r.trim_end().strip_suffix("abort"))
+                .and_then(|r| r.trim_end().strip_suffix('{'))
+            {
+                let toks: Vec<&str> = cond.split_whitespace().collect();
+                if let [path, op, literal] = toks.as_slice() {
+                    let label = label_of_prop(path).or_else(|| aliases.get(*path).cloned());
+                    let iri = label.as_deref().and_then(iri_of);
+                    let op = match *op {
+                        "==" => Some(Op::Eq),
+                        "!=" => Some(Op::Ne),
+                        "<" => Some(Op::Lt),
+                        "<=" => Some(Op::Le),
+                        ">" => Some(Op::Gt),
+                        ">=" => Some(Op::Ge),
+                        _ => None,
+                    };
+                    if let (Some(label), Some(iri), Some(op)) = (label, iri, op) {
+                        if exps.exp_of(&iri).is_some() && !literal.starts_with('"') {
+                            // The filter reads the field itself, not the
+                            // alias: it moves after the projection, where
+                            // the alias may have been reassigned or deleted.
+                            let field = format!(".properties.{label}.value");
+                            decimal.push((field, iri, op, literal.to_string()));
+                            continue;
+                        }
+                    }
+                }
+            }
+            if let Some(name) = stmt.strip_prefix("del(").and_then(|r| r.strip_suffix(')')) {
+                aliases.remove(name.trim());
+            } else if let Some((lhs, rhs)) = stmt.split_once('=') {
+                // An alias of an alias names the same field; any other
+                // right-hand side ends the binding.
+                let rhs = rhs.trim();
+                let label = label_of_prop(rhs).or_else(|| aliases.get(rhs).cloned());
+                match label {
+                    Some(label) => aliases.insert(lhs.trim().to_owned(), label),
+                    None => aliases.remove(lhs.trim()),
+                };
+            }
+            if !stmt.is_empty() {
+                projection.push(stmt);
+            }
+        }
+        let filters: Vec<DecimalFilter<'_>> = decimal
+            .iter()
+            .map(|(path, iri, op, literal)| DecimalFilter {
+                path,
+                predicate_iri: iri,
+                op: *op,
+                literal,
+            })
+            .collect();
+        DecimalRecipe::compile(&projection.join("\n"), &filters, exps, view, class)
+    }
+
     /// Rows the recipe keeps (`COUNT(rows)` after its filters).
     pub fn count<'a, V, S>(
         &self,
@@ -1379,6 +1485,7 @@ pub fn merge_decimal(
 
 // ---- D-AED-4: promotion, finer resolution, demotion -----------------------
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// How a [`SliceLog`] takes a new batch.
