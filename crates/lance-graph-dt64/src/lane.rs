@@ -826,6 +826,17 @@ impl LaneBinding {
         Ok((key, plane, &lane.law))
     }
 
+    /// Admits positions held under `under` only while `under` is current:
+    /// the frame half of [`LaneBinding::borrow_all_at`]. A reader that borrows
+    /// lanes another way and reads held positions (a `lance-graph-vrl` lookup)
+    /// calls this, so a check added here reaches it too.
+    pub fn check_positions_frame(frames: &FrameStore, under: &Frame) -> Result<(), LaneRefusal> {
+        if !cfg!(feature = "disable-borrow-all-at-frame") {
+            frames.check(under).map_err(LaneRefusal::Frame)?;
+        }
+        Ok(())
+    }
+
     /// [`LaneBinding::borrow_all_present_bound`] at positions the caller
     /// holds: `identity[index].value` for a list of indexes that lives on
     /// the call (for example the positions of some keys, resolved through
@@ -852,9 +863,7 @@ impl LaneBinding {
         under: &Frame,
     ) -> Result<(PresentLanes<'b, 's, S>, &'p [u32]), LaneRefusal> {
         self.check_bound(store, frames, source)?;
-        if !cfg!(feature = "disable-borrow-all-at-frame") {
-            frames.check(under).map_err(LaneRefusal::Frame)?;
-        }
+        Self::check_positions_frame(frames, under)?;
         Ok((
             PresentLanes {
                 lanes: self.lanes.iter(),

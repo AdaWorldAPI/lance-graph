@@ -184,6 +184,8 @@ jobs:
       # placement tests run here; the PostgreSQL half of the gate prints SKIP.
       - name: Run intake tests
         run: cargo test --manifest-path crates/lance-graph-intake/Cargo.toml
+      - name: Run vrl tests
+        run: cargo test --manifest-path crates/lance-graph-vrl/Cargo.toml
       # lance-graph-report: no workflow ran its tests before D-LANESOCK-2. The
       # lane-socket suite is a `#[cfg(test)]` unit module (its constructor
       # takes an unwitnessed reader scope), so the plain run covers it.
