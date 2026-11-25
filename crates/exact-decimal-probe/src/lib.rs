@@ -22,6 +22,7 @@
 //! refused, and every refusal names its reason.
 
 use lance_graph_contract::class_view::{ClassId, ClassView};
+use lance_graph_dt64::dr::{Frame, FrameRefusal};
 use lance_graph_dt64::PresenceSource;
 use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::{
@@ -724,6 +725,20 @@ pub fn drop_term(path: &str, op: Op, literal: &str, exp: Exp) -> Result<String, 
 /// stand in for that owner. Not a second schema store.
 pub trait FieldExps {
     fn exp_of(&self, predicate_iri: &str) -> Option<Exp>;
+    /// The physical width the field's values are stored at, when the owner
+    /// stores it.
+    fn width_of(&self, _predicate_iri: &str) -> Option<PmWidth> {
+        None
+    }
+    /// The frame the declaration is witnessed under: the owner's current
+    /// seal. `None` for a stand-in with no store.
+    fn frame(&self) -> Option<Frame> {
+        None
+    }
+    /// `Ok` iff `frame` is still the owner's current seal.
+    fn check_frame(&self, _frame: &Frame) -> Result<(), FrameRefusal> {
+        Ok(())
+    }
 }
 
 /// A VRL recipe whose decimal literals were resolved at the exponents the
@@ -731,7 +746,10 @@ pub trait FieldExps {
 /// is refused even when class, fields and row count are unchanged.
 pub struct DecimalRecipe {
     pub recipe: lance_graph_vrl::Recipe,
-    resolved: Vec<(String, Exp)>,
+    resolved: Vec<(String, Exp, Option<PmWidth>)>,
+    /// The owner's frame at compile time, when the owner has one: a run
+    /// under another seal (another store, or a later data version) refuses.
+    frame: Option<Frame>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -749,6 +767,15 @@ pub enum RecipeRefusal {
         resolved: Exp,
         now: Exp,
     },
+    /// The owner stores the field at another width than when the literals
+    /// were resolved.
+    WidthChanged {
+        predicate_iri: String,
+        resolved: Option<PmWidth>,
+        now: Option<PmWidth>,
+    },
+    /// The owner's frame is not the one the recipe was compiled under.
+    FrameMoved(FrameRefusal),
 }
 
 /// One decimal filter: drop rows where `path <op> literal`; `predicate_iri`
@@ -780,16 +807,25 @@ impl DecimalRecipe {
                 })?;
             src.push('\n');
             src.push_str(&drop_term(f.path, f.op, f.literal, exp).map_err(RecipeRefusal::Decimal)?);
-            resolved.push((f.predicate_iri.to_string(), exp));
+            resolved.push((
+                f.predicate_iri.to_string(),
+                exp,
+                exps.width_of(f.predicate_iri),
+            ));
         }
         let recipe = Recipe::compile(&src, view, class).map_err(RecipeRefusal::Recipe)?;
-        Ok(DecimalRecipe { recipe, resolved })
+        Ok(DecimalRecipe {
+            recipe,
+            resolved,
+            frame: exps.frame(),
+        })
     }
 
-    /// The owner still declares every filtered field at the exponent its
-    /// literal was resolved at.
+    /// The owner still declares every filtered field at the exponent and
+    /// width its literal was resolved at, under the same frame. The
+    /// descriptor is compared first so the refusal names what moved.
     fn check(&self, exps: &dyn FieldExps) -> Result<(), RecipeRefusal> {
-        for (iri, resolved) in &self.resolved {
+        for (iri, resolved, width) in &self.resolved {
             let now = exps.exp_of(iri).ok_or_else(|| RecipeRefusal::Undeclared {
                 predicate_iri: iri.clone(),
             })?;
@@ -800,8 +836,20 @@ impl DecimalRecipe {
                     now,
                 });
             }
+            let now = exps.width_of(iri);
+            if now != *width {
+                return Err(RecipeRefusal::WidthChanged {
+                    predicate_iri: iri.clone(),
+                    resolved: *width,
+                    now,
+                });
+            }
         }
-        Ok(())
+        match (&self.frame, exps.frame()) {
+            (None, _) => Ok(()),
+            (Some(_), None) => Err(RecipeRefusal::FrameMoved(FrameRefusal::ForeignFrame)),
+            (Some(f), Some(_)) => exps.check_frame(f).map_err(RecipeRefusal::FrameMoved),
+        }
     }
 
     /// Prepare a count. The prepared program keeps the exponents it was
