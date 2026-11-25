@@ -1,0 +1,38 @@
+name: VRL upstream differential (S1)
+# Manual-only, as the other workflows here: GitHub-hosted runner minutes are
+# capped. Run it from the Actions tab, and run the same commands locally
+# before pushing a change to lance-graph-vrl.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # vector: vrl 0.39.0 at 7738f74 (Vector's lock); o2: vrl 0.31.0 (OpenObserve).
+        pin: [upstream-vector, upstream-o2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          ref: master
+          path: ndarray
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: clippy
+      - name: Record tested substrate
+        run: git -C ndarray rev-parse HEAD
+      - name: Lint
+        working-directory: lance-graph
+        run: cargo clippy -p lance-graph-vrl --features ${{ matrix.pin }} --tests --no-deps -- -D warnings
+      - name: Differential
+        working-directory: lance-graph
+        run: cargo test -p lance-graph-vrl --features ${{ matrix.pin }} --test upstream

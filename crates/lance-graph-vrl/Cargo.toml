@@ -15,6 +15,19 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
+# The S1 upstream differential only (tests/upstream.rs): the same programs run
+# by upstream VRL, one pin per consumer. Optional, so a default build never
+# compiles VRL. The AdaWorldAPI fork carries both commits; the revs are
+# pinned on purpose, because the differential is against a named release.
+# Vector's lock (vector c879bd6): vrl 0.39.0 at 7738f74.
+vrl-vector = { package = "vrl", git = "https://github.com/AdaWorldAPI/vrl.git", rev = "7738f74e039df4d92ee5370d1f0d7d522f73e97a", default-features = false, features = ["compiler", "stdlib-base"], optional = true }
+# OpenObserve's: vrl 0.31.0 (the v0.31.0 release commit 4d61e53).
+vrl-o2 = { package = "vrl", git = "https://github.com/AdaWorldAPI/vrl.git", rev = "4d61e53334cb373b1cf5129d3963145bd5bff6d0", default-features = false, features = ["compiler", "stdlib-base"], optional = true }
+
+[features]
+upstream-vector = ["dep:vrl-vector"]
+upstream-o2 = ["dep:vrl-o2"]
+
 [dev-dependencies]
 # The end-to-end lookup test reads an intake table through its witness parts.
 lance-graph-intake = { path = "../lance-graph-intake" }
