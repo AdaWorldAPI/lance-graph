@@ -2083,3 +2083,42 @@ fn typed_append_refuses_what_does_not_fit() {
     assert_eq!(t.append_values(&[good()]).unwrap().rows, 1);
     assert_eq!(t.len(), 1);
 }
+
+/// FAILS IF: `positions_bound` answers a query bound before an append or a
+/// delete, or bound against another table, instead of refusing it; the
+/// current query is the control.
+#[test]
+fn positions_bound_refuses_a_stale_or_foreign_query() {
+    let (mut ticket, _) = ticket_table();
+    let q = ticket
+        .bind(&draft("ticket").where_eq("priority", 1i32))
+        .unwrap();
+    let now = ticket.positions_bound(&q).unwrap();
+    assert!(!now.is_empty());
+    let kept = ticket.select_bound(&q).unwrap();
+    assert_eq!(now.len(), ticket.count_of(&kept).unwrap());
+
+    let (other, _) = ticket_table();
+    let foreign = other
+        .bind(&draft("ticket").where_eq("priority", 1i32))
+        .unwrap();
+    assert!(ticket.positions_bound(&foreign).is_err());
+
+    ticket.delete_key(1).unwrap();
+    assert_eq!(ticket.positions_bound(&q), Err(IntakeRefusal::Stale));
+    let q = ticket
+        .bind(&draft("ticket").where_eq("priority", 1i32))
+        .unwrap();
+    let row = vec![
+        Some("9001".to_owned()),
+        None,
+        None,
+        None,
+        None,
+        Some("1".to_owned()),
+        None,
+        None,
+    ];
+    ticket.append(&cells(&[row])).unwrap();
+    assert_eq!(ticket.positions_bound(&q), Err(IntakeRefusal::Stale));
+}

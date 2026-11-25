@@ -204,3 +204,96 @@ fn vrl_reads_the_intake_table_through_the_registry() {
         ]))
     );
 }
+
+/// FAILS IF: a table with more exposed columns than one recipe reads cannot
+/// be served, or a lookup on it loses a column; the boundary is 16 reads,
+/// and this table has 17.
+#[test]
+fn a_wide_table_is_served_whole() {
+    let labels: Vec<String> = std::iter::once("key".to_owned())
+        .chain((1..=16).map(|i| format!("f{i}")))
+        .collect();
+    let cols: Vec<&str> = labels.iter().map(String::as_str).collect();
+    let values: Vec<String> = (0..17).map(|i| (i * 10).to_string()).collect();
+    let row: Vec<Option<&str>> = values.iter().map(|v| Some(v.as_str())).collect();
+    let t = Table::from_rows("wide", 0x2B0E_0002, &cols, &[row], &ShapeConfig::default()).unwrap();
+    assert_eq!(t.shape().len(), 17);
+    let t = QuackTable::new(t).unwrap();
+    let got = t
+        .find_table_row(
+            Case::Sensitive,
+            &[eq("f16", Value::Integer(160))],
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+    assert_eq!(got.len(), 17);
+    assert_eq!(got["key"], Value::Integer(0));
+    assert_eq!(got["f16"], Value::Integer(160));
+    assert_eq!(got["f1"], Value::Integer(10));
+}
+
+/// FAILS IF: an equality on an unsigned column (a key above `i32::MAX`) is
+/// refused or narrowed instead of matched, while the signed control still
+/// holds; or a value no unsigned lane can hold matches anything.
+#[test]
+fn an_unsigned_key_is_looked_up_as_itself() {
+    let rows: Vec<Vec<Option<&str>>> = vec![
+        vec![Some("3000000000"), Some("a1"), Some("5")],
+        vec![Some("3000000001"), Some("b2"), Some("6")],
+    ];
+    let t = Table::from_rows(
+        "big",
+        0x2B0E_0003,
+        &["key", "host", "n"],
+        &rows,
+        &ShapeConfig::default(),
+    )
+    .unwrap();
+    let t = QuackTable::new(t).unwrap();
+    let got = t
+        .find_table_row(
+            Case::Sensitive,
+            &[eq("key", Value::Integer(3_000_000_001))],
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+    assert_eq!(got["host"], Value::from("b2"));
+    assert_eq!(got["key"], Value::Integer(3_000_000_001));
+    let both = t
+        .find_table_row(
+            Case::Sensitive,
+            &[
+                eq("key", Value::Integer(3_000_000_000)),
+                eq("n", Value::Integer(5)),
+            ],
+            Some(&["host".to_owned()]),
+            None,
+            None,
+        )
+        .unwrap();
+    assert_eq!(both, row(&[("host", Value::from("a1"))]));
+    assert_eq!(
+        t.find_table_row(
+            Case::Sensitive,
+            &[eq("key", Value::Integer(-1))],
+            None,
+            None,
+            None
+        ),
+        Err(Error::NoRowsFound)
+    );
+    assert_eq!(
+        t.find_table_row(
+            Case::Sensitive,
+            &[eq("n", Value::Integer(6))],
+            Some(&["host".to_owned()]),
+            None,
+            None
+        ),
+        Ok(row(&[("host", Value::from("b2"))]))
+    );
+}

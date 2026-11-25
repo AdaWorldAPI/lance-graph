@@ -8,9 +8,13 @@
 //!   (`draft(..).where_eq(field, value)`, names and literals resolved
 //!   against the table's frame), and the positions they hold are read with
 //!   [`Table::positions_bound`];
-//! - the rows are read from the lanes at those positions by a projection
-//!   recipe (`lance-graph-vrl`, compiled once per table), and each value is
-//!   handed to Vector as its own `vrl::value::Value`, never through text.
+//! - the rows are read from the lanes at those positions by projection
+//!   recipes (`lance-graph-vrl`, compiled once per table, at most
+//!   `MAX_READS` columns each), and each value is handed to Vector as its
+//!   own `vrl::value::Value`, never through text;
+//! - an equality on an unsigned column, which Quack's binder does not offer,
+//!   is answered from that column's lane at the positions the other
+//!   conditions hold.
 //!
 //! Equality only. A date range, a case-insensitive lookup, a wildcard, a
 //! null or a float condition is refused with the enrichment error that names
@@ -22,7 +26,7 @@ use enrichment::{Case, Condition, Error, IndexHandle};
 use lance_graph_contract::pg_row::LaneEncoding;
 use lance_graph_intake::{IntakeRefusal, Table};
 use lance_graph_quack::bind::{table as draft, BindError, Draft};
-use lance_graph_vrl::{Datum, Recipe, Witness};
+use lance_graph_vrl::{Datum, Recipe, Witness, MAX_READS};
 use vrl::value::{ObjectMap, Value};
 
 /// One exposed column: its label (the output name) and its lane encoding.
@@ -34,7 +38,9 @@ struct Column {
 
 struct Inner {
     table: Table,
-    recipe: Recipe,
+    /// The projection, in groups of at most [`MAX_READS`] columns: one recipe
+    /// reads at most that many lanes.
+    recipes: Vec<Recipe>,
 }
 
 /// An enrichment table backed by an intake table.
@@ -71,21 +77,26 @@ impl QuackTable {
                 encoding: c.col.encoding,
             })
             .collect();
-        let program: String = columns
-            .iter()
-            .map(|c| match c.label.as_str() {
-                "key" => ".key = .key\n".to_owned(),
-                l => format!(".{l} = .properties.{l}.value\n"),
-            })
-            .collect();
-        let recipe = {
+        let recipes = {
             let w = table.witness();
             let class = lance_graph_dt64::view_class(w.binding.class());
-            Recipe::compile(&program, w.view, class)
-                .map_err(|r| encode(format!("projection: {r:?}")))?
+            columns
+                .chunks(MAX_READS)
+                .map(|group| {
+                    let program: String = group
+                        .iter()
+                        .map(|c| match c.label.as_str() {
+                            "key" => ".key = .key\n".to_owned(),
+                            l => format!(".{l} = .properties.{l}.value\n"),
+                        })
+                        .collect();
+                    Recipe::compile(&program, w.view, class)
+                        .map_err(|r| encode(format!("projection: {r:?}")))
+                })
+                .collect::<Result<Vec<_>, _>>()?
         };
         Ok(QuackTable {
-            inner: Arc::new(Mutex::new(Inner { table, recipe })),
+            inner: Arc::new(Mutex::new(Inner { table, recipes })),
             columns,
             indexes: Vec::new(),
         })
@@ -95,19 +106,36 @@ impl QuackTable {
         self.columns.iter().find(|c| c.label == field)
     }
 
-    /// The draft for `conditions`, refusing every condition but equality.
-    fn draft(&self, name: &str, case: Case, conditions: &[Condition<'_>]) -> Result<Draft, Error> {
+    /// The draft for `conditions`, refusing every condition but equality,
+    /// and the equalities on unsigned columns, which Quack's binder does not
+    /// offer: they are answered from the lanes (`None` for a value no `u32`
+    /// lane can hold, which no row matches).
+    #[allow(clippy::type_complexity)]
+    fn draft(
+        &self,
+        name: &str,
+        case: Case,
+        conditions: &[Condition<'_>],
+    ) -> Result<(Draft, Vec<(String, Option<u32>)>), Error> {
         if case == Case::Insensitive {
             return Err(encode("a case-insensitive lookup is not supported"));
         }
         let mut d = draft(name);
         let mut missing = Vec::new();
+        let mut unsigned = Vec::new();
         for c in conditions {
             let Condition::Equals { field, value } = c else {
                 return Err(Error::OnlyEqualityConditionAllowed);
             };
-            if self.column(field).is_none() {
+            let Some(col) = self.column(field) else {
                 missing.push((*field).to_owned());
+                continue;
+            };
+            if col.encoding == LaneEncoding::Unsigned {
+                let Value::Integer(i) = value else {
+                    return Err(encode(format!("condition on {field}: {value:?}")));
+                };
+                unsigned.push(((*field).to_owned(), u32::try_from(*i).ok()));
                 continue;
             }
             d = match value {
@@ -123,7 +151,7 @@ impl QuackTable {
             };
         }
         if missing.is_empty() {
-            Ok(d)
+            Ok((d, unsigned))
         } else {
             Err(Error::MissingDatasetFields { fields: missing })
         }
@@ -169,7 +197,10 @@ impl QuackTable {
             .lock()
             .map_err(|_| encode("table lock poisoned"))?;
         let t = &inner.table;
-        let d = self.draft(t.name(), case, conditions)?;
+        let (d, unsigned) = self.draft(t.name(), case, conditions)?;
+        if unsigned.iter().any(|(_, v)| v.is_none()) {
+            return Ok(Vec::new());
+        }
         let bound = match t.bind(&d) {
             Ok(b) => b,
             // A text value the column's codebook does not hold: no row can
@@ -188,29 +219,35 @@ impl QuackTable {
             frames: w.frames,
             source: w.source,
         };
-        let rows = inner
-            .recipe
-            .rows_at(&witness, &positions, &t.frame())
-            .map_err(|r| encode(format!("read: {r:?}")))?;
-        let names = rows.names();
-        Ok((0..rows.len())
-            .map(|i| {
-                names
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, n)| select.is_none_or(|s| s.iter().any(|x| x == *n)))
-                    .map(|(c, n)| {
-                        let col = self.column(n).expect("an exposed column");
-                        let v = if rows.present(i, c) {
-                            self.value(t, col, rows.get(i, c))
-                        } else {
-                            Value::Null
-                        };
-                        (n.as_str().into(), v)
-                    })
-                    .collect()
+        let frame = t.frame();
+        let mut rows: Vec<ObjectMap> = vec![ObjectMap::new(); positions.len()];
+        for recipe in &inner.recipes {
+            let read = recipe
+                .rows_at(&witness, &positions, &frame)
+                .map_err(|r| encode(format!("read: {r:?}")))?;
+            for (c, n) in read.names().iter().enumerate() {
+                let col = self.column(n).expect("an exposed column");
+                for (i, row) in rows.iter_mut().enumerate() {
+                    let v = if read.present(i, c) {
+                        self.value(t, col, read.get(i, c))
+                    } else {
+                        Value::Null
+                    };
+                    row.insert(n.as_str().into(), v);
+                }
+            }
+        }
+        rows.retain(|row| {
+            unsigned.iter().all(|(field, v)| {
+                row.get(field.as_str()) == v.map(|v| Value::Integer(i64::from(v))).as_ref()
             })
-            .collect())
+        });
+        if let Some(sel) = select {
+            for row in &mut rows {
+                row.retain(|k, _| sel.iter().any(|s| s == k.as_str()));
+            }
+        }
+        Ok(rows)
     }
 }
 
