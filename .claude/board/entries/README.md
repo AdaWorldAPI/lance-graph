@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-700 entries, 2026-08-06 .. 2026-11-25.
+701 entries, 2026-08-06 .. 2026-11-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-11-25 | `vrl-s1-upstream-differential` |  | [2026-11-25-vrl-s1-upstream-differential.md](2026-11-25-vrl-s1-upstream-differential.md) |
 | 2026-11-25 | `D-VEC-GLUE-1` |  | [2026-11-25-vector-in-process-handoff.md](2026-11-25-vector-in-process-handoff.md) |
 | 2026-11-25 | `D-VEC-GLUE-1` |  | [2026-11-25-vector-glue-route.md](2026-11-25-vector-glue-route.md) |
+| 2026-11-25 | `vector-frontend-decisions` |  | [2026-11-25-vector-frontend-decisions.md](2026-11-25-vector-frontend-decisions.md) |
 | 2026-11-25 | `D-VEC-ENRICH-1` |  | [2026-11-25-vector-enrichment-quack.md](2026-11-25-vector-enrichment-quack.md) |
 | 2026-11-25 | `D-RSP-3` |  | [2026-11-25-rsp-3-measure-law.md](2026-11-25-rsp-3-measure-law.md) |
 | 2026-11-25 | `D-RSP-2` |  | [2026-11-25-rsp-2-source-profiles.md](2026-11-25-rsp-2-source-profiles.md) |

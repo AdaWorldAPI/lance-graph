@@ -1,0 +1,355 @@
+From f845bfcb8767327f020ff66b8d7271dfdc5bf9fb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 25 Nov 2026 15:33:28 +0000
+Subject: [PATCH 1/2] feat(lance-graph-sink): land remapped events in a
+ lance-graph route without JSON
+
+Maps vrl::value::Value to lance_graph_vector::Event (scalars only; nested
+values, missing .lg.event_id and non-UTF-8 bytes refuse the batch) and
+hands the batch to VectorRoute::receive_events, the same all-or-nothing
+admission as the NDJSON route. Not yet wired into a Vector sink component.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XAqKMQ4AAwGSJUSyipw8gD
+---
+ Cargo.toml                         |   1 +
+ lib/lance-graph-sink/Cargo.toml    |  16 +++
+ lib/lance-graph-sink/src/lib.rs    | 150 +++++++++++++++++++++++++++++
+ lib/lance-graph-sink/tests/land.rs | 133 +++++++++++++++++++++++++
+ 4 files changed, 300 insertions(+)
+ create mode 100644 lib/lance-graph-sink/Cargo.toml
+ create mode 100644 lib/lance-graph-sink/src/lib.rs
+ create mode 100644 lib/lance-graph-sink/tests/land.rs
+
+diff --git a/Cargo.toml b/Cargo.toml
+index f1fbd1f..fe81a28 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -109,6 +109,7 @@ members = [
+   "lib/file-source-common",
+   "lib/k8s-e2e-tests",
+   "lib/k8s-test-framework",
++  "lib/lance-graph-sink",
+   "lib/loki-logproto",
+   "lib/opentelemetry-proto",
+   "lib/prometheus-parser",
+diff --git a/lib/lance-graph-sink/Cargo.toml b/lib/lance-graph-sink/Cargo.toml
+new file mode 100644
+index 0000000..fdf78f3
+--- /dev/null
++++ b/lib/lance-graph-sink/Cargo.toml
+@@ -0,0 +1,16 @@
++[package]
++name = "lance-graph-sink"
++version = "0.1.0"
++edition = "2024"
++publish = false
++license = "MPL-2.0"
++description = "Lands VRL-normalized events in a lance-graph VectorRoute without JSON"
++
++[dependencies]
++vrl.workspace = true
++chrono.workspace = true
++lance-graph-vector = { git = "https://github.com/AdaWorldAPI/lance-graph.git", branch = "main" }
++
++[dev-dependencies]
++lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph.git", branch = "main" }
++lance-graph-intake = { git = "https://github.com/AdaWorldAPI/lance-graph.git", branch = "main" }
+diff --git a/lib/lance-graph-sink/src/lib.rs b/lib/lance-graph-sink/src/lib.rs
+new file mode 100644
+index 0000000..6b8ba87
+--- /dev/null
++++ b/lib/lance-graph-sink/src/lib.rs
+@@ -0,0 +1,150 @@
++//! Lands events normalized by a VRL `remap` in a lance-graph
++//! [`VectorRoute`], in process, without JSON.
++//!
++//! The remap sets `.lg.event_id` (and `.lg.schema_rev`) and leaves the
++//! program's outputs as top-level scalars. [`EventView::of`] reads one such
++//! value; [`land`] hands a batch to the route, which admits it all or
++//! nothing. This is the same admission the route's NDJSON front end runs for
++//! Vector's http sink, minus the encode and the parse.
++//!
++//! Numbers: an `Integer` lands as an integer. A `Float` is an `f64` inside
++//! Vector already, so it lands as its shortest round-trip text; a value
++//! that must stay an exact decimal is kept as a string by the remap.
++
++use lance_graph_vector::{Ack, Cell, Event, VectorRoute};
++use vrl::value::Value;
++
++/// Why a value cannot be handed to the route. Each refuses the whole batch,
++/// as the route's own refusals do.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum SinkRefusal {
++    /// The event is not an object.
++    NotAnObject { index: usize },
++    /// `.lg.event_id` is missing or not a string (bytes or UTF-8 string).
++    MissingEventId { index: usize },
++    /// A top-level field (or `.lg.schema_rev`) is an object, array or regex.
++    NotScalar { index: usize, field: String },
++    /// A string is not UTF-8.
++    NotText { index: usize, field: String },
++}
++
++/// One event's fields, rendered where a VRL value has no borrowed text.
++#[derive(Debug)]
++pub struct EventView<'a> {
++    event_id: &'a str,
++    schema_rev: Option<String>,
++    fields: Vec<(&'a str, Slot<'a>)>,
++}
++
++#[derive(Debug)]
++enum Slot<'a> {
++    Absent,
++    Int(i64),
++    Bool(bool),
++    Text(&'a str),
++    Rendered(String),
++    Number(String),
++}
++
++fn text<'a>(index: usize, field: &str, b: &'a [u8]) -> Result<&'a str, SinkRefusal> {
++    std::str::from_utf8(b).map_err(|_| SinkRefusal::NotText {
++        index,
++        field: field.to_owned(),
++    })
++}
++
++fn slot<'a>(index: usize, field: &str, v: &'a Value) -> Result<Slot<'a>, SinkRefusal> {
++    Ok(match v {
++        Value::Null => Slot::Absent,
++        Value::Integer(i) => Slot::Int(*i),
++        Value::Boolean(b) => Slot::Bool(*b),
++        Value::Float(f) => Slot::Number(f.into_inner().to_string()),
++        Value::Bytes(b) => Slot::Text(text(index, field, b)?),
++        Value::String(s) => Slot::Text(s),
++        Value::Timestamp(t) => {
++            Slot::Rendered(t.to_rfc3339_opts(chrono::SecondsFormat::AutoSi, true))
++        }
++        Value::Object(_) | Value::Array(_) | Value::Regex(_) => {
++            return Err(SinkRefusal::NotScalar {
++                index,
++                field: field.to_owned(),
++            });
++        }
++    })
++}
++
++impl<'a> EventView<'a> {
++    /// Read one remapped event. `index` numbers it within the batch.
++    pub fn of(index: usize, value: &'a Value) -> Result<Self, SinkRefusal> {
++        let Value::Object(map) = value else {
++            return Err(SinkRefusal::NotAnObject { index });
++        };
++        let lg = match map.get("lg") {
++            Some(Value::Object(lg)) => lg,
++            _ => return Err(SinkRefusal::MissingEventId { index }),
++        };
++        let event_id = match lg.get("event_id") {
++            Some(Value::Bytes(b)) => text(index, "lg.event_id", b)?,
++            Some(Value::String(s)) => s,
++            _ => return Err(SinkRefusal::MissingEventId { index }),
++        };
++        let schema_rev = match lg.get("schema_rev") {
++            None | Some(Value::Null) => None,
++            Some(v) => match slot(index, "lg.schema_rev", v)? {
++                Slot::Text(s) => Some(s.to_owned()),
++                Slot::Int(i) => Some(i.to_string()),
++                Slot::Number(s) | Slot::Rendered(s) => Some(s),
++                Slot::Bool(b) => Some(b.to_string()),
++                Slot::Absent => None,
++            },
++        };
++        let mut fields = Vec::with_capacity(map.len().saturating_sub(1));
++        for (k, v) in map.iter() {
++            let k: &str = k.as_str();
++            if k == "lg" {
++                continue;
++            }
++            fields.push((k, slot(index, k, v)?));
++        }
++        Ok(Self {
++            event_id,
++            schema_rev,
++            fields,
++        })
++    }
++
++    /// The route's typed event, borrowing this view.
++    pub fn event(&self) -> Event<'_> {
++        Event {
++            event_id: self.event_id,
++            schema_rev: self.schema_rev.as_deref(),
++            fields: self
++                .fields
++                .iter()
++                .map(|(k, s)| {
++                    let c = match s {
++                        Slot::Absent => Cell::Absent,
++                        Slot::Int(i) => Cell::Int(*i),
++                        Slot::Bool(b) => Cell::Bool(*b),
++                        Slot::Text(t) => Cell::Text(t),
++                        Slot::Rendered(t) => Cell::Text(t),
++                        Slot::Number(t) => Cell::Number(t),
++                    };
++                    (*k, c)
++                })
++                .collect(),
++        }
++    }
++}
++
++/// Hand a batch of remapped events to the route. A value the route cannot
++/// take refuses the batch before anything reaches it.
++pub fn land(route: &mut VectorRoute, batch: &[Value]) -> Result<Ack, SinkRefusal> {
++    let views = batch
++        .iter()
++        .enumerate()
++        .map(|(i, v)| EventView::of(i + 1, v))
++        .collect::<Result<Vec<_>, _>>()?;
++    let events: Vec<Event<'_>> = views.iter().map(EventView::event).collect();
++    Ok(route.receive_events(&events))
++}
+diff --git a/lib/lance-graph-sink/tests/land.rs b/lib/lance-graph-sink/tests/land.rs
+new file mode 100644
+index 0000000..6b94113
+--- /dev/null
++++ b/lib/lance-graph-sink/tests/land.rs
+@@ -0,0 +1,133 @@
++//! The in-Vector path lands as the NDJSON path does.
++
++use std::sync::Arc;
++
++use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding, PgType};
++use lance_graph_intake::{ColumnConfig, ShapeConfig, SourceProfile};
++use lance_graph_sink::{SinkRefusal, land};
++use lance_graph_vector::{Ack, EVENT_ID, SEQ, VectorRoute};
++use vrl::value;
++
++fn declared(ty: PgType, encoding: LaneEncoding) -> ColumnConfig {
++    ColumnConfig {
++        ty: Some(ty),
++        encoding: Some(encoding),
++        absent: Some(AbsentAs::Null),
++    }
++}
++
++/// The landing profile `output_profile` declares for a remap that writes
++/// `.host` (text) and `.amt` (int).
++fn profile() -> Arc<SourceProfile> {
++    let mut config = ShapeConfig {
++        key: Some(SEQ.0.to_owned()),
++        ..ShapeConfig::default()
++    };
++    config.columns.insert(
++        "host".into(),
++        declared(PgType::Text, LaneEncoding::TextCode),
++    );
++    config
++        .columns
++        .insert("amt".into(), declared(PgType::Int4, LaneEncoding::Signed));
++    config.columns.insert(
++        EVENT_ID.0.into(),
++        declared(PgType::Text, LaneEncoding::TextCode),
++    );
++    config
++        .columns
++        .insert(SEQ.0.into(), declared(PgType::Int4, LaneEncoding::Signed));
++    SourceProfile::new(
++        0x2B0A_0002,
++        &[
++            ("amt", "dd:host/cpu_milli"),
++            ("host", "dd:host/region"),
++            EVENT_ID,
++            SEQ,
++        ],
++        config,
++    )
++    .unwrap()
++}
++
++fn route() -> VectorRoute {
++    VectorRoute::new("tenant_a", &profile(), "1").unwrap()
++}
++
++const NDJSON: &str = r#"{"lg":{"event_id":"e1","schema_rev":"1"},"host":"north","amt":12}
++{"lg":{"event_id":"e3","schema_rev":"1"},"host":"north","amt":null}
++{"lg":{"event_id":"e4","schema_rev":"1"},"host":"east","amt":40}
++"#;
++
++fn batch() -> Vec<vrl::value::Value> {
++    vec![
++        value!({"lg": {"event_id": "e1", "schema_rev": "1"}, "host": "north", "amt": 12}),
++        value!({"lg": {"event_id": "e3", "schema_rev": "1"}, "host": "north", "amt": null}),
++        value!({"lg": {"event_id": "e4", "schema_rev": "1"}, "host": "east", "amt": 40}),
++    ]
++}
++
++/// FAILS IF: remapped VRL values land other than the same events as NDJSON,
++/// or a retried batch appends again.
++#[test]
++fn vrl_values_land_as_ndjson_does() {
++    let mut sink = route();
++    let mut http = route();
++    let committed = Ack::Committed {
++        appended: 3,
++        duplicates: 0,
++    };
++    assert_eq!(land(&mut sink, &batch()), Ok(committed.clone()));
++    assert_eq!(http.receive(NDJSON), committed);
++    assert_eq!(sink.table().len(), http.table().len());
++    for code in 1..=2 {
++        assert_eq!(
++            sink.table().code_key("host", code),
++            http.table().code_key("host", code)
++        );
++    }
++    assert_eq!(
++        land(&mut sink, &batch()),
++        Ok(Ack::Committed {
++            appended: 0,
++            duplicates: 3
++        })
++    );
++}
++
++/// FAILS IF: a nested field, a missing event id or a non-object reaches the
++/// route instead of refusing the batch, or a refused batch appends anything.
++#[test]
++fn a_value_the_route_cannot_take_refuses_the_batch() {
++    let mut sink = route();
++    let nested = vec![
++        value!({"lg": {"event_id": "e1", "schema_rev": "1"}, "host": "north", "amt": 1}),
++        value!({"lg": {"event_id": "e2", "schema_rev": "1"}, "host": {"name": "x"}}),
++    ];
++    assert_eq!(
++        land(&mut sink, &nested),
++        Err(SinkRefusal::NotScalar {
++            index: 2,
++            field: "host".into()
++        })
++    );
++    assert_eq!(
++        land(&mut sink, &[value!({"host": "north"})]),
++        Err(SinkRefusal::MissingEventId { index: 1 })
++    );
++    assert_eq!(
++        land(&mut sink, &[value!("north")]),
++        Err(SinkRefusal::NotAnObject { index: 1 })
++    );
++    assert_eq!(sink.table().len(), 0);
++}
++
++/// FAILS IF: a stale schema revision is not passed through to the route's
++/// 400.
++#[test]
++fn the_schema_revision_reaches_the_route() {
++    let mut sink = route();
++    let stale = [value!({"lg": {"event_id": "e1", "schema_rev": "2"}, "host": "north", "amt": 1})];
++    assert_eq!(land(&mut sink, &stale).unwrap().status(), 400);
++    assert_eq!(sink.table().len(), 0);
++}
+-- 
+2.43.0
+
