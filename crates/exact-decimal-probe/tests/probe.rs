@@ -1175,14 +1175,16 @@ fn compaction_demotes_past_zero_and_survives_cancellation() {
 }
 
 /// Sealed slices at three exponents laid end to end: coefficients, the
-/// presence plane, the boundaries and each slice's exponent.
-fn mixed_slices() -> (
+/// presence plane, the boundaries, each slice's exponent and every value.
+type MixedSlices = (
     Vec<i32>,
     Vec<u64>,
     Vec<usize>,
     Vec<Exp>,
     Vec<Option<(i32, Exp)>>,
-) {
+);
+
+fn mixed_slices() -> MixedSlices {
     let batches: [&[Option<&str>]; 3] = [
         &[
             Some("1.25"),
