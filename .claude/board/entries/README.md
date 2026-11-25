@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-702 entries, 2026-08-06 .. 2026-11-25.
+703 entries, 2026-08-06 .. 2026-11-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -41,6 +41,7 @@ exactly one of them, never both.
 | 2026-11-25 | `D-RSP-2` |  | [2026-11-25-rsp-2-source-profiles.md](2026-11-25-rsp-2-source-profiles.md) |
 | 2026-11-25 | `pm-tile-fold` |  | [2026-11-25-pm-tile-fold.md](2026-11-25-pm-tile-fold.md) |
 | 2026-11-25 | `D-DIRSIM-DT64-PATHS` |  | [2026-11-25-d-dirsim-dt64-paths.md](2026-11-25-d-dirsim-dt64-paths.md) |
+| 2026-11-25 | `append-without-tile-scan` |  | [2026-11-25-append-without-tile-scan.md](2026-11-25-append-without-tile-scan.md) |
 | 2026-11-25 | `D-AED-8` |  | [2026-11-25-aed-8-vrl-decimal-literals.md](2026-11-25-aed-8-vrl-decimal-literals.md) |
 | 2026-11-25 | `D-AED-7` |  | [2026-11-25-aed-7-decimal-detection.md](2026-11-25-aed-7-decimal-detection.md) |
 | 2026-11-25 | `D-AED-5` |  | [2026-11-25-aed-5-per-slice-dispatch.md](2026-11-25-aed-5-per-slice-dispatch.md) |
