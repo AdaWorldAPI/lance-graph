@@ -461,6 +461,8 @@ Second fixture: `ogar-flow-m365` and `ogar-az` observations (for example `accoun
 - Ablation: disable the gate, so the optional-field program is admitted, which must turn red.
 - Not in scope: parser swap.
 
+**Status:** In PR 2026-11-25. `Recipe::admit` with `Declared` schema and `Refusal::Upstream { codes }`, behind the S1 features. E100 over an optional field, admitted over a non-optional integer, both pins. With presence lanes optional, the gate admits exactly presence programs 0 and 2, closing S1's fail-fast class; only `==`/`!=` over absent (Q1) remains on admitted programs. Gate-bypass ablation: 3 of 3 red. Entry `entries/2026-11-25-vrl-s2-admission-gate.md`.
+
 ### S3: Parser swap
 
 - Goal: lower from `vrl::parser::ast`; delete the own parser; same `Stmt` output for the corpus.
