@@ -1,0 +1,16 @@
+[package]
+name = "lance-graph-vrl"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99.0"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "VRL recipes over the register contract (not Magic Sets / crepe, not the NARS tactic recipes): the read/rename/filter subset of VRL compiled into a stored recipe (bound fields, abort terms, output aliases), run as one mask-risc program over lanes lent by one DT64 borrow_all, answered as positional rows (names once, borrowed lanes, a u32 position table). Moved from the vrl-recipe-probe lab."
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The witness (FrameStore / BindStore / LaneBinding) and the fold (mask-risc over
+# ndarray::simd) are the existing D-DR-SELECT-K-SV path; this crate adds only the
+# recipe lowering in front of them.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }

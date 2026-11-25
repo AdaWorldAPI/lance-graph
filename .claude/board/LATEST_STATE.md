@@ -1,3 +1,10 @@
+## 2026-11-25 — `lance-graph-vrl`, the VRL recipe core out of the VRL probe (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- New crate `lance-graph-vrl` (workspace member; named for VRL so it is not read as a Magic Sets / crepe or NARS tactic recipe): `Recipe::{compile, terms, output_field, fields, outputs, prepare_count, prepare_sum, prepare_unknown, prepare_keep, run_into, n_rows, count, count_unknown, sum, materialize_rows}`, `Rows::{len, is_empty, names, positions, get, present}`, `Witness`, `Prepared`, `Cmp::holds`, `Refusal`, and the parser `parse` with `Path` / `Stmt` (now public). Moved unchanged from `vrl-recipe-probe` (D-VRL-RECIPE-0); depends on contract, dt64, mask-risc.
+- `vrl-recipe-probe` keeps only the reference interpreter (`interpret`, `interpret_present`, `Interpreted`, `Event`) and its parity tests, and re-exports the recipe core. 18 probe tests pass against the moved core.
+
 ## 2026-11-23 — identity[index] reads and law lanes (in PR #2160, not on main)
 
 ### Current Contract Inventory — net delta

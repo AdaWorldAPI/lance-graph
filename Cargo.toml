@@ -31,6 +31,7 @@ members = [
     # Data as config, class as config: shape detection, class registration and row
     # placement behind one facade over lance-graph-pg-row.
     "crates/lance-graph-intake",
+    "crates/lance-graph-vrl",
     "crates/dr256-ternlog-lab",
     # LAB: one Quack-lowered Program against a bound source, a wrong source, a
     # revised row order and a detached kept mask, admitted through the DT64

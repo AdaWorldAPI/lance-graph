@@ -290,3 +290,149 @@ fn each_comparison_drops_exactly_its_rows_at_the_boundary() {
         assert_eq!(r.sum(&w, "a").unwrap(), want, "{op}");
     }
 }
+
+/// Two recipes that read the same fields but drop different rows build
+/// different programs; one's prepared program is refused by the other.
+#[test]
+fn a_prepared_program_is_refused_by_a_recipe_with_the_same_reads_and_other_drops() {
+    use lance_graph_mask_risc::Out;
+    let src = Source::random(64, 9);
+    let w = bind(&src, &all_fields());
+    let keep_low = compile(".n = .key\nif .key >= 0 { abort }");
+    let keep_high = compile(".n = .key\nif .key < 0 { abort }");
+    let p = keep_low.prepare_count(64).unwrap();
+    let mut scratch = p.scratch().unwrap();
+    assert!(keep_low
+        .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
+        .is_ok());
+    assert_eq!(
+        keep_high.run_into(&p, &witness(&w, &src), &mut scratch, Out::None),
+        Err(Refusal::NotThisRecipe)
+    );
+}
+
+/// A witness that binds another field at the same position is refused: the
+/// recipe checks the predicate it compiled against, not only the ordinal.
+#[test]
+fn a_witness_with_another_field_at_the_same_position_is_refused() {
+    let src = Source::random(64, 3);
+    let w = bind(&src, &all_fields());
+    let mut labels: Vec<String> = LABELS.iter().map(|l| l.to_string()).collect();
+    labels[3] = "price".into();
+    let r = Recipe::compile(
+        ".p = .properties.price.value",
+        &common::View::with_labels(&labels),
+        VIEW_CLASS,
+    )
+    .unwrap();
+    assert_eq!(
+        r.materialize_rows(&witness(&w, &src))
+            .map(|rows| rows.len()),
+        Err(Refusal::OtherField { field: 3 })
+    );
+    // The same recipe compiled against the witness's own view reads.
+    assert!(compile(".p = .properties.amount.value")
+        .materialize_rows(&witness(&w, &src))
+        .is_ok());
+}
+
+/// A witness bound for another class is refused before any lane is read.
+#[test]
+fn a_witness_for_another_class_is_refused() {
+    use lance_graph_contract::class_view::{ClassId, ClassView};
+    use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
+    struct Any(Vec<FieldRef>);
+    impl ClassView for Any {
+        fn fields(&self, _: ClassId) -> &[FieldRef] {
+            &self.0
+        }
+        fn template(&self, _: ClassId) -> DisplayTemplate {
+            DisplayTemplate::Detail
+        }
+        fn dolce_category_id(&self, _: ClassId) -> u8 {
+            0
+        }
+    }
+    let any = Any(LABELS
+        .iter()
+        .map(|l| FieldRef::new(format!("ord:{l}"), *l))
+        .collect());
+    let r = Recipe::compile(".n = .key", &any, VIEW_CLASS + 1).unwrap();
+    let src = Source::random(64, 4);
+    let w = bind(&src, &all_fields());
+    assert_eq!(
+        r.materialize_rows(&witness(&w, &src))
+            .map(|rows| rows.len()),
+        Err(Refusal::OtherClass)
+    );
+}
+
+/// Deleting the only output leaves the population: one empty row per row, as
+/// the interpreter answers, not a refusal for reading no field.
+#[test]
+fn deleting_every_output_keeps_the_population() {
+    let src = Source::random(64, 6);
+    let w = bind(&src, &all_fields());
+    let r = compile(".id = .key\ndel(.id)");
+    assert!(r.outputs().is_empty());
+    let rows = r.materialize_rows(&witness(&w, &src)).unwrap();
+    assert_eq!(rows.len(), 64);
+    assert!(rows.names().is_empty());
+    let lanes = src.i32_lanes();
+    assert_eq!(
+        interpret(".id = .key\ndel(.id)", &LABELS[..4], &lanes)
+            .unwrap()
+            .len(),
+        64
+    );
+}
+
+/// Rows carry the seal they were taken under. Held positions re-read
+/// through `borrow_all_at` under that seal are admitted while the source is
+/// unchanged and refused once a write has moved it.
+#[test]
+fn held_positions_are_refused_after_the_source_moves() {
+    let mut src = Source::random(64, 8);
+    let w = bind(&src, &all_fields());
+    let r = compile(".n = .key\nif .key < 0 { abort }");
+    let (frame, held) = {
+        let rows = r.materialize_rows(&witness(&w, &src)).unwrap();
+        (rows.frame().clone(), rows.positions().to_vec())
+    };
+    assert!(!held.is_empty());
+    assert!(w
+        .binding
+        .borrow_all_at(&w.store, &src.frames, &src, &held, &frame)
+        .is_ok());
+    src.advance();
+    assert!(matches!(
+        w.binding
+            .borrow_all_at(&w.store, &src.frames, &src, &held, &frame),
+        Err(lance_graph_dt64::LaneRefusal::Frame(_))
+    ));
+}
+
+/// Two recipes that read the same fields and drop the same rows but swap
+/// their outputs are different recipes: a sum prepared for one is refused
+/// by the other. A recipe compiled again from the same source is the same
+/// recipe and runs it.
+#[test]
+fn a_prepared_sum_is_refused_by_a_recipe_with_swapped_outputs() {
+    use lance_graph_mask_risc::Out;
+    let src = Source::random(64, 10);
+    let w = bind(&src, &all_fields());
+    let a = compile(".a = .key\n.b = .properties.amount.value");
+    let b = compile(".a = .properties.amount.value\n.b = .key");
+    let p = a.prepare_sum(64, "a").unwrap();
+    let mut scratch = p.scratch().unwrap();
+    assert!(a
+        .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
+        .is_ok());
+    assert!(compile(".a = .key\n.b = .properties.amount.value")
+        .run_into(&p, &witness(&w, &src), &mut scratch, Out::None)
+        .is_ok());
+    assert_eq!(
+        b.run_into(&p, &witness(&w, &src), &mut scratch, Out::None),
+        Err(Refusal::NotThisRecipe)
+    );
+}
