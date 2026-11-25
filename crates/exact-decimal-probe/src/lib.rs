@@ -852,6 +852,20 @@ impl DecimalRecipe {
         }
     }
 
+    /// The lanes about to be read come from the store the recipe was
+    /// compiled under: the declaration's owner and the executing witness
+    /// must be the same seal, or another store's coefficients would be read
+    /// under this descriptor.
+    fn check_witness(
+        &self,
+        frames: &lance_graph_dt64::dr::FrameStore,
+    ) -> Result<(), RecipeRefusal> {
+        match &self.frame {
+            Some(f) => frames.check(f).map_err(RecipeRefusal::FrameMoved),
+            None => Ok(()),
+        }
+    }
+
     /// Prepare a count. The prepared program keeps the exponents it was
     /// resolved at, through this recipe.
     pub fn prepare_count(&self, n_rows: usize) -> Result<Prepared, RecipeRefusal> {
@@ -876,6 +890,7 @@ impl DecimalRecipe {
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         self.check(exps)?;
+        self.check_witness(w.frames)?;
         self.recipe
             .run_into(p, w, scratch, out)
             .map_err(RecipeRefusal::Recipe)
@@ -892,6 +907,7 @@ impl DecimalRecipe {
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         self.check(exps)?;
+        self.check_witness(w.frames)?;
         self.recipe.count(w).map_err(RecipeRefusal::Recipe)
     }
 
@@ -906,6 +922,7 @@ impl DecimalRecipe {
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         self.check(exps)?;
+        self.check_witness(w.frames)?;
         self.recipe.count_unknown(w).map_err(RecipeRefusal::Recipe)
     }
 }

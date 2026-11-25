@@ -907,6 +907,21 @@ fn a_recipe_is_refused_under_a_moved_width_exponent_or_frame() {
         ))
     );
 
+    // The original owner's declaration over another table's lanes: the
+    // executing witness is another store.
+    let owner = Owned {
+        table: &t,
+        iri: iri.clone(),
+        exp: s2,
+        width,
+    };
+    assert_eq!(
+        r.count(&witness(&other), &owner),
+        Err(RecipeRefusal::FrameMoved(
+            lance_graph_dt64::dr::FrameRefusal::ForeignFrame
+        ))
+    );
+
     // A write that moves no descriptor still moves the frame.
     t.append(&[vec![Some("6"), Some("700")]]).unwrap();
     let moved = Owned {
