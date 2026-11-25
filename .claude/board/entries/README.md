@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-685 entries, 2026-08-06 .. 2026-11-25.
+686 entries, 2026-08-06 .. 2026-11-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-25 | `D-AED-7` |  | [2026-11-25-aed-7-decimal-detection.md](2026-11-25-aed-7-decimal-detection.md) |
 | 2026-11-25 | `D-AED-2` |  | [2026-11-25-aed-2-physical-width.md](2026-11-25-aed-2-physical-width.md) |
 | 2026-11-25 | `D-AED-1` |  | [2026-11-25-aed-1-slice-boundaries.md](2026-11-25-aed-1-slice-boundaries.md) |
 | 2026-11-24 | `xlog-p2-contract` |  | [2026-11-24-xlog-p2-contract.md](2026-11-24-xlog-p2-contract.md) |
