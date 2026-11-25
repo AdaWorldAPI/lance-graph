@@ -1,4 +1,4 @@
-name: VRL upstream differential (S1)
+name: VRL upstream differential and admission gate (S1, S2)
 # Manual-only, as the other workflows here: GitHub-hosted runner minutes are
 # capped. Run it from the Actions tab, and run the same commands locally
 # before pushing a change to lance-graph-vrl.
@@ -32,7 +32,10 @@ jobs:
         run: git -C ndarray rev-parse HEAD
       - name: Lint
         working-directory: lance-graph
-        run: cargo clippy -p lance-graph-vrl --features ${{ matrix.pin }} --tests --no-deps -- -D warnings
+        run: cargo clippy -p lance-graph-vrl --features ${{ matrix.pin }} --all-targets --no-deps -- -D warnings
       - name: Differential
         working-directory: lance-graph
         run: cargo test -p lance-graph-vrl --features ${{ matrix.pin }} --test upstream
+      - name: Admission gate (S2)
+        working-directory: lance-graph
+        run: cargo test -p lance-graph-vrl --features ${{ matrix.pin }} --test admission

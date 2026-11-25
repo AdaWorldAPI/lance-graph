@@ -16,6 +16,7 @@ mod common;
 
 use std::collections::BTreeMap;
 
+use common::programs::{PRESENCE, RECIPE};
 use common::{all_fields, bind, witness, Source, VIEW_CLASS};
 use lance_graph_vrl::Recipe;
 
@@ -35,29 +36,6 @@ use vrl::value::{Kind, ObjectMap, Secrets, Value};
 const PIN: &str = "vector";
 #[cfg(all(feature = "upstream-o2", not(feature = "upstream-vector")))]
 const PIN: &str = "o2";
-
-/// `recipe.rs`'s programs: every lane present.
-const RECIPE: &[&str] = &[
-    ".name = .key\n.amount = .properties.amount.value",
-    ".name = .key\n.amount = .properties.amount.value\nif .properties.status.value != 2 { abort }",
-    ".id = .key\nif .properties.region.value == 0 { abort }\nif .properties.status.value == 3 { abort }",
-    ".orig = .key\n.key = .properties.region.value\n.reg = .key\nif .key != 1 { abort }",
-    ".a = .key; .b = .properties.amount.value; del(.a)",
-    ".a = .properties.status.value; del(.key); if .a == 0 { abort }",
-    ".s = .properties.status.value\n.amt = .properties.amount.value\nif .s != 1 { abort }",
-    ".id = .key\nif .key < 1010 { abort }\nif .key >= 1050 { abort }",
-    ".a = .properties.amount.value\nif .a <= 0 { abort }\nif .properties.status.value > 1 { abort }",
-    ".r = .properties.region.value\nif .r < 1 { abort }\nif .r >= 2 { abort }",
-];
-
-/// `presence.rs`'s programs: lanes with absent values.
-const PRESENCE: &[&str] = &[
-    ".n = .key\n.a = .properties.amount.value",
-    ".a = .properties.amount.value\nif .a < 0 { abort }",
-    ".a = .properties.amount.value\nif .properties.status.value != 2 { abort }",
-    ".a = .properties.amount.value\nif .properties.region.value == 0 { abort }\nif .a >= 200 { abort }",
-    ".r = .properties.region.value\n.a = .properties.amount.value\nif .properties.status.value > 2 { abort }\nif .a <= 10 { abort }\nif .r != 1 { abort }",
-];
 
 /// One row's outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -292,19 +270,4 @@ fn absent_values_agree_with_upstream_or_are_pinned() {
         "{PIN}: upstream never errored on an absent value"
     );
     assert_eq!(tally, pinned("presence"), "{PIN} presence divergences");
-}
-
-/// FAILS IF: a program here is no longer one of its suite's programs, so the
-/// differential silently stops covering what the suite tests.
-#[test]
-fn the_programs_are_the_suites_programs() {
-    for (file, programs) in [
-        (include_str!("recipe.rs"), RECIPE),
-        (include_str!("presence.rs"), PRESENCE),
-    ] {
-        for p in programs {
-            let quoted = format!("{p:?}");
-            assert!(file.contains(&quoted), "not in its suite: {quoted}");
-        }
-    }
 }

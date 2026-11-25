@@ -143,7 +143,17 @@ pub enum Refusal {
     LaneLength { field: u8, len: usize, need: usize },
     /// A position passed to [`Recipe::rows_at`] lies past the lanes.
     PositionOutOfRange { at: u32, n_rows: usize },
+    /// Upstream VRL refused the program against the declared schema
+    /// ([`Recipe::admit`]): its diagnostic codes, e.g. `[100]` (E100, an
+    /// unhandled fallible expression such as an order compare over an
+    /// optional field).
+    Upstream { codes: Vec<usize> },
 }
+
+#[cfg(any(feature = "upstream-vector", feature = "upstream-o2"))]
+mod admission;
+#[cfg(any(feature = "upstream-vector", feature = "upstream-o2"))]
+pub use admission::{Declared, DeclaredKind};
 
 /// The most fields one recipe reads. The lanes are held in a fixed array of
 /// this size, so the accepting path allocates nothing.

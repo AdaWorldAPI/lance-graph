@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 
 pub mod interpreter;
+pub mod programs;
 // Each test binary uses its own subset of the interpreter.
 #[allow(unused_imports)]
 pub use interpreter::{interpret, interpret_present, Event, Interpreted};
