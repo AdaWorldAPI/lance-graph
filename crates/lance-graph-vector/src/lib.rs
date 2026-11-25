@@ -114,6 +114,20 @@ pub fn output_profile(
     SourceProfile::new(class, &pairs, config).map_err(GlueRefusal::Intake)
 }
 
+/// The program as Vector's `remap` runs it: `program`, then a projection
+/// onto the recipe's outputs and `.lg`.
+///
+/// In-fold, the recipe yields only its outputs. A `remap` instead keeps every
+/// field it did not delete, so a source object it read from (for example
+/// `.properties`) would still be on the event and the route would refuse it
+/// as [`Refusal::NotScalar`]. The projection makes the two engines emit the
+/// same shape. `.lg` carries the event id and schema revision the remap sets.
+pub fn vector_remap(program: &str, recipe: &Recipe) -> String {
+    let mut fields: Vec<String> = vec![r#""lg": .lg"#.to_owned()];
+    fields.extend(recipe.outputs().into_iter().map(|o| format!("{o:?}: .{o}")));
+    format!("{}\n. = {{{}}}\n", program.trim_end(), fields.join(", "))
+}
+
 /// Why a batch was refused. Nothing of it was appended.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Refusal {

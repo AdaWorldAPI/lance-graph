@@ -11,6 +11,12 @@ the reserved `lg.event_id` and the key column `lg.seq`. An output over an
 undeclared source field is refused, so the receiver checks the shape and never
 detects it.
 
+`vector_remap(program, recipe)` is the program as Vector runs it. It appends a projection,
+`. = {"lg": .lg, <outputs>}`, because a `remap` keeps every field it did not
+delete, and the route refuses a leftover source object as `NotScalar` (codex
+P2 on #2198). In-fold the recipe yields only its outputs, so both engines
+emit one shape. Not yet compiled by upstream VRL here (S1).
+
 `VectorRoute` lands into a `Table::from_rows_in` table under that profile.
 There are two front ends:
 - `receive(ndjson)`, for Vector's http sink, where numbers keep their raw text

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use lance_graph_contract::pg_row::{AbsentAs, LaneEncoding, PgType};
 use lance_graph_intake::{ColumnConfig, ShapeConfig, SourceProfile, Table};
 use lance_graph_vector::{
-    output_profile, Ack, Cell, Event, GlueRefusal, Refusal, VectorRoute, EVENT_ID,
+    output_profile, vector_remap, Ack, Cell, Event, GlueRefusal, Refusal, VectorRoute, EVENT_ID,
 };
 use lance_graph_vrl::{Datum, Recipe, Witness};
 
@@ -67,7 +67,8 @@ fn raw() -> Vec<Vec<Option<&'static str>>> {
     ]
 }
 
-/// What Vector emits for `raw()` under `PROGRAM`: the dropped event is gone.
+/// What Vector emits for `raw()` under `vector_remap(PROGRAM, ..)`: the
+/// dropped event is gone and the projection leaves only `.lg` and the outputs.
 /// Written by hand, so it is an oracle independent of the polyfill. An absent
 /// amount is left out: how upstream VRL treats `null < 0` is the S1
 /// differential's question, not this one.
@@ -313,4 +314,25 @@ fn quack_reads_what_vector_landed() {
         count(t, draft("tenant_a").where_cmp("amt", Op::Gt, 20i32)),
         1
     );
+}
+
+/// FAILS IF: the remap Vector runs does not end in a projection onto `.lg`
+/// and the recipe's outputs, or the route accepts a remap output that still
+/// carries the source object it read from (so the projection is not needed).
+#[test]
+fn the_vector_remap_projects_onto_the_outputs() {
+    let profile = source_profile(true);
+    let (r, _) = recipe(&profile);
+    assert_eq!(
+        vector_remap(PROGRAM, &r),
+        format!("{PROGRAM}\n. = {{\"lg\": .lg, \"amt\": .amt, \"host\": .host}}\n")
+    );
+
+    let unprojected = r#"{"lg":{"event_id":"e1","schema_rev":"1"},"host":"north","amt":12,"properties":{"region":{"value":"north"},"amount":{"value":12}}}"#;
+    let mut route = route();
+    assert!(matches!(
+        route.receive(unprojected),
+        Ack::Refused(Refusal::NotScalar { line: 1, .. })
+    ));
+    assert_eq!(route.table().len(), 0);
 }
