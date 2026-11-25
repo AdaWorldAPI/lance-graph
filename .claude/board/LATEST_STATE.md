@@ -1,3 +1,10 @@
+## 2026-11-25 — measure law on PropertySpec; source profiles (D-RSP-3 declaration, D-RSP-2)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-contract::property`: `PropertySpec.measure: Measure` (`Undeclared` default, `Additive`, `Snapshot`, `Identifier`), `const fn with_measure`; `Measure::admits_sum(Spread) -> Result<(), MeasureRefusal>` with `Spread::{OneInstant, ManyInstants}` and `MeasureRefusal::{Undeclared, Identifier, AcrossInstants}`. Declaration only: no frontend consults it yet.
+- `lance-graph-intake`: `SourceProfile` (one registered class, caller-supplied source IRIs, shared `BindStore`; `DuplicateIri` refused) and `Table::from_rows_in` (per-tenant `FrameStore` / `MapTable` / `CodeTable`; `ProfileMismatch`). Merged as #2194.
+
 ## 2026-11-25 — exact decimals: research reconciliation and an isolated i32 semantic probe (in PR, not on main)
 
 ### Current Contract Inventory — net delta

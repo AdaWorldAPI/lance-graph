@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-692 entries, 2026-08-06 .. 2026-11-25.
+693 entries, 2026-08-06 .. 2026-11-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-25 | `D-RSP-3` |  | [2026-11-25-rsp-3-measure-law.md](2026-11-25-rsp-3-measure-law.md) |
 | 2026-11-25 | `D-RSP-2` |  | [2026-11-25-rsp-2-source-profiles.md](2026-11-25-rsp-2-source-profiles.md) |
 | 2026-11-25 | `D-DIRSIM-DT64-PATHS` |  | [2026-11-25-d-dirsim-dt64-paths.md](2026-11-25-d-dirsim-dt64-paths.md) |
 | 2026-11-25 | `D-AED-8` |  | [2026-11-25-aed-8-vrl-decimal-literals.md](2026-11-25-aed-8-vrl-decimal-literals.md) |
