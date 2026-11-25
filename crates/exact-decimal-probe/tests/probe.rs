@@ -1245,3 +1245,26 @@ fn a_threshold_dispatched_per_slice_equals_the_per_value_oracle() {
         assert_eq!((n, s), (kept.len() as u64, want_s), "{op:?} {literal}");
     }
 }
+
+/// FAILS IF: valid per-slice input is refused: a zero sum aligned across
+/// exponents 40 apart, or a comparison slice after a slice whose literal
+/// resolved to every value (codex on #2192).
+#[test]
+fn per_slice_dispatch_accepts_zero_sums_and_mixed_program_shapes() {
+    assert_eq!(
+        slice_count_sum_where(&[1, 0], &[3], &[0, 1, 2], &[Exp(-20), Exp(20)], Op::Eq, "0"),
+        Ok((1, 0, Exp(-20)))
+    );
+    // 1 at exponent 0 differs from 1.2 for every value; 12 at scale 1 is 1.2.
+    assert_eq!(
+        slice_count_sum_where(
+            &[1, 12],
+            &[3],
+            &[0, 1, 2],
+            &[Exp(0), Exp(-1)],
+            Op::Ne,
+            "1.2"
+        ),
+        Ok((1, 10, Exp(-1)))
+    );
+}

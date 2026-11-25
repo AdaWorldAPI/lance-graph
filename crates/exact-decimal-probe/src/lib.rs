@@ -1689,7 +1689,12 @@ pub fn slice_count_sum_where(
         Program::new(ops, terminal(Operand::Scratch(0)))
     };
     let target = exps.iter().copied().min().unwrap_or(Exp(0));
-    let mut scratch: Option<Scratch<'static>> = None;
+    // Sized for the widest per-slice program (a comparison uses a second
+    // slot), so a slice resolving to `EveryValue` first cannot undersize it.
+    let widest = program(Some(Pred::EqI32 { lane: 0, v: 0 }), |mask| {
+        Terminal::Count { mask }
+    });
+    let mut scratch = Scratch::for_program(&widest, n_rows).map_err(exec)?;
     let (mut n, mut s) = (0u64, 0i128);
     for (extent, &exp) in ranges.into_iter().zip(exps) {
         let pred = match threshold(op, literal, exp).map_err(RecipeRefusal::Decimal)? {
@@ -1699,10 +1704,7 @@ pub fn slice_count_sum_where(
         };
         let count = program(pred, |mask| Terminal::Count { mask });
         let sum = program(pred, |mask| Terminal::MaskedSumI32 { mask, lane: 0 });
-        let scratch = match &mut scratch {
-            Some(s) => s,
-            None => scratch.insert(Scratch::for_program(&count, n_rows).map_err(exec)?),
-        };
+        let scratch = &mut scratch;
         let run = |p: &Program, scratch: &mut Scratch<'_>| {
             execute_extent(
                 p,
@@ -1719,8 +1721,12 @@ pub fn slice_count_sum_where(
         }
         if let lance_graph_mask_risc::Value::SumI64(v) = run(&sum, scratch)? {
             let k = (i32::from(exp.0) - i32::from(target.0)) as u32;
-            let v = shift(i128::from(v), k)
-                .ok_or(RecipeRefusal::Decimal(DecimalRefusal::AlignmentOverflow))?;
+            // A zero sum is zero at any exponent: no factor, so no overflow.
+            let v = match v {
+                0 => 0,
+                v => shift(i128::from(v), k)
+                    .ok_or(RecipeRefusal::Decimal(DecimalRefusal::AlignmentOverflow))?,
+            };
             s = s
                 .checked_add(v)
                 .ok_or(RecipeRefusal::Decimal(DecimalRefusal::AlignmentOverflow))?;
