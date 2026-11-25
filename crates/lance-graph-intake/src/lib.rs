@@ -666,7 +666,7 @@ impl Table {
     /// `lance-graph-vrl` recipe) checks and borrows lanes through. The table
     /// stays the owner. The lanes cover every placed row, deleted ones
     /// included (liveness is intake's own plane); a reader stays on live rows
-    /// through [`Table::positions_for_keys`].
+    /// through [`Table::live_positions_for_keys`].
     pub fn witness(&self) -> TableWitness<'_> {
         TableWitness {
             binding: &self.binding,
@@ -677,8 +677,9 @@ impl Table {
         }
     }
 
-    /// The frame the table's lanes and codes are currently sealed under.
-    #[doc(hidden)]
+    /// The frame the table's lanes and codes are currently sealed under: the
+    /// frame [`Table::live_positions_for_keys`] resolves under, and the one a
+    /// reader of those positions is admitted under.
     pub fn frame(&self) -> Frame {
         self.owner.frame.clone()
     }
@@ -824,10 +825,9 @@ impl Table {
     }
 
     /// The positions of these keys, in list order, duplicates kept; an
-    /// unknown key is refused.
-    /// The positions of these keys under the current frame ([`Table::frame`]),
-    /// in list order, repeats kept; an unknown or deleted key is refused.
-    pub fn positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
+    /// unknown key is refused. A deleted key's position is returned: the
+    /// reader refuses it ([`PgRowRefusal::DeadPosition`]).
+    fn positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
         // Each distinct key is located once per call and reused for its
         // repeats. A sorted Vec of this call's keys is local to the call, so it
         // is not a second key registry (D-REGC-7): the key map stays the DR tiles.
@@ -844,6 +844,18 @@ impl Table {
                 .binary_search_by_key(&key, |&(k, _)| k)
                 .map_err(|_| IntakeRefusal::UnknownKey(key))?;
             positions.push(resolved[at].1);
+        }
+        Ok(positions)
+    }
+
+    /// The live positions of these keys under the current frame
+    /// ([`Table::frame`]), in list order, repeats kept: the lookup half a
+    /// reader outside intake needs. An unknown key is refused, and a deleted
+    /// one with the error [`Table::rows_for_keys`] gives for it.
+    pub fn live_positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
+        let positions = self.positions_for_keys(keys)?;
+        if let Some(&at) = positions.iter().find(|&&p| !self.is_live(p)) {
+            return Err(IntakeRefusal::PgRow(PgRowRefusal::DeadPosition { at }));
         }
         Ok(positions)
     }

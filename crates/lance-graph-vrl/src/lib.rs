@@ -485,8 +485,12 @@ impl Recipe {
         self.out.iter().map(|(n, _)| n.as_str()).collect()
     }
 
+    /// Every field a recipe names is in `reads` by construction (outputs and
+    /// terms are what `reads` is built from).
     fn lane(&self, field: u8) -> u16 {
-        self.reads.iter().position(|&f| f == field).unwrap_or(0) as u16
+        let at = self.reads.iter().position(|&f| f == field);
+        debug_assert!(at.is_some(), "field {field} is not a read of this recipe");
+        at.unwrap_or(0) as u16
     }
 
     /// The recipe's lanes, borrowed under ONE DT64 check, in `reads` order,
@@ -785,9 +789,13 @@ impl Recipe {
 
     /// The rows at `positions`, in list order, repeats kept: a key lookup,
     /// with the positions resolved by the source (for intake,
-    /// `Table::positions_for_keys`) under `under`. The positions are
+    /// `Table::live_positions_for_keys`) under `under`. The positions are
     /// admitted only while `under` is current, as
     /// `LaneBinding::borrow_all_at` admits them, and only inside the lanes.
+    /// One frame check and one binding check, as in [`Recipe::run_into`].
+    /// Liveness is the source's: positions from intake's
+    /// `live_positions_for_keys` are live under the frame they came with, and a
+    /// delete moves the frame; positions from anywhere else are not checked.
     ///
     /// A projection: a recipe with a drop term is refused
     /// ([`Refusal::FiltersAtPositions`]), because dropping a looked-up row
@@ -805,9 +813,11 @@ impl Recipe {
         if !self.drop.is_empty() {
             return Err(Refusal::FiltersAtPositions);
         }
-        w.binding
-            .borrow_all_at(w.store, w.frames, w.source, positions, under)
-            .map_err(Refusal::Binding)?;
+        // The frame check `LaneBinding::borrow_all_at` makes, ahead of the one
+        // full binding check in `lanes`.
+        w.frames
+            .check(under)
+            .map_err(|e| Refusal::Binding(LaneRefusal::Frame(e)))?;
         let lanes = self.lanes(w, None)?;
         let n_rows = lanes.get()[0].len();
         if let Some(&at) = positions.iter().find(|&&p| p as usize >= n_rows) {

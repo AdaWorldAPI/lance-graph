@@ -2,7 +2,7 @@
 
 ### Current Contract Inventory — net delta
 
-- `lance-graph-intake`: `Table::witness() -> TableWitness` (the binding, store, view, frames and lane source, borrowed together; the table stays the owner) and `Table::positions_for_keys` (was private); `Owner` and `IntakeView` are public with private fields. The witness reads the table's own lanes; the lanes include deleted rows, so a reader stays on live rows through `positions_for_keys`.
+- `lance-graph-intake`: `Table::witness() -> TableWitness` (the binding, store, view, frames and lane source, borrowed together; the table stays the owner) and `Table::live_positions_for_keys` (refuses unknown keys, and deleted ones with `PgRowRefusal::DeadPosition`, as `rows_for_keys` does); `Table::frame` is no longer doc-hidden; `Owner` and `IntakeView` are public with private fields. The witness reads the table's own lanes, deleted rows included, so a reader stays on live rows through `live_positions_for_keys`.
 - `lance-graph-vrl`: `Recipe::rows_at(witness, positions, under)`: the rows at key-resolved positions, list order, admitted under their frame via `borrow_all_at`; refuses drop terms (`Refusal::FiltersAtPositions`) and positions past the lanes (`Refusal::PositionOutOfRange`). A projected field may be a `u32` code lane; compared or summed fields stay `i32`. `Rows::get` returns the new `Datum { I32, U32 }`. Consumer: report-rs XVERWEIS.
 
 ## 2026-11-25 — `lance-graph-vrl`, the VRL recipe core out of the VRL probe (in PR, not on main)

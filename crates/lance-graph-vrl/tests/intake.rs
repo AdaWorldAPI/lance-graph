@@ -2,7 +2,8 @@
 //! resolves keys to positions, the recipe projects the fields, text cells
 //! come back as codes and are decoded through the table's code table.
 
-use lance_graph_intake::{ShapeConfig, Table};
+use lance_graph_intake::{IntakeRefusal, ShapeConfig, Table};
+use lance_graph_pg_row::PgRowRefusal;
 use lance_graph_vrl::{Datum, Recipe, Refusal, Witness};
 
 const CLASS: u32 = 0x2B07_0001;
@@ -44,7 +45,7 @@ fn a_lookup_reads_the_rows_of_its_keys_in_list_order() {
         &t,
         ".id = .properties.id.value\n.region = .properties.region.value\n.qty = .properties.qty.value",
     );
-    let positions = t.positions_for_keys(&[3, 1, 3]).unwrap();
+    let positions = t.live_positions_for_keys(&[3, 1, 3]).unwrap();
     let rows = r.rows_at(&witness(&t), &positions, &t.frame()).unwrap();
     assert_eq!(rows.len(), 3);
     let col = |n: &str| rows.names().iter().position(|x| x == n).unwrap();
@@ -67,7 +68,7 @@ fn a_lookup_reads_the_rows_of_its_keys_in_list_order() {
 fn positions_resolved_before_an_append_are_refused() {
     let mut t = table();
     let r = recipe(&t, ".region = .properties.region.value");
-    let positions = t.positions_for_keys(&[2]).unwrap();
+    let positions = t.live_positions_for_keys(&[2]).unwrap();
     let under = t.frame();
     assert!(r.rows_at(&witness(&t), &positions, &under).is_ok());
     t.append(&[vec![Some("4"), Some("west"), Some("5")]])
@@ -77,7 +78,7 @@ fn positions_resolved_before_an_append_are_refused() {
             .map(|rows| rows.len()),
         Err(Refusal::Binding(lance_graph_dt64::LaneRefusal::Frame(_)))
     ));
-    let fresh = t.positions_for_keys(&[2]).unwrap();
+    let fresh = t.live_positions_for_keys(&[2]).unwrap();
     assert_eq!(
         r.rows_at(&witness(&t), &fresh, &t.frame()).unwrap().len(),
         1
@@ -91,7 +92,7 @@ fn a_lookup_refuses_drop_terms_and_positions_past_the_lanes() {
         &t,
         ".q = .properties.qty.value\nif .properties.qty.value < 0 { abort }",
     );
-    let positions = t.positions_for_keys(&[1]).unwrap();
+    let positions = t.live_positions_for_keys(&[1]).unwrap();
     assert_eq!(
         filtered
             .rows_at(&witness(&t), &positions, &t.frame())
@@ -119,4 +120,26 @@ fn a_text_column_is_projected_but_never_compared() {
     ));
     let projected = recipe(&t, ".r = .properties.region.value");
     assert_eq!(projected.count(&witness(&t)).unwrap(), 3);
+}
+
+/// A deleted key is never read: its key is refused when it is resolved, and
+/// positions resolved before the delete are refused under their old frame.
+#[test]
+fn a_deleted_key_is_never_read() {
+    let mut t = table();
+    let r = recipe(&t, ".region = .properties.region.value");
+    let before = t.live_positions_for_keys(&[2]).unwrap();
+    let under = t.frame();
+    t.delete_key(2).unwrap();
+    assert_eq!(
+        t.live_positions_for_keys(&[2]),
+        Err(IntakeRefusal::PgRow(PgRowRefusal::DeadPosition { at: 1 }))
+    );
+    assert!(matches!(
+        r.rows_at(&witness(&t), &before, &under)
+            .map(|rows| rows.len()),
+        Err(Refusal::Binding(lance_graph_dt64::LaneRefusal::Frame(_)))
+    ));
+    let live = t.live_positions_for_keys(&[1, 3]).unwrap();
+    assert_eq!(r.rows_at(&witness(&t), &live, &t.frame()).unwrap().len(), 2);
 }
