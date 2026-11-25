@@ -944,9 +944,11 @@ use ndarray::simd::U8x64;
 /// is the established `+0` and `-0` is never stored.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Lanes {
-    /// PM9: 64 values per Abakus block, one magnitude byte and one
-    /// polarity bit each.
-    Pm9(Vec<Pm>),
+    /// PM9: one magnitude byte and one polarity bit per value, packed.
+    /// [`PhysicalSlice::pm_block`] lends 64 of them as an Abakus [`Pm`]
+    /// register. A resident `Pm` is padded to its SIMD alignment (128 bytes
+    /// on AVX-512), so it is the arithmetic operand, not the storage.
+    Pm9 { mag: Vec<u8>, pos: Vec<u64> },
     /// PM17: a `u16` magnitude per value and one polarity bit per value.
     /// Storage only: Abakus has no PM17 arithmetic (an ndarray #438
     /// deliverable).
@@ -978,26 +980,17 @@ impl PhysicalSlice {
             (slice.present[i] && c >= 0, c.unsigned_abs())
         };
         let lanes = match slice.width {
-            Some(PmWidth::Pm9) => Lanes::Pm9(
-                (0..words)
-                    .map(|w| {
-                        let mut mag = [0u8; 64];
-                        let mut pos = 0u64;
-                        for (j, m) in mag.iter_mut().enumerate() {
-                            let i = w * 64 + j;
-                            if i < len {
-                                let (p, v) = pm(i);
-                                *m = v as u8;
-                                pos |= u64::from(p) << j;
-                            }
-                        }
-                        Pm {
-                            mag: U8x64::from_array(mag),
-                            pos,
-                        }
+            Some(PmWidth::Pm9) => {
+                let mut pos = vec![0u64; words];
+                let mag = (0..len)
+                    .map(|i| {
+                        let (p, v) = pm(i);
+                        pos[i / 64] |= u64::from(p) << (i % 64);
+                        v as u8
                     })
-                    .collect(),
-            ),
+                    .collect();
+                Lanes::Pm9 { mag, pos }
+            }
             Some(PmWidth::Pm17) => {
                 let mut pos = vec![0u64; words];
                 let mag = (0..len)
@@ -1030,7 +1023,7 @@ impl PhysicalSlice {
     /// The width the lanes are stored at.
     pub fn width(&self) -> &'static str {
         match self.lanes {
-            Lanes::Pm9(_) => "PM9",
+            Lanes::Pm9 { .. } => "PM9",
             Lanes::Pm17 { .. } => "PM17",
             Lanes::I32 { .. } => "i32",
         }
@@ -1040,13 +1033,7 @@ impl PhysicalSlice {
     pub fn get(&self, i: usize) -> Option<i32> {
         assert!(i < self.len, "value {i} out of range");
         let (p, m) = match &self.lanes {
-            Lanes::Pm9(blocks) => {
-                let b = &blocks[i / 64];
-                (
-                    b.pos >> (i % 64) & 1 == 1,
-                    u32::from(b.mag.to_array()[i % 64]),
-                )
-            }
+            Lanes::Pm9 { mag, pos } => (pos[i / 64] >> (i % 64) & 1 == 1, u32::from(mag[i])),
             Lanes::Pm17 { mag, pos } => (pos[i / 64] >> (i % 64) & 1 == 1, u32::from(mag[i])),
             Lanes::I32 { coef, present } => {
                 return (present[i / 64] >> (i % 64) & 1 == 1).then_some(coef[i]);
@@ -1071,10 +1058,8 @@ impl PhysicalSlice {
             }
         };
         match &self.lanes {
-            Lanes::Pm9(blocks) => blocks
-                .iter()
-                .enumerate()
-                .map(|(w, b)| tail(w, touched(*b)))
+            Lanes::Pm9 { pos, .. } => (0..pos.len())
+                .map(|w| tail(w, touched(self.pm_block(w).expect("PM9"))))
                 .collect(),
             Lanes::Pm17 { mag, pos } => pos
                 .iter()
@@ -1089,6 +1074,22 @@ impl PhysicalSlice {
                 .collect(),
             Lanes::I32 { present, .. } => present.clone(),
         }
+    }
+
+    /// Values `64·w .. 64·w + 64` of a PM9 slice as an Abakus register,
+    /// the tail padded untouched. `None` for another width.
+    pub fn pm_block(&self, w: usize) -> Option<Pm> {
+        let Lanes::Pm9 { mag, pos } = &self.lanes else {
+            return None;
+        };
+        let lo = w * 64;
+        let hi = (lo + 64).min(mag.len());
+        let mut lanes = [0u8; 64];
+        lanes[..hi - lo].copy_from_slice(&mag[lo..hi]);
+        Some(Pm {
+            mag: U8x64::from_array(lanes),
+            pos: pos[w],
+        })
     }
 
     /// Back to the sealed slice it was stored from.
@@ -1116,7 +1117,7 @@ impl PhysicalSlice {
     pub fn bytes(&self) -> usize {
         DESCRIPTOR_BYTES
             + match &self.lanes {
-                Lanes::Pm9(blocks) => blocks.len() * (64 + 8),
+                Lanes::Pm9 { mag, pos } => mag.len() + pos.len() * 8,
                 Lanes::Pm17 { mag, pos } => mag.len() * 2 + pos.len() * 8,
                 Lanes::I32 { coef, present } => coef.len() * 4 + present.len() * 8,
             }

@@ -612,11 +612,10 @@ fn a_sealed_slice_round_trips_at_its_physical_width() {
 fn p_times_m_keeps_absent_and_established_zero_apart() {
     let s = seal(&[None, Some("0"), Some("-7"), Some("7")], Exp::scale(2)).unwrap();
     let p = PhysicalSlice::store(&s);
-    let Lanes::Pm9(blocks) = &p.lanes else {
+    let Lanes::Pm9 { mag, pos } = &p.lanes else {
         panic!("PM9 expected, got {}", p.width())
     };
-    let mag = blocks[0].mag.to_array();
-    let pos = blocks[0].pos;
+    let pos = pos[0];
     let lane = |i: usize| (pos >> i & 1 == 1, mag[i]);
     assert_eq!(lane(0), (false, 0), "absent: untouched");
     assert_eq!(lane(1), (true, 0), "established +0");
@@ -632,13 +631,30 @@ fn p_times_m_keeps_absent_and_established_zero_apart() {
 fn a_pm9_block_is_abakus_arithmetic_input() {
     use ndarray::hpc::abakus::pm::{add_pm, sub_pm, Pm};
     let s = &width_slices()[0];
-    let Lanes::Pm9(blocks) = PhysicalSlice::store(s).lanes else {
-        panic!("PM9 expected")
-    };
+    let p = PhysicalSlice::store(s);
+    assert_eq!(p.width(), "PM9");
+    let blocks: Vec<Pm> = (0..s.coefficients.len().div_ceil(64))
+        .map(|w| p.pm_block(w).unwrap())
+        .collect();
+    assert_eq!(blocks.len(), 2, "the slice crosses a block");
     for b in &blocks {
         assert_eq!(add_pm(*b, Pm::untouched()).exact(), Some(*b));
         let zero = sub_pm(*b, *b).exact().expect("no carry");
         assert_eq!(zero.mag.to_array(), [0u8; 64]);
         assert_eq!(zero.pos, ndarray::hpc::abakus::pm::touched(*b));
     }
+}
+
+/// FAILS IF: PM9 storage costs more than one magnitude byte and one
+/// polarity bit per value, or the resident Abakus register is mistaken for
+/// the storage layout (it is padded to its SIMD alignment).
+#[test]
+fn pm9_is_stored_packed_not_as_resident_registers() {
+    let s = &width_slices()[0];
+    let p = PhysicalSlice::store(s);
+    let n = s.coefficients.len();
+    assert_eq!(p.bytes(), DESCRIPTOR_BYTES + n + n.div_ceil(64) * 8);
+    let register = std::mem::size_of::<ndarray::hpc::abakus::pm::Pm>();
+    assert!(register >= 72, "a Pm register holds 64 bytes and a u64");
+    println!("resident Pm register: {register} bytes");
 }
