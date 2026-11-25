@@ -3637,7 +3637,7 @@ Plan: [adaptive-exact-decimal-binding-v1](../plans/adaptive-exact-decimal-bindin
 |---|---|---|
 | D-AED-0 | Plan, oracle boundary (#2182 unchanged) | In PR, docs only |
 | D-AED-1 | Slice boundaries instead of the U32 slice-id lane (ungrouped N/S exist; ungrouped Σx² does not) | In PR — candidate (a) shipped: `slice_counts_sums` (no lane) and `slice_sums_by_bounds` (zero lane) over `execute_extent`; equal to #2182. Measured (`entries/2026-11-25-aed-1-slice-boundaries.md`): bounds remove the 4.2 MB per-call lane; grouping, not the square, costs 4–5× the ungrouped N S. OPEN: candidate (b), ungrouped Σx² kernel in ndarray |
-| D-AED-2 | One sealed slice stored at its #438 width (PM9, then PM17) in the canonical owner | Queued |
+| D-AED-2 | One sealed slice stored at its #438 width (PM9, then PM17) in the canonical owner | In PR — storage shipped: `PhysicalSlice` at PM9 (Abakus `Pm`), PM17, i32; round trip exact with P×M intact. Measured 1.125 / 2.125 / 4.125 B/value (`entries/2026-11-25-aed-2-physical-width.md`); short slices pad to a 64-lane block. OPEN: owner seam (`LaneRef` U8/U16, a layout change), PM17 arithmetic (#438) |
 | D-AED-3 | Width and exponent as bookmarks witnessed with the frame | Queued |
 | D-AED-4 | Promotion, finer resolution, demotion: reseal vs append a slice | Queued |
 | D-AED-5 | Dispatch once per sealed slice; ns and bytes against the i32 path | Queued |
