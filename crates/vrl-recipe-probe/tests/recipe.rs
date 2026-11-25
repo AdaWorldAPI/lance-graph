@@ -174,9 +174,10 @@ fn a_moved_frame_is_refused_at_every_terminal() {
 }
 
 /// A recipe reading a field the binding does not hold is refused, and a
-/// field that is not an `i32` lane is refused, both before folding.
+/// `u32` field (a code lane) is refused where it is compared, both before
+/// folding. Only projected, the code lane is read.
 #[test]
-fn unbound_and_non_i32_fields_are_refused() {
+fn unbound_and_compared_code_fields_are_refused() {
     let source = Source::random(64, 4);
     let narrow = bind(&source, &WideFieldMask::from_positions(&[0]));
     let r = compile(".n = .key\n.a = .properties.amount.value");
@@ -185,11 +186,13 @@ fn unbound_and_non_i32_fields_are_refused() {
         Refusal::NotBound { field: 3 }
     );
     let world = bind(&source, &all_fields());
-    let c = compile(".c = .properties.code.value");
+    let c = compile(".c = .properties.code.value\nif .properties.code.value == 1 { abort }");
     assert_eq!(
         c.count(&witness(&world, &source)).unwrap_err(),
         Refusal::NotI32 { field: CODE }
     );
+    let projected = compile(".c = .properties.code.value");
+    assert_eq!(projected.count(&witness(&world, &source)), Ok(64));
 }
 
 /// A prepared program is run only by the recipe that prepared it and only

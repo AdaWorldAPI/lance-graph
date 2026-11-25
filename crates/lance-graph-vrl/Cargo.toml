@@ -14,3 +14,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # recipe lowering in front of them.
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+
+[dev-dependencies]
+# The end-to-end lookup test reads an intake table through its witness parts.
+lance-graph-intake = { path = "../lance-graph-intake" }

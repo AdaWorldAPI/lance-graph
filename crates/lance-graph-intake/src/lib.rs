@@ -227,7 +227,10 @@ const KEPT_SEL: u16 = u16::MAX;
 /// The source owner: lanes, presence and live planes, the key map and the
 /// selections it issues. It holds the `MapTable`, so its frame store is the
 /// one the key map is sealed under.
-struct Owner {
+/// A table's lanes as DT64 reads them: the lane and presence source a
+/// [`Table`]'s binding resolves through. Opaque; borrowed through
+/// [`Table::lanes`] by a reader outside intake (a `lance-graph-vrl` witness).
+pub struct Owner {
     class: u32,
     space: CoordSpace,
     iris: Vec<String>,
@@ -372,7 +375,8 @@ impl LiveSource for Owner {
 
 /// The class built from the detected fields. Used at registration and bind
 /// only; reads go by the bound reference.
-struct IntakeView {
+/// The table's class view; borrowed through [`Table::view`].
+pub struct IntakeView {
     class: ClassId,
     fields: Vec<FieldRef>,
 }
@@ -649,6 +653,31 @@ impl Table {
         self.validity_folds.get()
     }
 
+    /// The binding a reader outside intake checks before borrowing lanes.
+    /// With [`Table::store`], [`Table::view`], [`Table::frames`] and
+    /// [`Table::lanes`] it is a full DT64 witness. The lanes cover every placed
+    /// row, deleted ones included (liveness is intake's own plane); a reader
+    /// goes through [`Table::positions_for_keys`] to stay on live rows.
+    pub fn binding(&self) -> &LaneBinding {
+        &self.binding
+    }
+
+    pub fn store(&self) -> &BindStore {
+        &self.store
+    }
+
+    pub fn view(&self) -> &IntakeView {
+        &self.view
+    }
+
+    pub fn frames(&self) -> &FrameStore {
+        self.owner.table.frames()
+    }
+
+    pub fn lanes(&self) -> &Owner {
+        &self.owner
+    }
+
     /// The frame the table's lanes and codes are currently sealed under.
     #[doc(hidden)]
     pub fn frame(&self) -> Frame {
@@ -797,7 +826,9 @@ impl Table {
 
     /// The positions of these keys, in list order, duplicates kept; an
     /// unknown key is refused.
-    fn positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
+    /// The positions of these keys under the current frame ([`Table::frame`]),
+    /// in list order, repeats kept; an unknown or deleted key is refused.
+    pub fn positions_for_keys(&self, keys: &[u64]) -> Result<Vec<u32>, IntakeRefusal> {
         // Each distinct key is located once per call and reused for its
         // repeats. A sorted Vec of this call's keys is local to the call, so it
         // is not a second key registry (D-REGC-7): the key map stays the DR tiles.
