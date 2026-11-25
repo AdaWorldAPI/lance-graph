@@ -144,7 +144,15 @@ no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
 datafrog, datafrog_reason, reference, reference_nonempty, reference_reason,
 route (empty, `set` or `reach`).
-The census is committed as `census-1435111.tsv` (2026-11-24, EXO-394). It was taken at XLOG
+The census is committed as `census-28b41f5.tsv` (2026-11-25, EXO-400). It was taken at XLOG
+`28b41f5` (xlog#12: a non-recursive derived binary head is a recipe for its readers, EXO-396)
+against the native Cube at lance-graph `11e8e01`. Against `census-1435111.tsv` (now in git
+history), exactly 5 rows changed and nothing else moved: 114 oracle-agrees (was 109),
+67 refused (was 72), 49 refused-on-data, 0 oracle-disagrees. The five are `fof` (two files),
+`mutual` and the two `sg_result` rules, each from refused ("computed or out-of-range output
+column") to oracle-agrees, with Datafrog agreeing on all five. Set routes stay at 29.
+
+The previous census, `census-1435111.tsv` (2026-11-24, EXO-394), was taken at XLOG
 `1435111` (xlog#11: stratified negation over one-column sets) against the native Cube at
 lance-graph `2075f7b` (#2171: `SetExpr::Column`). Against `census-097c351.tsv` (now in git
 history), exactly 16 rows changed and nothing else moved: 109 oracle-agrees (was 102),
