@@ -1,3 +1,8 @@
+## 2026-11-25 — Adaptive exact-decimal binding: from the #2182 oracle to #438 physical execution → `.claude/plans/adaptive-exact-decimal-binding-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. #2182 proved the mathematics on i32 (adaptive exponent per slice, redundant powers of ten removed, smallest #438 width named, aggregates aligned across exponents) and stays the semantic oracle. Missing and planned here: physical U8/U16/U24/U32 × P storage in the canonical owner, width/exponent bookmarks witnessed with the frame, promotion / finer resolution / demotion (reseal vs append a slice), dispatch once per sealed slice, the ns/bytes measurements that decide, and the scope widened to every deterministic number at ingestion (logs, telemetry, JSON, VRL, Graph reports): schema-on-write detection of exact decimals (today decimal text detects as text) and VRL decimal literals. `f64` stays an explicitly admitted method, never the automatic decimal. D-AED-0..8.
+**Confidence:** ndarray power-sums kernels and mask-risc `LaneRef` read at the cited lines; nothing built or measured.
+
 ## 2026-11-24 — XLOG P2: virtual correlated n-ary relations (contract) → `.claude/plans/xlog-p2-virtual-correlated-relations-v1.md`
 
 **Status:** CONTRACT / DOCS ONLY (EXO-395 under EXO-377). A derived n-ary relation is a recipe (binary atoms, ≤ 8 variable classes, a head selection), bound to one cube and frame, holding no ids, rows or masks. Readers unfold it. Terminals: existence, all-variable count and one-variable support exist in `Cube::body_answer`; a dropped-variable count and a two-variable (binary head) projection are MISSING. Every corpus falsifier named for P2 is a recursive SCC through an n-ary head, so it belongs to P4; P2's gates G1–G6 use the non-recursive base steps.

@@ -21,6 +21,10 @@ STATUS: research plus an isolated semantic probe (`crates/exact-decimal-probe`).
   - codebook ordinals used as coefficients;
   - a competing schema store, register socket or numerical runtime.
 
+## Next: physical adaptive execution
+
+#2182 proves the mathematics on i32. Physical adaptive width, witnessed width/exponent bookmarks, promotion, per-slice dispatch, and the ingestion scope (every deterministic number in logs, telemetry, JSON, VRL and Graph reports, not only currency) are planned in `.claude/plans/adaptive-exact-decimal-binding-v1.md` (D-AED-0..8). The probe stays the oracle.
+
 ## Cross-references
 
 - **ndarray #438:** adaptive P×M width, slice and seal (`.claude/knowledge/adaptive-pm-width-slice-seal-research-prompt.md` in ndarray).
