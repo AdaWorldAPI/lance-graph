@@ -21,18 +21,20 @@ fn table() -> Table {
 }
 
 fn witness(t: &Table) -> Witness<'_, lance_graph_intake::IntakeView, lance_graph_intake::Owner> {
+    let w = t.witness();
     Witness {
-        binding: t.binding(),
-        store: t.store(),
-        view: t.view(),
-        frames: t.frames(),
-        source: t.lanes(),
+        binding: w.binding,
+        store: w.store,
+        view: w.view,
+        frames: w.frames,
+        source: w.source,
     }
 }
 
 fn recipe(t: &Table, src: &str) -> Recipe {
-    let class = lance_graph_dt64::view_class(t.binding().class());
-    Recipe::compile(src, t.view(), class).unwrap()
+    let w = t.witness();
+    let class = lance_graph_dt64::view_class(w.binding.class());
+    Recipe::compile(src, w.view, class).unwrap()
 }
 
 #[test]

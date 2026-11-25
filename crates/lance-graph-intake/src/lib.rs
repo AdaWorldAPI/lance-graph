@@ -229,7 +229,7 @@ const KEPT_SEL: u16 = u16::MAX;
 /// one the key map is sealed under.
 /// A table's lanes as DT64 reads them: the lane and presence source a
 /// [`Table`]'s binding resolves through. Opaque; borrowed through
-/// [`Table::lanes`] by a reader outside intake (a `lance-graph-vrl` witness).
+/// [`Table::witness`] by a reader outside intake (a `lance-graph-vrl` witness).
 pub struct Owner {
     class: u32,
     space: CoordSpace,
@@ -375,7 +375,7 @@ impl LiveSource for Owner {
 
 /// The class built from the detected fields. Used at registration and bind
 /// only; reads go by the bound reference.
-/// The table's class view; borrowed through [`Table::view`].
+/// The table's class view; borrowed through [`Table::witness`].
 pub struct IntakeView {
     class: ClassId,
     fields: Vec<FieldRef>,
@@ -459,6 +459,15 @@ impl SelectionRef {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+}
+
+/// A [`Table`]'s witness parts, borrowed together from [`Table::witness`].
+pub struct TableWitness<'t> {
+    pub binding: &'t LaneBinding,
+    pub store: &'t BindStore,
+    pub view: &'t IntakeView,
+    pub frames: &'t FrameStore,
+    pub source: &'t Owner,
 }
 
 /// A table of rows: detected shape, registered class, placed rows and one
@@ -653,29 +662,19 @@ impl Table {
         self.validity_folds.get()
     }
 
-    /// The binding a reader outside intake checks before borrowing lanes.
-    /// With [`Table::store`], [`Table::view`], [`Table::frames`] and
-    /// [`Table::lanes`] it is a full DT64 witness. The lanes cover every placed
-    /// row, deleted ones included (liveness is intake's own plane); a reader
-    /// goes through [`Table::positions_for_keys`] to stay on live rows.
-    pub fn binding(&self) -> &LaneBinding {
-        &self.binding
-    }
-
-    pub fn store(&self) -> &BindStore {
-        &self.store
-    }
-
-    pub fn view(&self) -> &IntakeView {
-        &self.view
-    }
-
-    pub fn frames(&self) -> &FrameStore {
-        self.owner.table.frames()
-    }
-
-    pub fn lanes(&self) -> &Owner {
-        &self.owner
+    /// The table's DT64 witness, borrowed: what a reader outside intake (a
+    /// `lance-graph-vrl` recipe) checks and borrows lanes through. The table
+    /// stays the owner. The lanes cover every placed row, deleted ones
+    /// included (liveness is intake's own plane); a reader stays on live rows
+    /// through [`Table::positions_for_keys`].
+    pub fn witness(&self) -> TableWitness<'_> {
+        TableWitness {
+            binding: &self.binding,
+            store: &self.store,
+            view: &self.view,
+            frames: self.owner.table.frames(),
+            source: &self.owner,
+        }
     }
 
     /// The frame the table's lanes and codes are currently sealed under.
