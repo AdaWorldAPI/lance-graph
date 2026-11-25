@@ -574,6 +574,19 @@ impl SourceProfile {
     pub fn class(&self) -> u32 {
         self.class
     }
+
+    /// The fields, `(label, iri)`, in column order.
+    pub fn fields(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.labels
+            .iter()
+            .zip(&self.view.fields)
+            .map(|(l, f)| (l.as_str(), f.predicate_iri.as_str()))
+    }
+
+    /// The hand config every table of the profile is shaped with.
+    pub fn config(&self) -> &ShapeConfig {
+        &self.config
+    }
 }
 
 impl Table {

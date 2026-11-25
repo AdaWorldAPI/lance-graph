@@ -32,6 +32,7 @@ members = [
     # placement behind one facade over lance-graph-pg-row.
     "crates/lance-graph-intake",
     "crates/lance-graph-vrl",
+    "crates/lance-graph-vector",
     "crates/dr256-ternlog-lab",
     # LAB: one Quack-lowered Program against a bound source, a wrong source, a
     # revised row order and a detached kept mask, admitted through the DT64
