@@ -148,6 +148,12 @@ pub enum Refusal {
     /// unhandled fallible expression such as an order compare over an
     /// optional field).
     Upstream { codes: Vec<usize> },
+    /// [`Recipe::admit`]: an equality, a text equality or a truth test over a
+    /// field the schema declares optional. Upstream VRL compares an absent
+    /// value as `null` (`null != 2` holds); the native recipe leaves the row
+    /// unknown. The two meanings differ, so the program is refused until a
+    /// presence-aware lowering states which one it means.
+    AmbiguousPresence { field: String },
 }
 
 #[cfg(any(feature = "upstream-vector", feature = "upstream-o2"))]

@@ -20,7 +20,7 @@ use vrl::compiler::{compile_with_external, CompileConfig};
 use vrl::value::kind::{Collection, Field};
 use vrl::value::Kind;
 
-use crate::{Recipe, Refusal};
+use crate::{parse, Cmp, Path, Recipe, Refusal, Stmt};
 
 /// A field's value type as the source declares it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,6 +104,48 @@ impl Recipe {
             codes.dedup();
             return Err(Refusal::Upstream { codes });
         }
+        ambiguous_presence(src, schema)?;
         Recipe::compile(src, view, class)
     }
+}
+
+/// Refuse a comparison whose meaning depends on how an absent value is read:
+/// `==`, `!=`, a text equality or a truth test over an optional field.
+/// Order comparisons over an optional field are already refused by upstream
+/// (E100, an unhandled fallible expression).
+fn ambiguous_presence(src: &str, schema: &[Declared]) -> Result<(), Refusal> {
+    let optional = |label: &str| schema.iter().any(|d| d.label == label && d.optional);
+    let mut bound: BTreeMap<String, String> = BTreeMap::new();
+    if schema.iter().any(|d| d.label == "key") {
+        bound.insert("key".into(), "key".into());
+    }
+    let label = |bound: &BTreeMap<String, String>, p: &Path| match p {
+        Path::Name(n) => bound.get(n).cloned(),
+        Path::Prop(f) => Some(f.clone()),
+    };
+    for stmt in parse(src)? {
+        let tested = match &stmt {
+            Stmt::Assign(name, p) => {
+                if let Some(l) = label(&bound, p) {
+                    bound.insert(name.clone(), l);
+                }
+                continue;
+            }
+            Stmt::Del(name) => {
+                bound.remove(name);
+                continue;
+            }
+            Stmt::Abort {
+                path,
+                cmp: Cmp::Eq | Cmp::Ne,
+                ..
+            } => path,
+            Stmt::Abort { .. } => continue,
+            Stmt::AbortText { path, .. } | Stmt::AbortBool { path, .. } => path,
+        };
+        if let Some(l) = label(&bound, tested).filter(|l| optional(l)) {
+            return Err(Refusal::AmbiguousPresence { field: l });
+        }
+    }
+    Ok(())
 }

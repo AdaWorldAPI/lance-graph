@@ -1,0 +1,196 @@
+From 79ca7e64a9ef85da88ce684e0d275354886b20a7 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 25 Nov 2026 18:18:13 +0000
+Subject: [PATCH 2/2] chore: pin the toolchain to 1.99.0 and raise rust-version
+ to 1.99
+
+One toolchain builds Vector and lance-graph into one binary; lance-graph
+and ndarray pin 1.99.0. vector-core and enrichment check clean on 1.99.0.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01XAqKMQ4AAwGSJUSyipw8gD
+---
+ Cargo.lock          | 115 +++++++++++++++++++++++++++++++++++++++++++-
+ Cargo.toml          |   2 +-
+ rust-toolchain.toml |   2 +-
+ 3 files changed, 115 insertions(+), 4 deletions(-)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index e2ae613..3f7ecf9 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -6759,6 +6759,96 @@ dependencies = [
+  "regex-automata",
+ ]
+ 
++[[package]]
++name = "lance-graph-contract"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "glob",
++ "serde",
++ "serde_yaml",
++]
++
++[[package]]
++name = "lance-graph-dt64"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "lance-graph-contract",
++]
++
++[[package]]
++name = "lance-graph-intake"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "lance-graph-contract",
++ "lance-graph-dt64",
++ "lance-graph-mask-risc",
++ "lance-graph-pg-row",
++ "lance-graph-quack",
++]
++
++[[package]]
++name = "lance-graph-mask-risc"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "ndarray 0.17.2 (git+https://github.com/AdaWorldAPI/ndarray?branch=master)",
++]
++
++[[package]]
++name = "lance-graph-pg-row"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "lance-graph-contract",
++ "lance-graph-dt64",
++ "lance-graph-mask-risc",
++ "lance-graph-quack",
++]
++
++[[package]]
++name = "lance-graph-quack"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "lance-graph-contract",
++ "lance-graph-mask-risc",
++]
++
++[[package]]
++name = "lance-graph-sink"
++version = "0.1.0"
++dependencies = [
++ "chrono",
++ "lance-graph-contract",
++ "lance-graph-intake",
++ "lance-graph-vector",
++ "vrl",
++]
++
++[[package]]
++name = "lance-graph-vector"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "lance-graph-contract",
++ "lance-graph-intake",
++ "lance-graph-vrl",
++ "serde_json",
++]
++
++[[package]]
++name = "lance-graph-vrl"
++version = "0.1.0"
++source = "git+https://github.com/AdaWorldAPI/lance-graph.git?branch=main#f0ca4eb0e2ed10325d02ab0d4d2cad1226002816"
++dependencies = [
++ "lance-graph-contract",
++ "lance-graph-dt64",
++ "lance-graph-mask-risc",
++]
++
+ [[package]]
+ name = "lapin"
+ version = "4.12.3"
+@@ -7578,6 +7668,21 @@ dependencies = [
+  "rawpointer",
+ ]
+ 
++[[package]]
++name = "ndarray"
++version = "0.17.2"
++source = "git+https://github.com/AdaWorldAPI/ndarray?branch=master#7370c7070e4d7c87923ef721ef570f0953331052"
++dependencies = [
++ "matrixmultiply",
++ "num-complex",
++ "num-integer",
++ "num-traits",
++ "paste",
++ "portable-atomic",
++ "portable-atomic-util",
++ "rawpointer",
++]
++
+ [[package]]
+ name = "ndarray-stats"
+ version = "0.7.0"
+@@ -7586,7 +7691,7 @@ checksum = "9b6e54a8b65764f71827a90ca1d56965ec0c67f069f996477bd493402a901d1f"
+ dependencies = [
+  "indexmap 2.14.2",
+  "itertools 0.13.0",
+- "ndarray",
++ "ndarray 0.17.2 (registry+https://github.com/rust-lang/crates.io-index)",
+  "noisy_float",
+  "num-integer",
+  "num-traits",
+@@ -8565,6 +8670,12 @@ version = "1.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "487f2ccd1e17ce8c1bfab3a65c89525af41cfad4c8659021a1e9a2aacd73b89b"
+ 
++[[package]]
++name = "paste"
++version = "1.0.15"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
++
+ [[package]]
+ name = "pastey"
+ version = "0.2.3"
+@@ -13615,7 +13726,7 @@ dependencies = [
+  "metrics-util",
+  "mlua",
+  "mock_instant",
+- "ndarray",
++ "ndarray 0.17.2 (registry+https://github.com/rust-lang/crates.io-index)",
+  "ndarray-stats",
+  "noisy_float",
+  "openssl",
+diff --git a/Cargo.toml b/Cargo.toml
+index fe81a28..173265f 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -12,7 +12,7 @@ default-run = "vector"
+ autobenches = false # our benchmarks are not runnable on their own either way
+ # Minimum supported rust version
+ # See docs/DEVELOPING.md for policy
+-rust-version = "1.95"
++rust-version = "1.99"
+ 
+ [workspace.package]
+ version = "0.63.0-dev"
+diff --git a/rust-toolchain.toml b/rust-toolchain.toml
+index ba88577..8f62474 100644
+--- a/rust-toolchain.toml
++++ b/rust-toolchain.toml
+@@ -1,3 +1,3 @@
+ [toolchain]
+-channel = "1.100.0"
++channel = "1.99.0"
+ profile = "default"
+-- 
+2.43.0
+
