@@ -1,3 +1,10 @@
+## 2026-11-25 — key lookups as VRL recipes over an intake table (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-intake`: `Table::{binding, store, view, frames, lanes, positions_for_keys}` (the last was private), and the opaque public types `Owner` (the table's lane and presence source) and `IntakeView`. Together they are a DT64 witness over the table's own lanes; the lanes include deleted rows, so a reader stays on live rows through `positions_for_keys`.
+- `lance-graph-vrl`: `Recipe::rows_at(witness, positions, under)`: the rows at key-resolved positions, list order, admitted under their frame via `borrow_all_at`; refuses drop terms (`Refusal::FiltersAtPositions`) and positions past the lanes (`Refusal::PositionOutOfRange`). A projected field may be a `u32` code lane; compared or summed fields stay `i32`. `Rows::get` returns the new `Datum { I32, U32 }`. Consumer: report-rs XVERWEIS.
+
 ## 2026-11-25 — `lance-graph-vrl`, the VRL recipe core out of the VRL probe (in PR, not on main)
 
 ### Current Contract Inventory — net delta
