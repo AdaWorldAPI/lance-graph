@@ -1,0 +1,439 @@
+file	literal	head	rung	host_loop	oracle	xlog_ref	nonempty_seeds	reason	datafrog	datafrog_reason	reference	reference_nonempty	reference_reason	route
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	0	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	0	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	1	isolated	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	2	out_degree	refused	false			0	Project over GroupBy			unavailable	0	naive: naive oracle: unsupported term aggregate	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	3	sales_by_cat_region	refused	false			0	Project over GroupBy			unavailable	0	naive: naive oracle: unsupported term aggregate	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	4	result	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	5	path2	oracle-agrees	false	naive	agree	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	6	neighbor	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	7	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	7	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	8	isolated	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	9	out_degree	refused	false			0	Project over GroupBy			unavailable	0	naive: naive oracle: unsupported term aggregate	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	10		observed	false			0	Parse error:  --> 2:9				0		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	11	copy	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	12	high_temp	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	12	valid_high	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	13	extreme	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	13	extreme	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	13	finite_positive	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	13	positive	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	14	at_zero	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	14	below_zero	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	15	in_unit_interval	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	15	normal	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	15	normal	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	15	positive_finite	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	15	special	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	15	special	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	16	above_zero	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	16	finite	refused	false			0	filter other than `col == const`			unavailable	0	naive: naive oracle: unsupported term float	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	17	result	refused	false			0	Project over Project			unavailable	0	naive: base relation input is not binary u32 and its facts are not integer rows	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	17	__xlog_query_0	refused	false			0	reads refused relation `result`			unavailable	0	naive: base relation input is not binary u32 and its facts are not integer rows	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	17	gt_five	refused	false			0	reads refused relation `result`			unavailable	0	naive: base relation input is not binary u32 and its facts are not integer rows	
+xlog@dff3270:crates/xlog-integration/tests/e2e_integration_tests.rs	17	__xlog_query_1	refused	false			0	reads refused relation `gt_five`			unavailable	0	naive: base relation input is not binary u32 and its facts are not integer rows	
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	0	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	0	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	3	has_in	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	3	no_in	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	3	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	4	has_in	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	4	no_in	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	4	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	5	keep	refused	false			0	Join body			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	5	__xlog_query_0	refused	false			0	reads refused relation `keep`			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	6	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	6	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	6	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	7	path	oracle-agrees	false	naive	agree	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/executor_config_tests.rs	7	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/ilp_integration_tests.rs	0	reach	refused	false			0	XLOG word 0xfffff100/1			unavailable	0	no AST rule for head reach	
+xlog@dff3270:crates/xlog-integration/tests/ilp_integration_tests.rs	1	reach	refused	false			0	XLOG word 0xfffff100/1			unavailable	0	no AST rule for head reach	
+xlog@dff3270:crates/xlog-integration/tests/ilp_integration_tests.rs	2	reach	refused	false			0	XLOG word 0xfffff100/1			unavailable	0	no AST rule for head reach	
+xlog@dff3270:crates/xlog-integration/tests/ilp_integration_tests.rs	3	reach	refused	false			0	XLOG word 0xfffff100/1			unavailable	0	no AST rule for head reach	
+xlog@dff3270:crates/xlog-integration/tests/ilp_integration_tests.rs	4	reach	refused	false			0	XLOG word 0xfffff100/1			unavailable	0	no AST rule for head reach	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	0	fof	oracle-agrees	false	naive	agree	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	0	mutual	oracle-agrees	false	naive	agree	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	1	reaches	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	1	reaches	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	1	from_one	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	2	has_role	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	2	has_role	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	2	effective_role	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	2	effective_role	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	2	user_perm	refused	false			0	computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	3	component	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	3	component	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	3	has_children	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	3	part	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	3	part	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	3	leaf_part	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	4	points_to	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	4	points_to	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	5	reaches	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	5	reaches	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	6	reachable	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	6	reachable	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	6	has_internet	refused	false			0	`gateway` is not a binary relation in the cube			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	6	has_internet	refused	false			0	`gateway` is not a binary relation in the cube			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	6	no_internet	refused	false			0	reads refused relation `has_internet`			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	7	local_order	refused	false			0	join key outside its input			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	add_result	refused	false			0	computed or out-of-range output column			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	__xlog_query_0	refused	false			0	reads refused relation `add_result`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	sub_result	refused	false			0	computed or out-of-range output column			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	__xlog_query_1	refused	false			0	reads refused relation `sub_result`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	mul_result	refused	false			0	computed or out-of-range output column			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	__xlog_query_2	refused	false			0	reads refused relation `mul_result`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	div_result	refused	false			0	computed or out-of-range output column			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	__xlog_query_3	refused	false			0	reads refused relation `div_result`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	mod_result	refused	false			0	computed or out-of-range output column			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	8	__xlog_query_4	refused	false			0	reads refused relation `mod_result`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	9	sum_squares	refused	false			0	Project over Project			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	9	__xlog_query_0	refused	false			0	reads refused relation `sum_squares`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	10		observed	false			0	Compilation error: Type mismatch in arithmetic: I64 vs U32. Use cast() for conversion.				0		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	11		observed	false			0	Compilation error: Variable Z already bound; 'is' requires fresh variable				0		
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	12	val	refused	true			0	Project over Project			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	12	val	refused	true			0	Project over Project			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/real_world_tests.rs	12	__xlog_query_0	refused	false			0	reads refused relation `val`			unavailable	0	naive: naive oracle: unsupported literal is-expression	
+xlog@dff3270:crates/xlog-integration/tests/test_chain_promoter_dispatch.rs	0	out	oracle-agrees	false	naive	agree	5		agree		agree	5		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	0	chain	oracle-agrees	false	naive	agree	7		agree		agree	7		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	0	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	0	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	0	tri	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	1	chain	oracle-agrees	false	naive	agree	7		agree		agree	7		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	1	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	1	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	1	tri_echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	2	learned	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_mode_determinism.rs	3	arm_d_path	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_stream_lifetime_stress.rs	0	fof	oracle-agrees	false	naive	agree	7		agree		agree	7		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_stream_lifetime_stress.rs	1	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_cross_stream_lifetime_stress.rs	1	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_deep_recursive_wcoj.rs	0	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_deep_recursive_wcoj.rs	0	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_deep_recursive_wcoj.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	0		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	1		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	2		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	3		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know gate(0))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	4		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	5		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	6		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	7		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know color(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	8		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	9		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	10		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	11		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	12		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	13		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible alt(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	14		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	15		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know seen(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	16		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	17		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	18		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible alt4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	19		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	20		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know hidden_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	21		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	22		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know known_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	23		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	24		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible possible_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	25		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible possible_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	26		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know unknown_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	27		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	28		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	31		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	32		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	33		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	34		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	36		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	38		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	40		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	42		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	44		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	46		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	48		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	50		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	52		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	54		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	56		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	58		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	60		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	64		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	65		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	70		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	72		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible possible_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	74		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible possible_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	77		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	79		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	81		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	83		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	84		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	85		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	86		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	87		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	88		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible possible_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	89		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible possible_fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	90		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	91		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible blocked(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	92		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	94		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	97		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	100		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	103		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	106		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	107		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	108		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	109		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	110		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	111		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	112		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	113		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	114		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know not_known_input(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	115		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	116		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	117		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	118		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	119		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	120		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	121		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	122		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	123		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	124		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact3(3))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	125		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	126		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	127		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	128		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	129		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	130		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	131		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	132		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	133		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	134		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	135		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	136		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	137		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	139		observed	false			0	Parse error:  --> 2:9				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	140		observed	false			0	Compilation error: negation safety error: deterministic not atom must be stratified; cycle through negation or aggregation: p				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	141		observed	false			0	Compilation error: negation safety error: deterministic not atom must be stratified; cycle through negation or aggregation: p				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	143		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	145		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	147		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	149		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	151		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	153		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	155		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	157		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	159		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know gate(0))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	161		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	163		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	164		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact3(3))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	166		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	168		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	170		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	172		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	174		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	176		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	178		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	180		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	182		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	183		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	185		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	186		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	187		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	188		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	189		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	190		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	192		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	193		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	195		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	196		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	198		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	199		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	201		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	203		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	205		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	207		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	209		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	211		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	213		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	214		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	215		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	216		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	223		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	224		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	227		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	228		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	231		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	233		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	235		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	237		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	239		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	241		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	243		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	245		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	247		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	248		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	251		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	253		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	254		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	257		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	259		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	261		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	262	dry	refused	false			0	Project over Join			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	263		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	264	dry	refused	false			0	Project over Join			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	265		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	267		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	268		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	269		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	270		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	271		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	272		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	273		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	274		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	275		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	276		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	277		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	278		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	279		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(2))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	280		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact3(3))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	281		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	282		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	283		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	284		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	285		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	286		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Possible fact4(4))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	287		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	288		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	289		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	290		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	291		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	292		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	293		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	294		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	295		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	296		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	297		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	298		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	299		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	300		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	301		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know edge(1))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	302		observed	false			0	Unsupported epistemic construct: RIR lowering boundary (Know gate(0))				0		
+xlog@dff3270:crates/xlog-integration/tests/test_epistemic_gpu_wcoj_execution.rs	303	clique5	oracle-agrees	false	naive	unavailable	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_external_consumer_surface_preservation.rs	0	tri	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_external_consumer_surface_preservation.rs	1	tensor_support	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_external_consumer_surface_preservation.rs	1	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_ground_term_encoding.rs	0	__xlog_query_0	refused	false			0	`encoded` is not a binary relation in the cube			unavailable	0	naive: base relation encoded is not binary u32 and its facts are not integer rows	
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	0	tri	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	1	cyc	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	2	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	2	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	2	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	3	dummy_e1	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	4	dummy_e1	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	4	dummy_e2	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_heat_selectivity.rs	4	dummy_e3	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_nested_loop_dispatch.rs	0	result	oracle-agrees	false	naive	agree	7		agree		agree	7		
+xlog@dff3270:crates/xlog-integration/tests/test_recursive_setop_profile.rs	0	support_2	refused	true			0	join key outside its input			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_recursive_setop_profile.rs	0	usable	refused	true			0	join key outside its input			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_recursive_setop_profile.rs	0	usable	refused	true			0	join key outside its input			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_recursive_setop_profile.rs	0	__xlog_query_0	refused	false			0	reads refused relation `support_2`			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_recursive_setop_profile.rs	0	__xlog_query_1	refused	false			0	reads refused relation `usable`			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_same_generation_gpu.rs	0	sg	oracle-agrees	true	naive	agree	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_generation_gpu.rs	0	sg	oracle-agrees	true	naive	agree	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_generation_gpu.rs	0	sg_witness	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_same_generation_gpu.rs	0	sg_result	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_generation_gpu.rs	0	sg_result	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	out	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	0	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		set
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	path	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	1	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	2	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_same_head_union_batching.rs	2	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_selectivity_pass_reordering.rs	0	tri	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_selectivity_pass_reordering.rs	1	cyc	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_skewed_multiway_gpu.rs	0	result	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	0	support_1	refused	false			0	Project over Project			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	0	__xlog_query_0	refused	false			0	reads refused relation `support_1`			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	0	usable	refused	false			0	reads refused relation `support_1`			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	0	__xlog_query_1	refused	false			0	reads refused relation `usable`			agree	0		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	1	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	1	reach	oracle-agrees	true	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	1	__xlog_query_0	oracle-agrees	false	naive	unavailable	8		agree		agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	2	usable	refused	false			0	`external_consumer_commit` is not a binary relation in the cube			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	2	support_1	refused	false			0	reads refused relation `usable`			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	2	__xlog_query_0	refused	false			0	reads refused relation `support_1`			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	2	support_2	refused	false			0	reads refused relation `usable`			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_sort_labels.rs	2	__xlog_query_1	refused	false			0	reads refused relation `support_2`			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_variable_ordering.rs	0	tri	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_variable_ordering.rs	1	cyc	oracle-agrees	false	naive	agree	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_cardinality_cost_model.rs	0	echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_cardinality_cost_model.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_cardinality_cost_model.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_cardinality_cost_model.rs	1	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_cardinality_cost_model.rs	1	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_cardinality_cost_model.rs	1	echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	0	clique5	oracle-agrees	false	naive	unavailable	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	1	clique6	oracle-agrees	false	naive	unavailable	2		agree		agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	2	clique7	oracle-agrees	false	naive	unavailable	1		agree		agree	1		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	3	clique8	oracle-agrees	false	naive	unavailable	1		agree		agree	1		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	4	clique5	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	4	path01	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_clique_dispatch.rs	4	path01	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_record_join_result_feedback.rs	0	echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_record_join_result_feedback.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_record_join_result_feedback.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_record_join_result_feedback.rs	1	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_record_join_result_feedback.rs	1	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_record_join_result_feedback.rs	1	echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	0	echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	0	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `tri` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	1	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	1	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	1	echo	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: `cyc` is not a binary relation in the cube			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	2	r1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	2	r1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	2	r2	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	2	r2	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	2	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	3	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	3	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	3	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	4	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	4	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	4	e1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	5	cyc	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	5	r1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	5	r1	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	5	r2	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	5	r2	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	6	p	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	6	p	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	8		
+xlog@dff3270:crates/xlog-integration/tests/test_wcoj_recursive_dispatch.rs	6	tri	refused-on-data	true			0	seed 15086495801737740296: cube refused it over non-empty bases: computed or out-of-range output column			agree	2		
+xlog@dff3270:crates/xlog-integration/tests/test_widened_frontier_replay.rs	0	promoted	oracle-agrees	false	naive	unavailable	6		agree		agree	6		set
+xlog@dff3270:crates/xlog-integration/tests/test_widened_frontier_replay.rs	0	replay_reachable	oracle-agrees	false	naive	unavailable	6		agree		agree	6		reach
+xlog@dff3270:crates/xlog-integration/tests/test_widened_frontier_replay.rs	0	replay_reachable	oracle-agrees	false	naive	unavailable	6		agree		agree	6		reach
+xlog@dff3270:crates/xlog-integration/tests/test_widened_frontier_replay.rs	0	rollback_hit	oracle-agrees	false	naive	unavailable	5		agree		agree	5		set
