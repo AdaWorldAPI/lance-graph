@@ -1376,3 +1376,253 @@ pub fn merge_decimal(
     };
     Ok((merged, verdict))
 }
+
+// ---- D-AED-4: promotion, finer resolution, demotion -----------------------
+
+use std::sync::Arc;
+
+/// How a [`SliceLog`] takes a new batch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Policy {
+    /// Rewrite the tail slice in place: one slice grows, resealed at the
+    /// common exponent and width on every batch.
+    Reseal,
+    /// Keep every sealed slice as it is and seal each batch as its own
+    /// slice; aggregates align per slice.
+    Append,
+}
+
+/// What one write did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Event {
+    /// A new slice was sealed; `witnessed` when `Reseal` fell back to it
+    /// because a reader still held the tail slice.
+    NewSlice { witnessed: bool },
+    /// The tail slice was rewritten; `wider` / `finer` say whether its width
+    /// grew or its exponent became finer.
+    Resealed { wider: bool, finer: bool },
+}
+
+/// Why a write or a compaction refused. Nothing changed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LogRefusal {
+    Decimal(DecimalRefusal),
+    /// A reader still holds slice `k`; compaction rewrites it.
+    Witnessed {
+        k: usize,
+    },
+    /// A lane-wise addition needs PM9 slices of equal length and exponent.
+    NotPm9Pair,
+}
+
+/// N, S, Q of a physical slice, from its lanes.
+fn stats_of(p: &PhysicalSlice) -> SliceStats {
+    let mut sums = PowerSums::default();
+    for c in (0..p.len).filter_map(|i| p.get(i)) {
+        sums.n += 1;
+        sums.sum += i64::from(c);
+        sums.sum_sq += (i128::from(c) * i128::from(c)) as u128;
+    }
+    SliceStats { exp: p.exp, sums }
+}
+
+/// The coefficient `c` at `from`, read at the finer or equal exponent `to`.
+fn rescale(c: i32, from: Exp, to: Exp) -> Result<i32, DecimalRefusal> {
+    let k = (i16::from(from.0) - i16::from(to.0)) as u32;
+    shift(i128::from(c), k)
+        .and_then(|v| i32::try_from(v).ok())
+        .ok_or(DecimalRefusal::AlignmentOverflow)
+}
+
+/// A sealed slice built from coefficients at `exp`.
+fn sealed_from(exp: Exp, values: Vec<Option<i32>>) -> SealedSlice {
+    let max_magnitude = values
+        .iter()
+        .flatten()
+        .map(|c| u64::from(c.unsigned_abs()))
+        .max()
+        .unwrap_or(0);
+    SealedSlice {
+        exp,
+        present: values.iter().map(Option::is_some).collect(),
+        coefficients: values.iter().map(|c| c.unwrap_or(0)).collect(),
+        max_magnitude,
+        width: PmWidth::for_magnitude(max_magnitude),
+    }
+}
+
+/// The values of several slices at one exponent.
+fn values_at(slices: &[&PhysicalSlice], to: Exp) -> Result<Vec<Option<i32>>, DecimalRefusal> {
+    let mut out = Vec::new();
+    for p in slices {
+        for i in 0..p.len {
+            out.push(p.get(i).map(|c| rescale(c, p.exp, to)).transpose()?);
+        }
+    }
+    Ok(out)
+}
+
+/// The sealed slices of one decimal field, in identity order. A reader
+/// holds a slice as an `Arc`; a slice a reader holds is never rewritten.
+pub struct SliceLog {
+    pub policy: Policy,
+    limit: Exp,
+    slices: Vec<Arc<PhysicalSlice>>,
+    stats: Vec<SliceStats>,
+    /// Values rewritten by reseals and compactions.
+    pub rewritten: usize,
+}
+
+impl SliceLog {
+    pub fn new(policy: Policy, limit: Exp) -> SliceLog {
+        SliceLog {
+            policy,
+            limit,
+            slices: Vec::new(),
+            stats: Vec::new(),
+            rewritten: 0,
+        }
+    }
+
+    pub fn slices(&self) -> &[Arc<PhysicalSlice>] {
+        &self.slices
+    }
+
+    /// Hold slice `k` for reading.
+    pub fn pin(&self, k: usize) -> Arc<PhysicalSlice> {
+        Arc::clone(&self.slices[k])
+    }
+
+    /// Encoded cost of every slice ([`PhysicalSlice::bytes`]).
+    pub fn bytes(&self) -> usize {
+        self.slices.iter().map(|s| s.bytes()).sum()
+    }
+
+    /// N, S, Q of the field, aligned per slice.
+    pub fn combined(&self) -> Result<Combined, DecimalRefusal> {
+        combine(&self.stats)
+    }
+
+    fn push(&mut self, s: SealedSlice) {
+        let p = PhysicalSlice::store(&s);
+        self.stats.push(stats_of(&p));
+        self.slices.push(Arc::new(p));
+    }
+
+    fn replace(&mut self, k: usize, s: SealedSlice) {
+        let p = PhysicalSlice::store(&s);
+        self.rewritten += p.len;
+        self.stats[k] = stats_of(&p);
+        self.slices[k] = Arc::new(p);
+    }
+
+    /// Append a batch (`None` is absent). `Append` seals it as a new slice.
+    /// `Reseal` rewrites the tail slice at the common exponent and width,
+    /// unless a reader holds the tail: then it seals a new slice instead.
+    pub fn append(&mut self, cells: &[Option<&str>]) -> Result<Event, LogRefusal> {
+        let batch = seal(cells, self.limit).map_err(LogRefusal::Decimal)?;
+        let tail = self.slices.len().checked_sub(1);
+        let (Policy::Reseal, Some(k)) = (self.policy, tail) else {
+            self.push(batch);
+            return Ok(Event::NewSlice { witnessed: false });
+        };
+        if Arc::strong_count(&self.slices[k]) > 1 {
+            self.push(batch);
+            return Ok(Event::NewSlice { witnessed: true });
+        }
+        let old = Arc::clone(&self.slices[k]);
+        let incoming = PhysicalSlice::store(&batch);
+        let exp = old.exp.min(incoming.exp);
+        let values = values_at(&[&old, &incoming], exp).map_err(LogRefusal::Decimal)?;
+        drop(incoming);
+        let s = sealed_from(exp, values);
+        let wider = s.width > PmWidth::for_magnitude(stats_max(&old));
+        let finer = exp < old.exp;
+        drop(old);
+        self.replace(k, s);
+        Ok(Event::Resealed { wider, finer })
+    }
+
+    /// Add `delta`, a PM9 slice of the same length and exponent, into PM9
+    /// slice `k` lane-wise with Abakus. A carry lane promotes: the slice is
+    /// resealed at the width the exact sum needs. Refused if a reader holds
+    /// slice `k`.
+    pub fn add_into(&mut self, k: usize, delta: &PhysicalSlice) -> Result<bool, LogRefusal> {
+        if Arc::strong_count(&self.slices[k]) > 1 {
+            return Err(LogRefusal::Witnessed { k });
+        }
+        let s = &self.slices[k];
+        let pm9 = |p: &PhysicalSlice| matches!(p.lanes, Lanes::Pm9 { .. });
+        if !pm9(s) || !pm9(delta) || s.len != delta.len || s.exp != delta.exp {
+            return Err(LogRefusal::NotPm9Pair);
+        }
+        let mut carried = false;
+        let mut values = Vec::with_capacity(s.len);
+        for w in 0..s.len.div_ceil(64) {
+            let a = s.pm_block(w).expect("PM9");
+            let b = delta.pm_block(w).expect("PM9");
+            let sum = ndarray::hpc::abakus::pm::add_pm(a, b);
+            carried |= sum.carry() != 0;
+            for j in 0..64.min(s.len - w * 64) {
+                let i = w * 64 + j;
+                values.push(match sum.lane(j) {
+                    ndarray::hpc::abakus::pm::PmLane::NeverTouched => None,
+                    ndarray::hpc::abakus::pm::PmLane::Exact(v) => Some(i32::from(v)),
+                    // The exact value of a carry lane, through the wider path.
+                    ndarray::hpc::abakus::pm::PmLane::Escaped => {
+                        Some(s.get(i).unwrap_or(0) + delta.get(i).unwrap_or(0))
+                    }
+                });
+            }
+        }
+        let exp = s.exp;
+        self.replace(k, sealed_from(exp, values));
+        Ok(carried)
+    }
+
+    /// Demotion, at compaction only: reseal every slice into one at the
+    /// coarsest exponent and narrowest width that hold all values. Refused
+    /// if a reader holds any slice.
+    pub fn compact(&mut self) -> Result<(), LogRefusal> {
+        if let Some(k) = self.slices.iter().position(|s| Arc::strong_count(s) > 1) {
+            return Err(LogRefusal::Witnessed { k });
+        }
+        let refs: Vec<&PhysicalSlice> = self.slices.iter().map(|s| s.as_ref()).collect();
+        let finest = refs.iter().map(|s| s.exp).min().unwrap_or(self.limit);
+        let at_finest = values_at(&refs, finest).map_err(LogRefusal::Decimal)?;
+        let (exp, values) = coarsest(at_finest, finest);
+        let n = values.len();
+        self.slices.clear();
+        self.stats.clear();
+        self.push(sealed_from(exp, values));
+        self.rewritten += n;
+        Ok(())
+    }
+}
+
+/// The largest magnitude of a physical slice.
+fn stats_max(p: &PhysicalSlice) -> u64 {
+    (0..p.len)
+        .filter_map(|i| p.get(i))
+        .map(|c| u64::from(c.unsigned_abs()))
+        .max()
+        .unwrap_or(0)
+}
+
+/// The coefficients given at `at` read at the coarsest exponent that keeps
+/// every one an integer, positive exponents included: one factor of ten is
+/// removed at a time, so no power of ten is ever formed. A slice with no
+/// nonzero value has no resolution and reads at exponent 0, as `seal` does.
+fn coarsest(mut values: Vec<Option<i32>>, at: Exp) -> (Exp, Vec<Option<i32>>) {
+    if values.iter().flatten().all(|&c| c == 0) {
+        return (Exp(0), values);
+    }
+    let mut exp = at;
+    while exp < Exp(i8::MAX) && values.iter().flatten().all(|&c| c % 10 == 0) {
+        for c in values.iter_mut().flatten() {
+            *c /= 10;
+        }
+        exp = Exp(exp.0 + 1);
+    }
+    (exp, values)
+}
