@@ -162,8 +162,12 @@ validity)` lookup, owned by the source owner (intake), which both `Binder` and V
    `== ""` resolves to "no code" and an absent cell stays undecided. Orchestrator reading:
    a semantic difference (VRL is three-valued over absence, Quack matches absence through
    code 0), not yet shown to be a defect; pin both with a test before changing either.
-   DECISION (operator, 2026-11-25): settled by row type. Text `''` is NaN (absent, not an
-   empty-string value); boolean `1` → true, `0` → false, NaN → false. See plan D-RSP-5.
+   DECISION (operator, 2026-11-25): settled by the row-type contract (plan D-RSP-5).
+   Text `""` ⇔ NaN ⇔ absent, code 0, no codebook identity for the empty string. Boolean
+   `1` established true, `0` established false, NaN untouched evaluating false, never
+   hydrated into established false; absent evidence never establishes a negative fact
+   (a missing `accountEnabled` is not "disabled"). Quack already matches; VRL's
+   `code_for("")` does not and changes through the shared seam.
 3. VRL text supports `==` and `!=` only, with no order (`vrl/src/lib.rs:67-70`). Quack
    has LIKE (`quack/src/bind.rs:570`).
 4. VRL's three-valued UNKNOWN is a separate count (`vrl/src/lib.rs:723-735`). Quack folds

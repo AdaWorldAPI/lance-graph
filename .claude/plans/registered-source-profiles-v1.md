@@ -114,22 +114,46 @@ This is not a new IR: `Query` stays Quack's and `Recipe` stays VRL's.
 
 **Semantic differences to document, never merge:**
 - an unknown `=` literal is refused in Quack and matches no row in VRL;
-- `''` under `EmptyText` gives code 0 in Quack, while in VRL an absent cell stays undecided. **Decided by the row type** (DECISION, operator, 2026-11-25; see below), so this is not a disagreement to settle between the frontends;
+- `''` under `EmptyText` gives code 0 in Quack, while VRL's `code_for("")` finds no code. **Settled by the row-type contract below**, which both frontends apply through the seam, so this is not a disagreement to negotiate between them;
 - VRL text has only `==` and `!=`, while Quack has LIKE;
 - VRL keeps UNKNOWN as a separate count, while Quack folds validity into WHERE.
 
-**Empty and absent literals are decided by the row type** (DECISION, operator, 2026-11-25):
+**Row-type contract for empty and absent values** (DECISION, operator, 2026-11-25):
 
-| Row type | Value | Reads as |
-|---|---|---|
-| text | `''` (empty literal) | NaN: absent, never an empty-string value |
-| boolean | `1` | true |
-| boolean | `0` | false |
-| boolean | NaN (absent) | false |
+*The mathematical method determines what is evaluated; the row type determines how the stored state is interpreted.* The interpretation belongs to the row type, carried by the shared field binding. Neither Quack nor VRL owns it.
 
-The seam carries this rule per row type, so Quack and VRL apply the same one. Open: how a boolean NaN reading false squares with VRL's three-valued UNKNOWN count for drop terms. The gate must test it on both frontends.
+Evaluation is distinct from epistemic state, in the same way Codec9's −0 (untouched) is distinct from +0 (established zero):
 
-**Gate.** Both frontends bind through the seam and give identical counts and sums on one admitted source. Each remaining difference above is pinned by a test on both sides. The row-type rule for empty and absent literals is pinned on both frontends.
+| Row type | Stored state | Epistemic state | Evaluates a Boolean predicate as |
+|---|---|---|---|
+| boolean | `1` | established true | true |
+| boolean | `0` | established false | false |
+| boolean | NaN (absent) | untouched | false |
+| text | `""` ⇔ NaN ⇔ absent, code 0 | untouched | — |
+| text | a coded string | established | — |
+
+- **An untouched boolean is never hydrated into an established false.** A Boolean method that returns false for it does not establish anything.
+- **An absent value never establishes a negative fact.** A missing `accountEnabled` does not satisfy `accountEnabled`, and it is also not evidence that the account is disabled. Consequence (pinned by the gate): explicit equality to false, and a negated predicate whose result would establish "false", hold only for an established `0`, never for NaN.
+- **Text `""` is absence, not a value.** It is code 0, and the empty string gets no codebook identity of its own. Equality and inequality to `""` are therefore presence tests.
+- **No extra persisted validity plane** where the existing representation already preserves the distinction: the presence plane plus value 0, as in EXO-294 / Codec9.
+
+**Where the code stands today:**
+- Intake already leaves an empty cell uncoded under `EmptyText` (append path, `lib.rs` `place`).
+- Quack maps `''` to code 0 (`intake/src/bind.rs:137`), which matches the contract.
+- VRL's `code_for("")` resolves to "no code", so `== ""` matches no row. That does not match the contract. D-RSP-5 changes it through the shared seam, not inside VRL alone.
+
+**Tests, kept separate (each on both frontends, with a disable run):**
+1. Boolean evaluation: `1` → true; `0` and NaN → false.
+2. Explicit equality to established false: holds for `0` only, never for NaN.
+3. Presence: `1` and `0` present; NaN absent.
+4. `COUNT(rows)`: every row, NaN included.
+5. `COUNT(established values)`: `1` and `0` only.
+6. Unknown evidence: a row whose decision rests on a NaN is counted as unknown, not as established false.
+7. Text equality to `""`: selects exactly the absent rows.
+8. Text inequality to `""`: selects exactly the present rows.
+9. Negation of Boolean predicates: `NOT accountEnabled` never selects an absent `accountEnabled`. Absent evidence never becomes "disabled".
+
+**Gate.** Both frontends bind through the seam and give identical counts and sums on one admitted source. Each remaining difference above is pinned by a test on both sides. The nine row-type tests above pass on both frontends.
 
 ### D-RSP-6 — harvesting declarations
 **Question.** Seed `PgColumn` (type, absence) and `FieldRef` IRIs from existing declarations:
@@ -216,5 +240,5 @@ Source profile registration stays separate from tenant authorization and data av
 5. **Revision movement on append.** Whether `relation_map` / `coordinates` revisions move on intake append.
 6. **Real data.** Real Graph, EXO and Az units and ranges; this needs operator-named samples.
 7. **OGAR measure law.** Whether OGAR `ActionDef` or ontology already carries measure law.
-8. **Empty literal: settled by row type** (D-RSP-5). Text `''` is NaN (absent); a boolean reads 1 as true and 0 or NaN as false. Still open: how boolean NaN → false meets VRL's three-valued UNKNOWN count.
+8. **Empty literal: settled by the row-type contract** (D-RSP-5). Text `""` ⇔ NaN ⇔ absent (code 0); a boolean NaN is untouched and evaluates false without being established false; absent evidence never establishes a negative fact. Open only: VRL's `code_for("")` must change through the seam.
 9. **Harvest source.** Whether OGAR has a CSDL or OpenAPI harvest elsewhere is unknown.
