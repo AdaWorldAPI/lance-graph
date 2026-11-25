@@ -63,7 +63,9 @@ use lance_graph_dt64::{
 use lance_graph_pg_row::{read_bag, BagSide, ColumnSpec, LiveSource, PgRowRefusal, PgRows, Reader};
 
 pub use config::{merge, ColumnConfig, ColumnShape, Shape, ShapeConfig, Verdict};
-pub use detect::{detect_column, detect_key, parse_epoch_days, parse_epoch_seconds, Detected};
+pub use detect::{
+    detect_column, detect_key, detections, parse_epoch_days, parse_epoch_seconds, Detected,
+};
 
 const READER: Scope = Scope { id: 1 };
 const ROUTE_POSITION: u16 = 1;

@@ -5,6 +5,10 @@
 //! whether the config confirmed the detection, differs from it, or was not
 //! given, so a hand value is never silently trusted nor silently ignored.
 //! The merged column must still be admitted by `PgColumn::admit`.
+//!
+//! A column whose config gives all three values is declared: its type is
+//! known before any cell is read, so it is not detected at all. Its cells
+//! are still checked one by one when they are placed.
 
 use std::collections::BTreeMap;
 
@@ -37,6 +41,8 @@ pub enum Verdict {
     Differs { detected: PgColumn },
     /// No config was given for the column.
     DetectedOnly,
+    /// The config gave every value; the column was not detected.
+    Declared,
 }
 
 /// One column as the table will read it.
@@ -45,7 +51,19 @@ pub struct ColumnShape {
     pub name: String,
     pub col: PgColumn,
     pub verdict: Verdict,
-    pub detected: Detected,
+    /// `None` for a declared column, which is never detected.
+    pub detected: Option<Detected>,
+}
+
+impl ColumnConfig {
+    /// The column this config declares, when it gives every value.
+    pub fn declared(&self) -> Option<PgColumn> {
+        Some(PgColumn {
+            ty: self.ty?,
+            encoding: self.encoding?,
+            absent: self.absent?,
+        })
+    }
 }
 
 /// The lane encoding of a declared type: the detected one when the contract
@@ -136,20 +154,29 @@ impl Shape {
 
         let mut columns = Vec::with_capacity(names.len());
         for (k, name) in names.iter().enumerate() {
+            let refused = |refusal| IntakeRefusal::Column {
+                name: (*name).to_owned(),
+                refusal,
+            };
+            let given = config.columns.get(*name);
+            if let Some(col) = given.and_then(ColumnConfig::declared) {
+                col.admit().map_err(refused)?;
+                columns.push(ColumnShape {
+                    name: (*name).to_owned(),
+                    col,
+                    verdict: Verdict::Declared,
+                    detected: None,
+                });
+                continue;
+            }
             let cells: Vec<Option<&str>> = rows.iter().map(|row| row[k]).collect();
             let detected = detect_column(&cells);
-            let (col, verdict) =
-                merge(&detected, config.columns.get(*name)).map_err(|refusal| {
-                    IntakeRefusal::Column {
-                        name: (*name).to_owned(),
-                        refusal,
-                    }
-                })?;
+            let (col, verdict) = merge(&detected, given).map_err(refused)?;
             columns.push(ColumnShape {
                 name: (*name).to_owned(),
                 col,
                 verdict,
-                detected,
+                detected: Some(detected),
             });
         }
 
@@ -158,9 +185,10 @@ impl Shape {
         let agrees = count(|v| matches!(v, Verdict::Agrees));
         let differs = count(|v| matches!(v, Verdict::Differs { .. }));
         let detected_only = count(|v| matches!(v, Verdict::DetectedOnly));
+        let declared = count(|v| matches!(v, Verdict::Declared));
         assert_eq!(
             columns.len(),
-            agrees + differs + detected_only,
+            agrees + differs + detected_only + declared,
             "every column has exactly one verdict"
         );
         Ok(Shape { columns })
@@ -181,7 +209,9 @@ impl Shape {
             .iter()
             .map(|c| Detected {
                 col: c.col,
-                ..c.detected.clone()
+                support: 0,
+                total: 0,
+                witness: None,
             })
             .collect();
         let key = match &config.key {
