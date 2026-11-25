@@ -146,3 +146,88 @@ fn a_deleted_key_is_never_read() {
     let live = t.live_positions_for_keys(&[1, 3]).unwrap();
     assert_eq!(r.rows_at(&witness(&t), &live, &t.frame()).unwrap().len(), 2);
 }
+
+fn resolved(t: &Table, src: &str) -> Recipe {
+    let frame = t.frame();
+    recipe(t, src)
+        .resolve_text(&frame, |iri, text| t.code_for(&frame, iri, text))
+        .unwrap()
+}
+
+/// A text literal is resolved to the column's code under the table's frame,
+/// then compared as a code: `==` and `!=` drop the rows they name, and a
+/// string the column never coded matches no row.
+#[test]
+fn a_text_term_compares_codes_resolved_under_the_frame() {
+    let t = table();
+    let w = witness(&t);
+    let count = |src: &str| resolved(&t, src).count(&w).unwrap();
+    let r = ".r = .properties.region.value\n";
+    assert_eq!(count(&format!("{r}if .r == \"north\" {{ abort }}")), 2);
+    assert_eq!(count(&format!("{r}if .r != \"north\" {{ abort }}")), 1);
+    assert_eq!(count(&format!("{r}if .r == \"west\" {{ abort }}")), 3);
+    assert_eq!(count(&format!("{r}if .r != \"west\" {{ abort }}")), 0);
+    let rows = resolved(&t, &format!("{r}if .r == \"south\" {{ abort }}"))
+        .materialize_rows(&w)
+        .unwrap();
+    let names: Vec<String> = (0..rows.len())
+        .map(|i| {
+            t.code_key("region", rows.get(i, 0).as_code().unwrap())
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(names, ["north", "east"]);
+}
+
+/// Text has no order, a literal must be resolved before preparing, and only
+/// a code lane is compared with text.
+#[test]
+fn a_text_term_refuses_order_an_unresolved_literal_and_a_number_lane() {
+    let t = table();
+    let w = witness(&t);
+    let class = lance_graph_dt64::view_class(t.witness().binding.class());
+    assert!(matches!(
+        Recipe::compile(
+            ".r = .properties.region.value\nif .r < \"m\" { abort }",
+            t.witness().view,
+            class
+        ),
+        Err(Refusal::OrderOnText { .. })
+    ));
+    let unresolved = recipe(
+        &t,
+        ".r = .properties.region.value\nif .r == \"north\" { abort }",
+    );
+    assert_eq!(unresolved.count(&w), Err(Refusal::TextUnresolved));
+    let on_number = resolved(&t, ".q = .properties.qty.value\nif .q == \"10\" { abort }");
+    assert!(matches!(on_number.count(&w), Err(Refusal::NotCode { .. })));
+}
+
+/// Literals resolved before a write are refused after it, since the write
+/// may have coded the string; resolved again, the recipe reads the new code.
+#[test]
+fn literals_resolved_before_an_append_are_refused() {
+    let mut t = table();
+    let src = ".r = .properties.region.value\nif .r == \"west\" { abort }";
+    let before = resolved(&t, src);
+    let p = before.prepare_count(3).unwrap();
+    t.append(&[vec![Some("4"), Some("west"), Some("5")]])
+        .unwrap();
+    let mut scratch = p.scratch().unwrap();
+    assert!(matches!(
+        before.run_into(
+            &p,
+            &witness(&t),
+            &mut scratch,
+            lance_graph_mask_risc::Out::None
+        ),
+        Err(Refusal::Binding(lance_graph_dt64::LaneRefusal::Frame(_)))
+    ));
+    // Prepared fresh at the new row count, only the frame check stands
+    // between the stale literal and a wrong count (4: the west row kept).
+    assert!(matches!(
+        before.count(&witness(&t)),
+        Err(Refusal::Binding(lance_graph_dt64::LaneRefusal::Frame(_)))
+    ));
+    assert_eq!(resolved(&t, src).count(&witness(&t)).unwrap(), 3);
+}

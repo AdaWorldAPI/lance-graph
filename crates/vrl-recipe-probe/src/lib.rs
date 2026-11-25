@@ -109,6 +109,13 @@ pub fn interpret_present(
                     Some(_) => {}
                     None => undecided = true,
                 },
+                // The reference reads `i32` lanes only; a text literal is
+                // checked against an intake table in lance-graph-vrl's tests.
+                Stmt::AbortText { .. } => {
+                    return Err(Refusal::Computes(
+                        "text literal (the reference interpreter reads i32 lanes)".into(),
+                    ))
+                }
             }
         }
         if undecided {

@@ -1,3 +1,10 @@
+## 2026-11-25 — VRL text equality on code lanes; unknown count on Rows (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-vrl`: `if .p == "text" { abort }` / `!=` (new `Stmt::AbortText`); `Recipe::resolve_text(frame, code_of)` resolves the literals to codes under a frame before preparing, a prepared program with text terms carries that frame and is refused once it is not current. A literal the column never coded matches no row. New refusals `OrderOnText`, `TextUnresolved`, `NotCode`. `Rows::unknown()`: rows a drop term could not decide, from `materialize_rows` (a second fold over the same borrowed lanes and scratch; a fused mask-risc terminal waits for a measurement).
+- `lance-graph-intake`: `Table::code_for(frame, predicate_iri, text)`, the inverse of `code_key_at`.
+
 ## 2026-11-25 — key lookups as VRL recipes over an intake table (in PR, not on main)
 
 ### Current Contract Inventory — net delta

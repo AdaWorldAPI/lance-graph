@@ -136,6 +136,11 @@ fn the_three_valued_recipe_equals_the_interpreter_at_every_width() {
             let r = compile(src);
             let want = interpret_present(src, &LABELS[..4], &lanes, Some(&presence)).unwrap();
             let rows = r.materialize_rows(&w).unwrap();
+            assert_eq!(
+                rows.unknown() as usize,
+                want.unknown,
+                "{src} at {n}: unknown rows"
+            );
             let (got, absent) = events(&rows);
             assert_eq!(got, want.events, "{src} at {n}: rows");
             assert_eq!(absent, want.absent, "{src} at {n}: absent cells");

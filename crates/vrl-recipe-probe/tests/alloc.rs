@@ -98,13 +98,15 @@ fn terminals_allocate_tile_scratch_mask_and_positions_only() {
         fixed_at.windows(2).all(|p| p[0] == p[1]),
         "bookkeeping bytes vary with n: {fixed_at:?}"
     );
-    // Measured 1403 bytes (count) and 1517 (materialize) for this one-term
+    // Measured 1573 bytes (count) and 3316 (materialize) for this one-term
     // recipe: the prepared program's ops (12 for one term in the
-    // three-valued program) and the reads list. It grows with terms, never
-    // with rows; the equality above is what pins that.
+    // three-valued program) and the reads list. materialize prepares two
+    // programs, keep and the unknown count it reports in `Rows::unknown`,
+    // over one scratch. It grows with terms, never with rows; the equality
+    // above is what pins that.
     let (c, _, m) = fixed_at[0];
     assert!(
-        c < 2048 && m < 2048,
+        c < 2048 && m < 4096,
         "bookkeeping is not small: {fixed_at:?}"
     );
 }

@@ -63,6 +63,10 @@
 //! - `del(.out)`
 //! - `if .path <op> 3 { abort }` with `<op>` one of `==` `!=` `<` `<=` `>` `>=`
 //!   (signed `i32`); a range is two aborts, since `&&` and `||` are refused
+//! - `if .path == "text" { abort }` and `!=` on a text column: the literal is
+//!   resolved to the column's code under a frame ([`Recipe::resolve_text`])
+//!   before preparing; order comparisons on text are refused, since codes
+//!   have no order
 //!
 //! A name is a field label of the class's [`ClassView`]; `key` is the field
 //! labelled `key`. Output semantics, stated because VRL mutates the whole
@@ -126,6 +130,13 @@ pub enum Refusal {
     /// A recipe names a field it does not read. Not reachable through
     /// [`Recipe::compile`].
     NotARead { field: u8 },
+    /// An order comparison (`<`, `<=`, `>`, `>=`) against a text literal: a
+    /// text column's codes are dictionary addresses with no order.
+    OrderOnText { op: String },
+    /// The recipe has text terms and [`Recipe::resolve_text`] was not run.
+    TextUnresolved,
+    /// A field compared with a text literal is not a code (`u32`) lane.
+    NotCode { field: u8 },
     /// [`Recipe::rows_at`] was given a recipe with a drop term.
     FiltersAtPositions,
     /// A lane read by [`Recipe::rows_at`] does not hold as many rows as the
@@ -172,6 +183,9 @@ pub struct Prepared {
     recipe: RecipeKey,
     /// The field a sum terminal folds; it must be an `i32` lane.
     sum: Option<u8>,
+    /// The frame the text literals were resolved under, if the recipe has
+    /// text terms; the program is refused once it is not current.
+    frame: Option<Frame>,
 }
 
 /// What makes two compiled recipes the same recipe, compared exactly.
@@ -180,7 +194,15 @@ struct RecipeKey {
     class: ClassId,
     idents: Vec<String>,
     drop: Vec<(u8, Cmp, i32)>,
+    text: Vec<(u8, bool, String)>,
     out: Vec<(String, u8)>,
+}
+
+/// Text literals resolved to codes under one frame, in `text` order.
+#[derive(Clone, Debug)]
+struct Codes {
+    frame: Frame,
+    of: Vec<Option<u32>>,
 }
 
 impl Prepared {
@@ -226,6 +248,13 @@ pub enum Stmt {
         path: Path,
         cmp: Cmp,
         value: i32,
+    },
+    /// Abort the event when `path` equals (`eq`) or differs from a text
+    /// literal. Only `==` and `!=`: a text column's codes have no order.
+    AbortText {
+        path: Path,
+        eq: bool,
+        text: String,
     },
 }
 
@@ -327,6 +356,33 @@ pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
             if block != Some("abort") {
                 return Err(Refusal::Computes("if body other than abort".into()));
             }
+            if let Some((left, quoted)) = cond.split_once('"') {
+                let text = quoted
+                    .trim_end()
+                    .strip_suffix('"')
+                    .filter(|t| !t.contains(['"', '\\']))
+                    .ok_or_else(|| Refusal::Computes(format!("text literal in {}", cond.trim())))?;
+                let toks: Vec<&str> = left.split_whitespace().collect();
+                let [p, op] = toks.as_slice() else {
+                    return Err(Refusal::Computes(format!("condition {}", cond.trim())));
+                };
+                let eq = match *op {
+                    "==" => true,
+                    "!=" => false,
+                    other if Cmp::parse(other).is_some() => {
+                        return Err(Refusal::OrderOnText {
+                            op: other.to_string(),
+                        })
+                    }
+                    other => return Err(Refusal::Computes(format!("comparison {other}"))),
+                };
+                out.push(Stmt::AbortText {
+                    path: path(p)?,
+                    eq,
+                    text: text.to_string(),
+                });
+                continue;
+            }
             let toks: Vec<&str> = cond.split_whitespace().collect();
             let [p, op, v] = toks.as_slice() else {
                 return Err(Refusal::Computes(format!("condition {}", cond.trim())));
@@ -377,6 +433,11 @@ pub struct Recipe {
     reads: Vec<u8>,
     /// Rows dropped where `field <cmp> value`, one term per `abort`.
     drop: Vec<(u8, Cmp, i32)>,
+    /// Rows dropped where a code field equals (`true`) or differs from a
+    /// text literal.
+    text: Vec<(u8, bool, String)>,
+    /// The text literals' codes, set by [`Recipe::resolve_text`].
+    codes: Option<Codes>,
     /// Output name -> field, in name order.
     out: Vec<(String, u8)>,
     /// The class the recipe was compiled for.
@@ -418,6 +479,7 @@ impl Recipe {
             }
         };
         let mut drop = Vec::new();
+        let mut text_drop: Vec<(u8, bool, String)> = Vec::new();
         // The first field the program reads: the population when every output
         // is deleted again and nothing is filtered.
         let mut anchor: Option<u8> = None;
@@ -440,11 +502,17 @@ impl Recipe {
                     anchor.get_or_insert(field);
                     drop.push((field, cmp, value));
                 }
+                Stmt::AbortText { path, eq, text } => {
+                    let field = resolve(&bound, &path)?;
+                    anchor.get_or_insert(field);
+                    text_drop.push((field, eq, text));
+                }
             }
         }
         let mut reads: Vec<u8> = assigned
             .values()
             .chain(drop.iter().map(|(f, _, _)| f))
+            .chain(text_drop.iter().map(|(f, _, _)| f))
             .copied()
             .collect();
         reads.sort_unstable();
@@ -463,10 +531,39 @@ impl Recipe {
             fields: WideFieldMask::from_positions(&reads),
             reads,
             drop,
+            text: text_drop,
+            codes: None,
             out: assigned.into_iter().collect(),
             class,
             idents,
         })
+    }
+
+    /// Resolve the text terms' literals to codes under `frame`: `code_of`
+    /// answers the code a field (by predicate IRI) gives a string under that
+    /// frame, `None` when the field has never seen it. Preparing a recipe
+    /// with text terms needs this first, and a program prepared after it is
+    /// refused once `frame` is no longer current, because a later write may
+    /// give the string a code.
+    ///
+    /// A string with no code matches no row: `==` drops nothing, `!=` drops
+    /// every row that holds a value.
+    pub fn resolve_text(
+        &self,
+        frame: &Frame,
+        code_of: impl Fn(&str, &str) -> Option<u32>,
+    ) -> Result<Recipe, Refusal> {
+        let mut of = Vec::with_capacity(self.text.len());
+        for (field, _, text) in &self.text {
+            let at = usize::from(self.lane(*field)?);
+            of.push(code_of(&self.idents[at], text));
+        }
+        let mut r = self.clone();
+        r.codes = Some(Codes {
+            frame: frame.clone(),
+            of,
+        });
+        Ok(r)
     }
 
     /// The drop terms, one per `abort`, in source order: rows where
@@ -546,7 +643,9 @@ impl Recipe {
                 };
             if let Some(i) = self.reads.iter().position(|&f| f == field) {
                 let compared = sum == Some(field) || self.drop.iter().any(|t| t.0 == field);
+                let coded = self.text.iter().any(|t| t.0 == field);
                 match lane {
+                    LaneRef::I32(_) if coded => return Err(Refusal::NotCode { field }),
                     LaneRef::I32(_) => {}
                     LaneRef::U32(_) if !compared => {}
                     _ => return Err(Refusal::NotI32 { field }),
@@ -584,9 +683,11 @@ impl Recipe {
                 class: self.class,
                 idents: self.idents.clone(),
                 drop: self.drop.clone(),
+                text: self.text.clone(),
                 out: self.out.clone(),
             },
             sum,
+            frame: self.codes.as_ref().map(|c| c.frame.clone()),
         })
     }
 
@@ -682,11 +783,27 @@ impl Recipe {
         if k.class != self.class
             || k.idents != self.idents
             || k.drop != self.drop
+            || k.text != self.text
             || k.out != self.out
         {
             return Err(Refusal::NotThisRecipe);
         }
+        if let Some(f) = &p.frame {
+            LaneBinding::check_positions_frame(w.frames, f).map_err(Refusal::Binding)?;
+        }
         let lanes = self.lanes(w, p.sum)?;
+        let v = self.run_on(p, &lanes, scratch, out)?;
+        Ok((v, lanes))
+    }
+
+    /// Run `p` over lanes already borrowed under one witness check.
+    fn run_on(
+        &self,
+        p: &Prepared,
+        lanes: &Lanes<'_>,
+        scratch: &mut Scratch<'_>,
+        out: Out<'_>,
+    ) -> Result<Value, Refusal> {
         let n_rows = lanes.get()[0].len();
         if n_rows != p.n_rows {
             return Err(Refusal::RowsChanged {
@@ -709,9 +826,7 @@ impl Recipe {
             masks: lanes.planes(),
             lanes: lanes.get(),
         };
-        let v = execute_into(&p.program, &planes, &Foreign::NONE, scratch, out)
-            .map_err(Refusal::Exec)?;
-        Ok((v, lanes))
+        execute_into(&p.program, &planes, &Foreign::NONE, scratch, out).map_err(Refusal::Exec)
     }
 
     /// The witnessed row count, for preparing: one DT64 check, no fold.
@@ -784,6 +899,16 @@ impl Recipe {
         // Exactly sized: `resize` on an empty Vec rounds up to 4 words.
         let mut mask = vec![0u64; words_for(p.n_rows)];
         let (_, lanes) = self.exec(&p, w, &mut scratch, Out::Mask(&mut mask))?;
+        // The rows a drop term could not decide: a second fold over the lanes
+        // already borrowed, so the caller learns of them without another
+        // witness check or a separate `count_unknown`.
+        // Both programs are the same population program with another
+        // terminal, so the keep program's scratch fits it.
+        let u = self.prepare_unknown(p.n_rows)?;
+        let unknown = match self.run_on(&u, &lanes, &mut scratch, Out::None)? {
+            Value::Count(c) => c as u64,
+            other => unreachable!("Count returned {other:?}"),
+        };
         let frame = w.binding.frame().clone();
         let kept: u32 = mask.iter().map(|w| w.count_ones()).sum();
         let mut positions = Vec::with_capacity(kept as usize);
@@ -794,7 +919,7 @@ impl Recipe {
                 bits &= bits - 1;
             }
         }
-        self.rows(frame, lanes, positions)
+        self.rows(frame, lanes, positions, unknown)
     }
 
     /// The rows at `positions`, in list order, repeats kept: a key lookup,
@@ -820,7 +945,7 @@ impl Recipe {
         V: ClassView + ?Sized,
         S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
-        if !self.drop.is_empty() {
+        if !self.drop.is_empty() || !self.text.is_empty() {
             return Err(Refusal::FiltersAtPositions);
         }
         // The frame check `LaneBinding::borrow_all_at` makes, shared with it,
@@ -851,7 +976,8 @@ impl Recipe {
         if let Some(&at) = positions.iter().find(|&&p| p as usize >= n_rows) {
             return Err(Refusal::PositionOutOfRange { at, n_rows });
         }
-        self.rows(under.clone(), lanes, positions.to_vec())
+        // No drop term, so no row is undecided.
+        self.rows(under.clone(), lanes, positions.to_vec(), 0)
     }
 
     fn rows<'a>(
@@ -859,6 +985,7 @@ impl Recipe {
         frame: Frame,
         lanes: Lanes<'a>,
         positions: Vec<u32>,
+        unknown: u64,
     ) -> Result<Rows<'a>, Refusal> {
         let mut cols = Vec::with_capacity(self.out.len());
         let mut planes = Vec::with_capacity(self.out.len());
@@ -873,6 +1000,7 @@ impl Recipe {
             lanes: cols,
             presence: planes,
             positions,
+            unknown,
         })
     }
 
@@ -910,16 +1038,34 @@ impl Recipe {
                 dst: DROPPED,
             },
         ];
+        let mut terms = Vec::with_capacity(self.drop.len() + self.text.len());
         for &(field, cmp, t) in &self.drop {
             let lane = self.lane(field)?;
+            terms.push((lane, cmp.pred(lane, t), Pred::EqI32 { lane, v: 0 }));
+        }
+        if !self.text.is_empty() {
+            let codes = self.codes.as_ref().ok_or(Refusal::TextUnresolved)?;
+            for ((field, eq, _), code) in self.text.iter().zip(&codes.of) {
+                let lane = self.lane(*field)?;
+                let term = match (code, eq) {
+                    (Some(v), true) => Pred::EqU32 { lane, v: *v },
+                    (Some(v), false) => Pred::NeU32 { lane, v: *v },
+                    // No row holds a string the field never coded.
+                    (None, true) => Pred::Range { lo: 0, hi: 0 },
+                    (None, false) => Pred::Range { lo: 0, hi },
+                };
+                terms.push((lane, term, Pred::EqU32 { lane, v: 0 }));
+            }
+        }
+        for (lane, term, zero) in terms {
             ops.extend([
                 MaskOp::Pred {
-                    pred: cmp.pred(lane, t),
+                    pred: term,
                     under: None,
                     dst: TERM,
                 },
                 MaskOp::Pred {
-                    pred: Pred::EqI32 { lane, v: 0 },
+                    pred: zero,
                     under: None,
                     dst: ABSENT,
                 },
@@ -989,6 +1135,8 @@ pub struct Rows<'a> {
     /// call are re-read through `LaneBinding::borrow_all_at` under this
     /// frame, which refuses them once the source has moved.
     frame: Frame,
+    /// Rows neither kept nor dropped: a drop term read an absent value.
+    unknown: u64,
     names: Vec<String>,
     lanes: Vec<LaneRef<'a>>,
     /// Each column's presence plane, borrowed beside its lane.
@@ -1007,6 +1155,13 @@ impl<'a> Rows<'a> {
 
     pub fn is_empty(&self) -> bool {
         self.positions.is_empty()
+    }
+
+    /// How many rows are neither in these rows nor dropped: a drop term read
+    /// an absent value and could not decide (EXO-294). Zero from
+    /// [`Recipe::rows_at`], which takes no drop terms.
+    pub fn unknown(&self) -> u64 {
+        self.unknown
     }
 
     /// The column names, once.
