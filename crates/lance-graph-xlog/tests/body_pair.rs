@@ -578,7 +578,11 @@ fn a_restriction_takes_a_set_expression() {
 #[test]
 fn restricted_witnesses_equal_the_oracle() {
     use lance_graph_xlog::cube::{Restrict, SetExpr};
-    let rels = [magic_edges()];
+    // (5,2) and (2,4) add chains (5,2,3), (5,2,4) and (1,2,4), which the
+    // restrictions must exclude.
+    let mut e = magic_edges();
+    e.extend([(5, 2), (2, 4)]);
+    let rels = [e];
     let (t, mut cube) = cube_of(&rels);
     let a = cube.add_set(&t, &[1, 10]).unwrap();
     let b = cube.add_set(&t, &[3, 12, 2]).unwrap();
@@ -606,6 +610,8 @@ fn restricted_witnesses_equal_the_oracle() {
         .collect();
     assert_eq!(got, want);
     assert_eq!(got, BTreeSet::from([vec![1, 2, 3], vec![10, 11, 12]]));
+    // Anti-vacuity: without the restrictions the body has five witnesses.
+    assert_eq!(witness_oracle(&rels, &chain, 3, &[]).len(), 5);
     let count = cube
         .body_answer_restricted(&t, &chain, 3, &rs)
         .unwrap()
