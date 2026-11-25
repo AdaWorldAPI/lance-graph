@@ -1173,3 +1173,73 @@ fn compaction_demotes_past_zero_and_survives_cancellation() {
     let p = &log.slices()[0];
     assert_eq!((p.exp, p.get(0), p.width()), (Exp(2), Some(3), "PM9"));
 }
+
+/// Sealed slices at three exponents laid end to end: coefficients, the
+/// presence plane, the boundaries and each slice's exponent.
+fn mixed_slices() -> (
+    Vec<i32>,
+    Vec<u64>,
+    Vec<usize>,
+    Vec<Exp>,
+    Vec<Option<(i32, Exp)>>,
+) {
+    let batches: [&[Option<&str>]; 3] = [
+        &[
+            Some("1.25"),
+            None,
+            Some("-0.50"),
+            Some("2.00"),
+            Some("1.20"),
+        ],
+        &[Some("1.205"), Some("0.001"), None, Some("1.2")],
+        &[Some("300"), Some("2"), Some("0"), None, Some("-7")],
+    ];
+    let (mut coef, mut bounds, mut exps, mut values) =
+        (Vec::new(), vec![0], Vec::new(), Vec::new());
+    let mut present = Vec::new();
+    for b in batches {
+        let s = seal(b, Exp::scale(3)).unwrap();
+        for (c, p) in s.coefficients.iter().zip(&s.present) {
+            coef.push(*c);
+            present.push(*p);
+            values.push(p.then_some((*c, s.exp)));
+        }
+        bounds.push(coef.len());
+        exps.push(s.exp);
+    }
+    let mut plane = vec![0u64; words_for(coef.len())];
+    for (i, p) in present.iter().enumerate() {
+        plane[i / 64] |= u64::from(*p) << (i % 64);
+    }
+    (coef, plane, bounds, exps, values)
+}
+
+/// FAILS IF: a decimal threshold dispatched once per slice, at each slice's
+/// own exponent, counts or sums other values than comparing every value
+/// exactly, for any operator, or the slices do not span three exponents.
+#[test]
+fn a_threshold_dispatched_per_slice_equals_the_per_value_oracle() {
+    let (coef, plane, bounds, exps, values) = mixed_slices();
+    assert_eq!(exps, [Exp::scale(2), Exp::scale(3), Exp(0)]);
+    for (op, literal) in [
+        (Op::Ge, "1.205"),
+        (Op::Lt, "1.205"),
+        (Op::Eq, "2"),
+        (Op::Ne, "1.2"),
+        (Op::Le, "0"),
+        (Op::Gt, "-0.5"),
+    ] {
+        let (n, s, at) = slice_count_sum_where(&coef, &plane, &bounds, &exps, op, literal).unwrap();
+        let kept: Vec<(i32, Exp)> = values
+            .iter()
+            .flatten()
+            .copied()
+            .filter(|&(c, e)| oracle(i64::from(c), e, op, literal))
+            .collect();
+        let want_s: i128 = kept
+            .iter()
+            .map(|&(c, e)| i128::from(c) * 10i128.pow((e.0 - at.0) as u32))
+            .sum();
+        assert_eq!((n, s), (kept.len() as u64, want_s), "{op:?} {literal}");
+    }
+}

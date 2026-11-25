@@ -1626,3 +1626,105 @@ fn coarsest(mut values: Vec<Option<i32>>, at: Exp) -> (Exp, Vec<Option<i32>>) {
     }
     (exp, values)
 }
+
+// ---- D-AED-5: dispatch once per sealed slice ------------------------------
+
+/// The mask-risc predicate for `c <op> t` on lane 0.
+fn coefficient_pred(op: Op, t: i32) -> Pred {
+    match op {
+        Op::Eq => Pred::EqI32 { lane: 0, v: t },
+        Op::Ne => Pred::NeI32 { lane: 0, v: t },
+        Op::Lt => Pred::LtI32 { lane: 0, t },
+        Op::Le => Pred::LeI32 { lane: 0, t },
+        Op::Gt => Pred::GtI32 { lane: 0, t },
+        Op::Ge => Pred::GeI32 { lane: 0, t },
+    }
+}
+
+/// `COUNT` and `SUM` of the established values where `value <op> literal`,
+/// over sealed slices at their own exponents. Slice `k` is rows
+/// `bounds[k]..bounds[k + 1]` with coefficients at `exps[k]`. The literal is
+/// resolved once per slice ([`threshold`]) and each slice is one extent
+/// pass per terminal; the sums are aligned per slice to the finest exponent,
+/// never per value.
+pub fn slice_count_sum_where(
+    coefficients: &[i32],
+    presence: &[u64],
+    bounds: &[usize],
+    exps: &[Exp],
+    op: Op,
+    literal: &str,
+) -> Result<(u64, i128, Exp), RecipeRefusal> {
+    let n_rows = coefficients.len();
+    let exec = |e| RecipeRefusal::Recipe(lance_graph_vrl::Refusal::Exec(e));
+    let ranges: Vec<_> = extents(bounds, n_rows).map_err(exec)?.collect();
+    if ranges.len() != exps.len() {
+        return Err(exec(lance_graph_mask_risc::ExecError::ExtentOutOfRange {
+            lo: exps.len(),
+            hi: ranges.len(),
+            n_rows,
+        }));
+    }
+    let masks = [presence];
+    let lanes = [LaneRef::I32(coefficients)];
+    let planes = Planes {
+        n_rows,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let program = |pred: Option<Pred>, terminal: fn(Operand) -> Terminal| {
+        let mut ops = established_ops();
+        if let Some(pred) = pred {
+            ops.push(MaskOp::Pred {
+                pred,
+                under: None,
+                dst: 1,
+            });
+            ops.push(MaskOp::And {
+                a: Operand::Scratch(0),
+                b: Operand::Scratch(1),
+                dst: 0,
+            });
+        }
+        Program::new(ops, terminal(Operand::Scratch(0)))
+    };
+    let target = exps.iter().copied().min().unwrap_or(Exp(0));
+    let mut scratch: Option<Scratch<'static>> = None;
+    let (mut n, mut s) = (0u64, 0i128);
+    for (extent, &exp) in ranges.into_iter().zip(exps) {
+        let pred = match threshold(op, literal, exp).map_err(RecipeRefusal::Decimal)? {
+            Threshold::Never => continue,
+            Threshold::EveryValue => None,
+            Threshold::Coefficient(op, t) => Some(coefficient_pred(op, t)),
+        };
+        let count = program(pred, |mask| Terminal::Count { mask });
+        let sum = program(pred, |mask| Terminal::MaskedSumI32 { mask, lane: 0 });
+        let scratch = match &mut scratch {
+            Some(s) => s,
+            None => scratch.insert(Scratch::for_program(&count, n_rows).map_err(exec)?),
+        };
+        let run = |p: &Program, scratch: &mut Scratch<'_>| {
+            execute_extent(
+                p,
+                &planes,
+                &Foreign::NONE,
+                scratch,
+                Out::None,
+                extent.clone(),
+            )
+            .map_err(exec)
+        };
+        if let lance_graph_mask_risc::Value::Count(c) = run(&count, scratch)? {
+            n += c as u64;
+        }
+        if let lance_graph_mask_risc::Value::SumI64(v) = run(&sum, scratch)? {
+            let k = (i32::from(exp.0) - i32::from(target.0)) as u32;
+            let v = shift(i128::from(v), k)
+                .ok_or(RecipeRefusal::Decimal(DecimalRefusal::AlignmentOverflow))?;
+            s = s
+                .checked_add(v)
+                .ok_or(RecipeRefusal::Decimal(DecimalRefusal::AlignmentOverflow))?;
+        }
+    }
+    Ok((n, s, target))
+}
