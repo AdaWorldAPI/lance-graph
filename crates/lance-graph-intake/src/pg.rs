@@ -33,7 +33,7 @@ pub fn write_selection(
     let specs = table.specs(&texts);
     let (reader, positions) = Reader::open_selected(
         &table.binding,
-        &table.store,
+        &table.profile.store,
         table.owner.table.frames(),
         &table.owner,
         KEPT_SEL,

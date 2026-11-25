@@ -12,7 +12,8 @@ use std::collections::BTreeMap;
 use lance_graph_contract::pg_row::{write_cell, AbsentAs, LaneEncoding, PgColumn, PgType};
 use lance_graph_intake::pg::{write_selection, CollectRows, CopyText};
 use lance_graph_intake::{
-    detect_column, detect_key, detections, ColumnConfig, IntakeRefusal, ShapeConfig, Table, Verdict,
+    detect_column, detect_key, detections, ColumnConfig, IntakeRefusal, ShapeConfig, SourceProfile,
+    Table, Verdict,
 };
 use lance_graph_pg_row::{PgRowRefusal, PgRows};
 use lance_graph_quack::bind::{table as draft, BindError};
@@ -1834,4 +1835,102 @@ fn reads_go_through_a_shared_table() {
         by_key.rows,
         vec![vec![text("3"), None], vec![text("1"), text("10")],]
     );
+}
+
+/// One registered profile: `id`, `region`, `seats`, named by source IRIs
+/// that do not mention any table.
+fn license_profile() -> std::sync::Arc<SourceProfile> {
+    let mut config = ShapeConfig {
+        key: Some("id".to_owned()),
+        ..ShapeConfig::default()
+    };
+    config.columns.insert(
+        "region".to_owned(),
+        ColumnConfig {
+            ty: Some(PgType::Text),
+            encoding: Some(LaneEncoding::TextCode),
+            absent: Some(AbsentAs::Null),
+        },
+    );
+    SourceProfile::new(
+        0x2B09_0001,
+        &[
+            ("id", "graph:license/id"),
+            ("region", "graph:license/region"),
+            ("seats", "graph:license/prepaidUnits"),
+        ],
+        config,
+    )
+    .expect("profile")
+}
+
+/// FAILS IF: two tenants of one profile do not share its class and field
+/// IRIs, share a frame store or a code table, accept each other's frame, or
+/// decode each other's codes; or a table whose columns are not the
+/// profile's labels is accepted.
+#[test]
+fn tenants_share_a_profile_but_never_a_frame_or_a_code() {
+    let profile = license_profile();
+    let cols = ["id", "region", "seats"];
+    let a = Table::from_rows_in(
+        "tenant_a",
+        &profile,
+        &cols,
+        &[
+            vec![Some("1"), Some("north"), Some("10")],
+            vec![Some("2"), Some("south"), Some("5")],
+        ],
+    )
+    .expect("a");
+    let b = Table::from_rows_in(
+        "tenant_b",
+        &profile,
+        &cols,
+        &[
+            vec![Some("1"), Some("south"), Some("3")],
+            vec![Some("2"), Some("east"), None],
+        ],
+    )
+    .expect("b");
+    assert_eq!(
+        std::sync::Arc::strong_count(&profile),
+        3,
+        "one profile, two tenants"
+    );
+
+    let iris = |t: &Table| -> Vec<String> {
+        let w = t.witness();
+        let class = lance_graph_dt64::view_class(w.binding.class());
+        lance_graph_contract::class_view::ClassView::fields(w.view, class)
+            .iter()
+            .map(|f| f.predicate_iri.clone())
+            .collect()
+    };
+    assert_eq!(iris(&a), iris(&b));
+    assert_eq!(iris(&a)[2], "graph:license/prepaidUnits");
+
+    assert_eq!(
+        b.witness().frames.check(&a.frame()),
+        Err(lance_graph_dt64::dr::FrameRefusal::ForeignFrame)
+    );
+    assert!(a.witness().frames.check(&a.frame()).is_ok());
+
+    // Each tenant numbers its own strings: code 1 is `north` in a, `south`
+    // in b, and a's frame decodes nothing in b.
+    assert_eq!(a.code_key("region", 1).as_deref(), Some("north"));
+    assert_eq!(b.code_key("region", 1).as_deref(), Some("south"));
+    assert_eq!(b.code_key_at(&a.frame(), "region", 1), None);
+    assert_eq!(
+        b.code_for(&a.frame(), "graph:license/region", "south"),
+        None
+    );
+    assert_eq!(
+        b.code_for(&b.frame(), "graph:license/region", "south"),
+        Some(1)
+    );
+
+    assert!(matches!(
+        Table::from_rows_in("c", &profile, &["id", "seats", "region"], &[]),
+        Err(IntakeRefusal::ProfileMismatch { .. })
+    ));
 }
