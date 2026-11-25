@@ -56,6 +56,62 @@ pub struct PropertySpec {
     /// Default = `Marking::Internal` (GDPR-safe baseline).
     /// Override per-predicate via `.with_marking(...)`.
     pub marking: Marking,
+    /// How the value may be aggregated. Default `Measure::Undeclared`: no
+    /// aggregate is lawful until the property says which.
+    pub measure: Measure,
+}
+
+/// The measure law of a property: which sums of its values mean something.
+/// A sum the law does not admit is refused, never computed; an undeclared
+/// law admits nothing, because an unknown law is not an empty one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Measure {
+    /// No law declared.
+    #[default]
+    Undeclared,
+    /// A flow: summable across entities and across time (amounts paid,
+    /// seats bought per order).
+    Additive,
+    /// A level read at an instant (seats prepaid on a date, a balance):
+    /// summable across entities at one instant, never across instants.
+    Snapshot,
+    /// Names or flags something and measures nothing (an SKU id, an
+    /// enabled flag): never summed.
+    Identifier,
+}
+
+/// How many instants a sum's population spans.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Spread {
+    /// Every value in the population is read at the same instant.
+    OneInstant,
+    /// The population spans more than one instant, or its instants are not
+    /// fixed.
+    ManyInstants,
+}
+
+/// Why a sum is not lawful.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MeasureRefusal {
+    /// The property declares no measure law.
+    Undeclared,
+    /// The property measures nothing.
+    Identifier,
+    /// A snapshot summed across instants.
+    AcrossInstants,
+}
+
+impl Measure {
+    /// Whether summing this property over a population that spans `spread`
+    /// means something.
+    pub const fn admits_sum(self, spread: Spread) -> Result<(), MeasureRefusal> {
+        match (self, spread) {
+            (Measure::Additive, _) | (Measure::Snapshot, Spread::OneInstant) => Ok(()),
+            (Measure::Snapshot, Spread::ManyInstants) => Err(MeasureRefusal::AcrossInstants),
+            (Measure::Identifier, _) => Err(MeasureRefusal::Identifier),
+            (Measure::Undeclared, _) => Err(MeasureRefusal::Undeclared),
+        }
+    }
 }
 
 impl PropertySpec {
@@ -70,6 +126,7 @@ impl PropertySpec {
             nars_floor: Some((128, 128)),
             semantic_type: SemanticType::PlainText,
             marking: Marking::Internal,
+            measure: Measure::Undeclared,
         }
     }
 
@@ -84,6 +141,7 @@ impl PropertySpec {
             nars_floor: None,
             semantic_type: SemanticType::PlainText,
             marking: Marking::Internal,
+            measure: Measure::Undeclared,
         }
     }
 
@@ -98,11 +156,18 @@ impl PropertySpec {
             nars_floor: None,
             semantic_type: SemanticType::PlainText,
             marking: Marking::Internal,
+            measure: Measure::Undeclared,
         }
     }
 
     pub const fn with_semantic_type(mut self, st: SemanticType) -> Self {
         self.semantic_type = st;
+        self
+    }
+
+    /// Declare how the value may be aggregated.
+    pub const fn with_measure(mut self, measure: Measure) -> Self {
+        self.measure = measure;
         self
     }
 
@@ -498,6 +563,40 @@ pub const INVOICE_SCHEMA: PropertySchema = PropertySchema {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The license report's three fields: seats bought per order (a flow),
+    /// seats prepaid on a date (a level), the SKU id (a name).
+    const SEATS_BOUGHT: PropertySpec =
+        PropertySpec::optional("seatsBought", CodecRoute::Passthrough)
+            .with_measure(Measure::Additive);
+    const PREPAID_UNITS: PropertySpec =
+        PropertySpec::optional("prepaidUnits", CodecRoute::Passthrough)
+            .with_measure(Measure::Snapshot);
+    const SKU_ID: PropertySpec = PropertySpec::required("skuId").with_measure(Measure::Identifier);
+
+    /// FAILS IF: a snapshot is summable across dates, seats prepaid across
+    /// SKUs on one date are not, an identifier has a sum, a property with no
+    /// declared law admits any sum, or a flow is refused (D-RSP-3).
+    #[test]
+    fn a_sum_is_lawful_only_under_its_declared_measure() {
+        use Spread::{ManyInstants, OneInstant};
+        assert_eq!(
+            PREPAID_UNITS.measure.admits_sum(ManyInstants),
+            Err(MeasureRefusal::AcrossInstants)
+        );
+        assert_eq!(PREPAID_UNITS.measure.admits_sum(OneInstant), Ok(()));
+        assert_eq!(
+            SKU_ID.measure.admits_sum(OneInstant),
+            Err(MeasureRefusal::Identifier)
+        );
+        assert_eq!(SEATS_BOUGHT.measure.admits_sum(ManyInstants), Ok(()));
+        let plain = PropertySpec::free("note");
+        assert_eq!(plain.measure, Measure::Undeclared);
+        assert_eq!(
+            plain.measure.admits_sum(OneInstant),
+            Err(MeasureRefusal::Undeclared)
+        );
+    }
 
     #[test]
     fn required_defaults() {
