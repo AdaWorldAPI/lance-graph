@@ -658,3 +658,143 @@ fn pm9_is_stored_packed_not_as_resident_registers() {
     assert!(register >= 72, "a Pm register holds 64 bytes and a u64");
     println!("resident Pm register: {register} bytes");
 }
+
+/// Columns shaped like the three sources the plan names, each with the
+/// exponent a hand declaration gives it.
+fn decimal_samples() -> Vec<(&'static str, Vec<Option<&'static str>>, Exp)> {
+    vec![
+        // Log lines: request durations in milliseconds, one absent.
+        (
+            "log duration_ms",
+            vec![Some("12.5"), Some("3.25"), None, Some("100"), Some("0.75")],
+            Exp::scale(2),
+        ),
+        // JSON telemetry: CPU percent with one decimal, negative drift.
+        (
+            "json cpu_pct",
+            vec![Some("37.5"), Some("0.0"), Some("99.9"), Some("-0.1")],
+            Exp::scale(1),
+        ),
+        // Graph-report-shaped: storage in GB with a trailing-zero scale.
+        (
+            "graph storage_gb",
+            vec![Some("250.00"), Some("1.50"), Some("0.25"), None],
+            Exp::scale(2),
+        ),
+    ]
+}
+
+/// FAILS IF: a decimal column of a log, JSON or Graph-report shape does not
+/// detect as a decimal at the coarsest exponent that reads every value, its
+/// range or support is wrong, or the declaration disagrees with detection.
+#[test]
+fn decimal_text_detects_as_an_exact_decimal_and_agrees_with_its_declaration() {
+    for (name, cells, declared) in decimal_samples() {
+        let detected = detect_decimal(&cells);
+        let DecimalReading::Decimal {
+            exp,
+            min,
+            max,
+            provenance,
+            support,
+            ..
+        } = detected.clone()
+        else {
+            panic!("{name}: {detected:?}")
+        };
+        assert_eq!(exp, declared, "{name}");
+        assert_eq!(provenance, Provenance::Lexical);
+        let present: Vec<i32> = cells
+            .iter()
+            .flatten()
+            .map(|t| parse_exact(t, exp).unwrap())
+            .collect();
+        assert_eq!(
+            (min, max),
+            (
+                *present.iter().min().unwrap(),
+                *present.iter().max().unwrap()
+            ),
+            "{name}"
+        );
+        assert_eq!(support, present.len(), "{name}");
+        let merged =
+            merge_decimal(&cells, &detected, Some(DecimalDecl::Decimal(declared))).unwrap();
+        assert_eq!(
+            merged,
+            (DecimalColumn::Decimal(declared), DecimalVerdict::Agrees),
+            "{name}"
+        );
+    }
+}
+
+/// FAILS IF: the same column, today, detects as anything but text in
+/// intake: the decimal reading is an addition, not a change to intake.
+#[test]
+fn intake_still_detects_decimal_text_as_text() {
+    for (name, cells, _) in decimal_samples() {
+        let d = lance_graph_intake::detect_column(&cells);
+        assert_eq!(d.col.ty, PgType::Text, "{name}: {:?}", d.col);
+    }
+}
+
+/// FAILS IF: a column with a binary-float artefact is read as a decimal,
+/// a short decimal is mistaken for one, or the artefact is rounded instead
+/// of refused. An explicit `f64` declaration is what such a column gets.
+#[test]
+fn a_float_artefact_column_is_refused_as_decimal() {
+    let cells = [Some("0.1"), Some("0.30000000000000004"), Some("0.2")];
+    let detected = detect_decimal(&cells);
+    assert_eq!(
+        detected,
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::FloatArtefact
+        }
+    );
+    let merged = merge_decimal(&cells, &detected, None).unwrap();
+    assert_eq!(merged.0, DecimalColumn::Text, "never silently a decimal");
+    let f64_decl = merge_decimal(&cells, &detected, Some(DecimalDecl::F64)).unwrap();
+    assert_eq!(f64_decl.0, DecimalColumn::F64);
+    assert!(matches!(f64_decl.1, DecimalVerdict::Differs { .. }));
+    // Fifteen significant digits round-trip through f64, so they are not
+    // an artefact; this one is refused only because it leaves `i32`.
+    assert_eq!(
+        detect_decimal(&[Some("0.123456789012345")]),
+        DecimalReading::Refused {
+            row: 0,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
+}
+
+/// FAILS IF: a declaration coarser than the data rounds instead of
+/// refusing, exponent notation or overflow detects as a decimal, or an
+/// integer column claims the decimal reading.
+#[test]
+fn decimal_detection_never_rounds() {
+    let cells = [Some("1.25"), Some("2.5")];
+    let detected = detect_decimal(&cells);
+    assert!(matches!(
+        merge_decimal(&cells, &detected, Some(DecimalDecl::Decimal(Exp::scale(1)))),
+        Err(DecimalRefusal::NotExact { .. })
+    ));
+    assert_eq!(
+        detect_decimal(&[Some("1.5"), Some("1e3")]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Malformed
+        }
+    );
+    assert_eq!(
+        detect_decimal(&[Some("0.5"), Some("3000000000")]),
+        DecimalReading::Refused {
+            row: 1,
+            why: DecimalDetectRefusal::Overflow
+        }
+    );
+    assert_eq!(
+        detect_decimal(&[Some("12"), None, Some("-4")]),
+        DecimalReading::NotDecimal
+    );
+}

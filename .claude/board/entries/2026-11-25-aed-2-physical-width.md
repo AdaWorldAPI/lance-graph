@@ -10,10 +10,12 @@ is the DR512 law: untouched `P=0 M=0`, `+0` is `P=1 M=0`, `-0` never written,
 presence `P ∨ M ≠ 0` (Abakus `touched` for PM9). Round trip, presence and
 identity order are exact (tests in `tests/probe.rs`; two disable runs red).
 
-Command: `cargo run --release --example physical_width` (bytes per value,
-descriptor 10 B per slice, polarity or presence plane included):
+Command: `cargo run --release --example physical_width`. Encoded cost per
+value: a notional 10 B descriptor per slice, the magnitudes and the polarity
+or presence plane. `Vec` headers and struct padding are not counted, in
+either column:
 
-| slices | values | stored | as i32 |
+| slices | values | encoded | as i32 |
 |---|---|---|---|
 | #2182 fixture, 3 × 5 (PM9, PM17, PM17) | 15 | 5.267 | 7.600 |
 | half integers, half scale 1 (PM9, PM9) | 65 536 | 1.125 | 4.125 |

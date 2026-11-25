@@ -1,10 +1,13 @@
-//! D-AED-2 measurement: bytes per value of a sealed slice stored at PM9,
-//! PM17 or `i32`, metadata included (descriptor, polarity or presence).
+//! D-AED-2 measurement: encoded cost per value of a sealed slice at PM9,
+//! PM17 or `i32`: a notional descriptor, the magnitudes and the polarity or
+//! presence plane. `Vec` headers and struct padding are not counted, for
+//! either column.
 //! Run: `cargo run --release --example physical_width`.
 
 use exact_decimal_probe::{seal, Exp, PhysicalSlice, SealedSlice, DESCRIPTOR_BYTES};
 
-/// Bytes the same slice takes as `i32` coefficients plus a presence plane.
+/// Encoded cost of the same slice as `i32` coefficients plus a presence
+/// plane, counted the same way.
 fn i32_bytes(s: &SealedSlice) -> usize {
     DESCRIPTOR_BYTES + s.coefficients.len() * 4 + s.coefficients.len().div_ceil(64) * 8
 }
@@ -21,7 +24,7 @@ fn row(name: &str, slices: &[SealedSlice]) {
         assert_eq!(PhysicalSlice::store(s).load(), *s, "{name}: round trip");
     }
     println!(
-        "{name:<42} {values:>8} values  {:>6.3} B/value stored  {:>6.3} B/value as i32  widths {widths:?}",
+        "{name:<42} {values:>8} values  {:>6.3} B/value encoded  {:>6.3} B/value as i32  widths {widths:?}",
         stored as f64 / values as f64,
         wide as f64 / values as f64,
     );

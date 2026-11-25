@@ -966,7 +966,7 @@ pub struct PhysicalSlice {
     pub lanes: Lanes,
 }
 
-/// Bytes of a slice descriptor: exponent, width tag and length.
+/// Notional bytes of a slice descriptor: exponent, width tag and length.
 pub const DESCRIPTOR_BYTES: usize = 1 + 1 + 8;
 
 impl PhysicalSlice {
@@ -1113,7 +1113,9 @@ impl PhysicalSlice {
         }
     }
 
-    /// Bytes held: descriptor, magnitudes, polarity or presence plane.
+    /// Encoded cost in bytes: a notional descriptor ([`DESCRIPTOR_BYTES`]),
+    /// the magnitudes and the polarity or presence plane. It excludes `Vec`
+    /// headers and struct padding, so it is not the memory the value holds.
     pub fn bytes(&self) -> usize {
         DESCRIPTOR_BYTES
             + match &self.lanes {
@@ -1122,4 +1124,189 @@ impl PhysicalSlice {
                 Lanes::I32 { coef, present } => coef.len() * 4 + present.len() * 8,
             }
     }
+}
+
+// ---- D-AED-7: schema-on-write detection of exact decimals -----------------
+
+/// Significant digits a binary64 printer can emit without the text being
+/// a decimal the source chose: up to 15, every decimal round-trips through
+/// `f64` unchanged, so a value that short says nothing about a float origin.
+pub const F64_EXACT_DIGITS: usize = 15;
+
+/// What a column of text reads as under the exact-decimal reading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DecimalReading {
+    /// Every present value parses exactly at `exp`, the coarsest common
+    /// exponent, and at least one is written with a decimal point.
+    Decimal {
+        exp: Exp,
+        min: i32,
+        max: i32,
+        width: Option<PmWidth>,
+        provenance: Provenance,
+        /// Present values read.
+        support: usize,
+    },
+    /// No present value has a decimal point: an integer or text column,
+    /// left to intake's own detection.
+    NotDecimal,
+    /// Some value is not an exact decimal; `row` is the first one.
+    Refused {
+        row: usize,
+        why: DecimalDetectRefusal,
+    },
+}
+
+/// Why a column is refused the decimal reading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DecimalDetectRefusal {
+    /// Not a plain decimal (exponent notation, stray characters, ...).
+    Malformed,
+    /// More significant digits than [`F64_EXACT_DIGITS`], and the text is
+    /// exactly what a binary64 printer writes for the nearest `f64`: the
+    /// value was produced by float arithmetic, not chosen as a decimal.
+    FloatArtefact,
+    /// The coefficient at the common exponent leaves `i32`.
+    Overflow,
+}
+
+/// Whether `text` is the shortest round-trip rendering of an `f64` with more
+/// significant digits than any decimal the source would pick.
+fn float_artefact(text: &str) -> bool {
+    let Ok((c, _)) = canonical(text) else {
+        return false;
+    };
+    if c.unsigned_abs().to_string().len() <= F64_EXACT_DIGITS {
+        return false;
+    }
+    match text.trim().parse::<f64>() {
+        Ok(f) if f.is_finite() => canonical(&format!("{f}")) == canonical(text),
+        _ => false,
+    }
+}
+
+/// Detect the exact-decimal reading of one column (`None` is absent).
+/// Nothing is rounded: a column is a decimal only if every present value
+/// reads exactly at one exponent within `i32`.
+pub fn detect_decimal(cells: &[Option<&str>]) -> DecimalReading {
+    let mut pointed = false;
+    for (row, cell) in cells.iter().enumerate() {
+        let Some(text) = cell else { continue };
+        if canonical(text).is_err() {
+            return DecimalReading::Refused {
+                row,
+                why: DecimalDetectRefusal::Malformed,
+            };
+        }
+        if float_artefact(text) {
+            return DecimalReading::Refused {
+                row,
+                why: DecimalDetectRefusal::FloatArtefact,
+            };
+        }
+        pointed |= text.contains('.');
+    }
+    if !pointed {
+        return DecimalReading::NotDecimal;
+    }
+    let sealed = match seal(cells, Exp(i8::MIN)) {
+        Ok(s) => s,
+        Err(_) => {
+            // The exponent `seal` chose: the finest canonical one.
+            let exp = cells
+                .iter()
+                .flatten()
+                .filter_map(|t| canonical(t).ok())
+                .filter(|(c, _)| *c != 0)
+                .map(|(_, e)| e)
+                .min()
+                .unwrap_or(Exp(0));
+            let row = cells
+                .iter()
+                .position(|c| c.is_some_and(|t| parse_exact(t, exp).is_err()))
+                .unwrap_or(0);
+            return DecimalReading::Refused {
+                row,
+                why: DecimalDetectRefusal::Overflow,
+            };
+        }
+    };
+    let present = || {
+        sealed
+            .coefficients
+            .iter()
+            .zip(&sealed.present)
+            .filter(|(_, p)| **p)
+            .map(|(c, _)| *c)
+    };
+    DecimalReading::Decimal {
+        exp: sealed.exp,
+        min: present().min().unwrap_or(0),
+        max: present().max().unwrap_or(0),
+        width: sealed.width,
+        provenance: Provenance::Lexical,
+        support: present().count(),
+    }
+}
+
+/// A hand declaration for a decimal-looking column.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecimalDecl {
+    /// Keep the column as text.
+    Text,
+    /// Read it as a decimal at this exponent.
+    Decimal(Exp),
+    /// Read it through the explicit `f64` method; never a silent decimal.
+    F64,
+}
+
+/// What a column becomes once the declaration is merged over detection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecimalColumn {
+    Text,
+    Decimal(Exp),
+    F64,
+}
+
+/// How the merged column relates to detection, as intake's `Verdict` does.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DecimalVerdict {
+    Agrees,
+    Differs { detected: DecimalReading },
+    DetectedOnly,
+}
+
+/// Merge `decl` over `detected`. Config wins, but a decimal declaration
+/// must still read every value exactly: a declared exponent coarser than
+/// the data is refused, never rounded.
+pub fn merge_decimal(
+    cells: &[Option<&str>],
+    detected: &DecimalReading,
+    decl: Option<DecimalDecl>,
+) -> Result<(DecimalColumn, DecimalVerdict), DecimalRefusal> {
+    let column = |d: &DecimalReading| match d {
+        DecimalReading::Decimal { exp, .. } => DecimalColumn::Decimal(*exp),
+        _ => DecimalColumn::Text,
+    };
+    let Some(decl) = decl else {
+        return Ok((column(detected), DecimalVerdict::DetectedOnly));
+    };
+    let merged = match decl {
+        DecimalDecl::Text => DecimalColumn::Text,
+        DecimalDecl::F64 => DecimalColumn::F64,
+        DecimalDecl::Decimal(exp) => {
+            for text in cells.iter().flatten() {
+                parse_exact(text, exp)?;
+            }
+            DecimalColumn::Decimal(exp)
+        }
+    };
+    let verdict = if merged == column(detected) {
+        DecimalVerdict::Agrees
+    } else {
+        DecimalVerdict::Differs {
+            detected: detected.clone(),
+        }
+    };
+    Ok((merged, verdict))
 }
