@@ -101,13 +101,7 @@ fn presence_zero_with_a_nonzero_value_is_a_value() {
     assert_eq!(r.sum(&w, "a").unwrap(), -4);
 }
 
-const PROGRAMS: &[&str] = &[
-    ".n = .key\n.a = .properties.amount.value",
-    ".a = .properties.amount.value\nif .a < 0 { abort }",
-    ".a = .properties.amount.value\nif .properties.status.value != 2 { abort }",
-    ".a = .properties.amount.value\nif .properties.region.value == 0 { abort }\nif .a >= 200 { abort }",
-    ".r = .properties.region.value\n.a = .properties.amount.value\nif .properties.status.value > 2 { abort }\nif .a <= 10 { abort }\nif .r != 1 { abort }",
-];
+use common::programs::PRESENCE as PROGRAMS;
 
 /// At widths 1..1000 with about a fifth of status, region and amount absent,
 /// and some presence-0 rows left holding a nonzero value, the recipe's kept

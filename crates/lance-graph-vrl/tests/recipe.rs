@@ -33,19 +33,7 @@ fn compile(src: &str) -> Recipe {
         .unwrap_or_else(|e| panic!("{src}: {e:?}"))
 }
 
-/// Programs inside the subset, each exercising a different part of it.
-const PROGRAMS: &[&str] = &[
-    ".name = .key\n.amount = .properties.amount.value",
-    ".name = .key\n.amount = .properties.amount.value\nif .properties.status.value != 2 { abort }",
-    ".id = .key\nif .properties.region.value == 0 { abort }\nif .properties.status.value == 3 { abort }",
-    ".orig = .key\n.key = .properties.region.value\n.reg = .key\nif .key != 1 { abort }",
-    ".a = .key; .b = .properties.amount.value; del(.a)",
-    ".a = .properties.status.value; del(.key); if .a == 0 { abort }",
-    ".s = .properties.status.value\n.amt = .properties.amount.value\nif .s != 1 { abort }",
-    ".id = .key\nif .key < 1010 { abort }\nif .key >= 1050 { abort }",
-    ".a = .properties.amount.value\nif .a <= 0 { abort }\nif .properties.status.value > 1 { abort }",
-    ".r = .properties.region.value\nif .r < 1 { abort }\nif .r >= 2 { abort }",
-];
+use common::programs::RECIPE as PROGRAMS;
 
 /// The same recipe answers as the interpreter does over materialized events,
 /// at widths 0, 1, 63, 64, 65, 256, 512 and 1000: rows in row order, names,
