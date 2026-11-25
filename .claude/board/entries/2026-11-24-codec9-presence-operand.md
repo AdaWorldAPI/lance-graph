@@ -131,9 +131,20 @@ is an open wiring question, not a reason for a second socket.
 The seam is this socket. The register contract (`PresentLane` under a sealed
 frame) and the method (Abakus `add_pm` semantics, `touched`) stay the same;
 only the slice width changes: PM9 is a u8 magnitude, PM17 or PM25 wider. The
-carry mask (`PmSum::carry`) is the promotion trigger. A promotion re-lays the
-lane, so it re-seals the frame, and `FrameStore::check` already refuses stale
-readers. A frame-qualified width needs no per-value tag.
+carry mask (`PmSum::carry`) is the promotion trigger.
+
+⊘ CORRECTED 2026-11-25: this read "a promotion re-lays the lane, so it
+re-seals the frame, and `FrameStore::check` already refuses stale readers".
+That holds only if the owner also bumps a revision. Measured in source: a
+seal covers `FrameRevisions { source, relation_map, coordinates }`
+(`dt64/src/dr.rs:360`), and `LaneAddr` is `{ space, lane, scope }`
+(`lane.rs:39`), with no width in either. A u8 → u16 relayout is therefore
+refused by nothing unless the owner bumps a revision or changes the
+`LaneAddr`. The width is implied only by the source's `Lane<'a>` type. The
+contract envelope does carry an element kind (`ColumnDescriptor.kind`,
+`soa_envelope.rs:94`, checked by `verify_layout`), but it is not connected to
+the frame seal. Whether the physical width is witnessed is OPEN, not
+established.
 
 OPEN, and it is a grammar decision: `LaneWidth` is fixed per class at compile
 time, while an adaptive width is a property of a frame or tile. Either the
