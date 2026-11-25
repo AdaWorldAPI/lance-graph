@@ -687,6 +687,18 @@ impl Recipe {
             return Err(Refusal::NotThisRecipe);
         }
         let lanes = self.lanes(w, p.sum)?;
+        let v = self.run_on(p, &lanes, scratch, out)?;
+        Ok((v, lanes))
+    }
+
+    /// Run `p` over lanes already borrowed under one witness check.
+    fn run_on(
+        &self,
+        p: &Prepared,
+        lanes: &Lanes<'_>,
+        scratch: &mut Scratch<'_>,
+        out: Out<'_>,
+    ) -> Result<Value, Refusal> {
         let n_rows = lanes.get()[0].len();
         if n_rows != p.n_rows {
             return Err(Refusal::RowsChanged {
@@ -709,9 +721,7 @@ impl Recipe {
             masks: lanes.planes(),
             lanes: lanes.get(),
         };
-        let v = execute_into(&p.program, &planes, &Foreign::NONE, scratch, out)
-            .map_err(Refusal::Exec)?;
-        Ok((v, lanes))
+        execute_into(&p.program, &planes, &Foreign::NONE, scratch, out).map_err(Refusal::Exec)
     }
 
     /// The witnessed row count, for preparing: one DT64 check, no fold.
@@ -784,6 +794,16 @@ impl Recipe {
         // Exactly sized: `resize` on an empty Vec rounds up to 4 words.
         let mut mask = vec![0u64; words_for(p.n_rows)];
         let (_, lanes) = self.exec(&p, w, &mut scratch, Out::Mask(&mut mask))?;
+        // The rows a drop term could not decide: a second fold over the lanes
+        // already borrowed, so the caller learns of them without another
+        // witness check or a separate `count_unknown`.
+        // Both programs are the same population program with another
+        // terminal, so the keep program's scratch fits it.
+        let u = self.prepare_unknown(p.n_rows)?;
+        let unknown = match self.run_on(&u, &lanes, &mut scratch, Out::None)? {
+            Value::Count(c) => c as u64,
+            other => unreachable!("Count returned {other:?}"),
+        };
         let frame = w.binding.frame().clone();
         let kept: u32 = mask.iter().map(|w| w.count_ones()).sum();
         let mut positions = Vec::with_capacity(kept as usize);
@@ -794,7 +814,7 @@ impl Recipe {
                 bits &= bits - 1;
             }
         }
-        self.rows(frame, lanes, positions)
+        self.rows(frame, lanes, positions, unknown)
     }
 
     /// The rows at `positions`, in list order, repeats kept: a key lookup,
@@ -851,7 +871,8 @@ impl Recipe {
         if let Some(&at) = positions.iter().find(|&&p| p as usize >= n_rows) {
             return Err(Refusal::PositionOutOfRange { at, n_rows });
         }
-        self.rows(under.clone(), lanes, positions.to_vec())
+        // No drop term, so no row is undecided.
+        self.rows(under.clone(), lanes, positions.to_vec(), 0)
     }
 
     fn rows<'a>(
@@ -859,6 +880,7 @@ impl Recipe {
         frame: Frame,
         lanes: Lanes<'a>,
         positions: Vec<u32>,
+        unknown: u64,
     ) -> Result<Rows<'a>, Refusal> {
         let mut cols = Vec::with_capacity(self.out.len());
         let mut planes = Vec::with_capacity(self.out.len());
@@ -873,6 +895,7 @@ impl Recipe {
             lanes: cols,
             presence: planes,
             positions,
+            unknown,
         })
     }
 
@@ -989,6 +1012,8 @@ pub struct Rows<'a> {
     /// call are re-read through `LaneBinding::borrow_all_at` under this
     /// frame, which refuses them once the source has moved.
     frame: Frame,
+    /// Rows neither kept nor dropped: a drop term read an absent value.
+    unknown: u64,
     names: Vec<String>,
     lanes: Vec<LaneRef<'a>>,
     /// Each column's presence plane, borrowed beside its lane.
@@ -1007,6 +1032,13 @@ impl<'a> Rows<'a> {
 
     pub fn is_empty(&self) -> bool {
         self.positions.is_empty()
+    }
+
+    /// How many rows are neither in these rows nor dropped: a drop term read
+    /// an absent value and could not decide (EXO-294). Zero from
+    /// [`Recipe::rows_at`], which takes no drop terms.
+    pub fn unknown(&self) -> u64 {
+        self.unknown
     }
 
     /// The column names, once.
