@@ -356,61 +356,208 @@ fn computes(rhs: &str) -> Option<String> {
     None
 }
 
-/// A boolean condition: `.f`, `!.f`, or `.f ==`/`!= true`/`false`.
-/// `None` when the condition is not one.
-fn bool_condition(cond: &str) -> Result<Option<Stmt>, Refusal> {
-    let cond = cond.trim();
-    let toks: Vec<&str> = cond.split_whitespace().collect();
-    let (p, value) = match toks.as_slice() {
-        [p] if p.starts_with('!') => (&p[1..], false),
-        [p] => (*p, true),
-        [p, op, lit @ ("true" | "false")] => {
-            let lit = *lit == "true";
-            match *op {
-                "==" => (*p, lit),
-                "!=" => (*p, !lit),
-                other => return Err(Refusal::Computes(format!("order on a boolean: {other}"))),
-            }
-        }
-        _ => return Ok(None),
-    };
-    Ok(Some(Stmt::AbortBool {
-        path: path(p)?,
-        value,
-    }))
+/// One token of a recipe's source, with its byte span.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Tok {
+    /// `.a`, `.properties.f.value`: a path, as written.
+    Path(String),
+    /// `if`, `abort`, `del`, `true`, a function name.
+    Ident(String),
+    Int(i64),
+    /// A string literal's contents; `escaped` when it used a backslash.
+    Str {
+        text: String,
+        escaped: bool,
+    },
+    Op(&'static str),
+    /// A statement boundary outside braces: `;` (`true`) or a newline.
+    End(bool),
 }
 
-/// Parse a recipe's source into its statements. [`Recipe::compile`] lowers
-/// them; a reference interpreter may evaluate them independently.
-pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
+const OPS: [&str; 25] = [
+    "==", "!=", "<=", ">=", "&&", "||", "=~", "??", "<", ">", "=", "!", "+", "-", "*", "/", "%",
+    "(", ")", "{", "}", ",", ":", "[", "]",
+];
+
+/// The source as tokens with spans. Comments (`#` to the end of the line)
+/// and blank lines are skipped; a string literal may hold `;`, `#` or
+/// spaces. A character outside the lexicon is refused as computing.
+fn lex(src: &str) -> Result<Vec<(Tok, std::ops::Range<usize>)>, Refusal> {
+    let b = src.as_bytes();
     let mut out = Vec::new();
-    for raw in src.split(['\n', ';']) {
-        let s = raw.trim();
-        if s.is_empty() || s.starts_with('#') {
-            continue;
-        }
-        if let Some(rest) = s.strip_prefix("if ") {
-            let (cond, body) = rest
-                .split_once('{')
-                .ok_or_else(|| Refusal::Computes("if without a block".into()))?;
-            let block = body.trim().strip_suffix('}').map(str::trim);
-            if block != Some("abort") {
-                return Err(Refusal::Computes("if body other than abort".into()));
+    let mut i = 0;
+    let mut depth = 0usize;
+    let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    while i < b.len() {
+        let c = b[i];
+        match c {
+            b'#' => {
+                while i < b.len() && b[i] != b'\n' {
+                    i += 1;
+                }
             }
-            if let Some(stmt) = bool_condition(cond)? {
-                out.push(stmt);
-                continue;
+            b'\n' | b';' if depth == 0 => {
+                out.push((Tok::End(c == b';'), i..i + 1));
+                i += 1;
             }
-            if let Some((left, quoted)) = cond.split_once('"') {
-                let text = quoted
-                    .trim_end()
-                    .strip_suffix('"')
-                    .filter(|t| !t.contains(['"', '\\']))
-                    .ok_or_else(|| Refusal::Computes(format!("text literal in {}", cond.trim())))?;
-                let toks: Vec<&str> = left.split_whitespace().collect();
-                let [p, op] = toks.as_slice() else {
-                    return Err(Refusal::Computes(format!("condition {}", cond.trim())));
+            b' ' | b'\t' | b'\r' | b'\n' => i += 1,
+            b'.' if b.get(i + 1).is_some_and(|&n| ident(n)) => {
+                let start = i;
+                i += 1;
+                while i < b.len()
+                    && (ident(b[i]) || (b[i] == b'.' && b.get(i + 1).is_some_and(|&n| ident(n))))
+                {
+                    i += 1;
+                }
+                out.push((Tok::Path(src[start..i].to_owned()), start..i));
+            }
+            b'"' => {
+                let start = i;
+                i += 1;
+                let mut text = String::new();
+                let mut escaped = false;
+                loop {
+                    match b.get(i) {
+                        None => {
+                            return Err(Refusal::Computes(format!(
+                                "text literal in {}",
+                                src[start..].trim()
+                            )))
+                        }
+                        Some(b'"') => break,
+                        Some(b'\\') => {
+                            escaped = true;
+                            i += 1;
+                            if let Some(&e) = b.get(i) {
+                                text.push(e as char);
+                            }
+                            i += 1;
+                        }
+                        Some(_) => {
+                            let ch = src[i..].chars().next().expect("in bounds");
+                            text.push(ch);
+                            i += ch.len_utf8();
+                        }
+                    }
+                }
+                i += 1;
+                out.push((Tok::Str { text, escaped }, start..i));
+            }
+            b'0'..=b'9' => {
+                let start = i;
+                while i < b.len() && b[i].is_ascii_digit() {
+                    i += 1;
+                }
+                let v = src[start..i].parse::<i64>().map_err(|_| {
+                    Refusal::Computes(format!("non-i32 comparison {}", &src[start..i]))
+                })?;
+                out.push((Tok::Int(v), start..i));
+            }
+            _ if ident(c) => {
+                let start = i;
+                while i < b.len() && ident(b[i]) {
+                    i += 1;
+                }
+                out.push((Tok::Ident(src[start..i].to_owned()), start..i));
+            }
+            _ => {
+                let Some(op) = OPS.iter().find(|op| src[i..].starts_with(**op)) else {
+                    return Err(Refusal::Computes(format!(
+                        "statement {}",
+                        src[i..].lines().next().unwrap_or("").trim()
+                    )));
                 };
+                match *op {
+                    "{" => depth += 1,
+                    "}" => depth = depth.saturating_sub(1),
+                    _ => {}
+                }
+                // A minus directly before a digit, after an operator or at
+                // the start, is a negative literal.
+                let negative = *op == "-"
+                    && b.get(i + 1).is_some_and(u8::is_ascii_digit)
+                    && !matches!(
+                        out.last(),
+                        Some((Tok::Path(_) | Tok::Int(_) | Tok::Ident(_), _))
+                    );
+                if negative {
+                    let start = i;
+                    i += 1;
+                    while i < b.len() && b[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                    let v = src[start..i].parse::<i64>().map_err(|_| {
+                        Refusal::Computes(format!("non-i32 comparison {}", &src[start..i]))
+                    })?;
+                    out.push((Tok::Int(v), start..i));
+                    continue;
+                }
+                out.push((Tok::Op(op), i..i + op.len()));
+                i += op.len();
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// The source text a token run spans, trimmed.
+fn text_of<'s>(src: &'s str, toks: &[(Tok, std::ops::Range<usize>)]) -> &'s str {
+    match (toks.first(), toks.last()) {
+        (Some(a), Some(z)) => src[a.1.start..z.1.end].trim(),
+        _ => "",
+    }
+}
+
+/// One `if <cond> { abort }` statement, its tokens after `if`.
+fn abort_stmt(
+    src: &str,
+    toks: &[(Tok, std::ops::Range<usize>)],
+    whole: &str,
+) -> Result<Stmt, Refusal> {
+    let Some(open) = toks.iter().position(|t| t.0 == Tok::Op("{")) else {
+        return Err(Refusal::Computes("if without a block".into()));
+    };
+    let block = &toks[open + 1..];
+    if !matches!(block, [(Tok::Ident(a), _), (Tok::Op("}"), _)] if a == "abort") {
+        return Err(Refusal::Computes("if body other than abort".into()));
+    }
+    let cond = &toks[..open];
+    let cond_text = text_of(src, cond);
+    let _ = whole;
+    let bool_lit = |t: &Tok| match t {
+        Tok::Ident(x) if x == "true" => Some(true),
+        Tok::Ident(x) if x == "false" => Some(false),
+        _ => None,
+    };
+    match cond {
+        [(Tok::Path(p), _)] => Ok(Stmt::AbortBool {
+            path: path(p)?,
+            value: true,
+        }),
+        [(Tok::Op("!"), _), (Tok::Path(p), _)] => Ok(Stmt::AbortBool {
+            path: path(p)?,
+            value: false,
+        }),
+        [_] => Err(Refusal::UnknownPath(cond_text.to_owned())),
+        [(Tok::Path(p), _), (Tok::Op(op), _), (lit, _)] if bool_lit(lit).is_some() => {
+            let lit = bool_lit(lit).expect("checked");
+            match *op {
+                "==" => Ok(Stmt::AbortBool {
+                    path: path(p)?,
+                    value: lit,
+                }),
+                "!=" => Ok(Stmt::AbortBool {
+                    path: path(p)?,
+                    value: !lit,
+                }),
+                other => Err(Refusal::Computes(format!("order on a boolean: {other}"))),
+            }
+        }
+        _ if cond.iter().any(|t| matches!(t.0, Tok::Str { .. })) => match cond {
+            [(Tok::Path(p), _), (Tok::Op(op), _), (Tok::Str { text, escaped }, _)] => {
+                if *escaped || text.contains('"') {
+                    return Err(Refusal::Computes(format!("text literal in {cond_text}")));
+                }
                 let eq = match *op {
                     "==" => true,
                     "!=" => false,
@@ -421,50 +568,98 @@ pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
                     }
                     other => return Err(Refusal::Computes(format!("comparison {other}"))),
                 };
-                out.push(Stmt::AbortText {
+                Ok(Stmt::AbortText {
                     path: path(p)?,
                     eq,
-                    text: text.to_string(),
-                });
-                continue;
+                    text: text.clone(),
+                })
             }
-            let toks: Vec<&str> = cond.split_whitespace().collect();
-            let [p, op, v] = toks.as_slice() else {
-                return Err(Refusal::Computes(format!("condition {}", cond.trim())));
-            };
+            _ => Err(Refusal::Computes(format!("condition {cond_text}"))),
+        },
+        [(Tok::Path(p), _), (Tok::Op(op), _), v] => {
             let cmp =
                 Cmp::parse(op).ok_or_else(|| Refusal::Computes(format!("comparison {op}")))?;
-            let value = v
-                .parse::<i32>()
-                .map_err(|_| Refusal::Computes(format!("non-i32 comparison {v}")))?;
-            out.push(Stmt::Abort {
+            let value = match &v.0 {
+                Tok::Int(n) => i32::try_from(*n).ok(),
+                _ => None,
+            }
+            .ok_or_else(|| {
+                Refusal::Computes(format!(
+                    "non-i32 comparison {}",
+                    text_of(src, std::slice::from_ref(v))
+                ))
+            })?;
+            Ok(Stmt::Abort {
                 path: path(p)?,
                 cmp,
                 value,
-            });
-            continue;
+            })
         }
-        if let Some(inner) = s.strip_prefix("del(").and_then(|x| x.strip_suffix(')')) {
-            match path(inner)? {
-                Path::Name(n) => out.push(Stmt::Del(n)),
-                Path::Prop(_) => return Err(Refusal::Computes("del of a property".into())),
+        _ => Err(Refusal::Computes(format!("condition {cond_text}"))),
+    }
+}
+
+/// Parse a recipe's source into its statements. [`Recipe::compile`] lowers
+/// them; a reference interpreter may evaluate them independently.
+///
+/// The source is lexed once: statements end at a newline or `;` outside a
+/// block, `#` starts a comment, and a string literal may hold any of them.
+pub fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
+    let toks = lex(src)?;
+    let mut out = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0;
+    let mut stmts: Vec<&[(Tok, std::ops::Range<usize>)]> = Vec::new();
+    for (k, t) in toks.iter().enumerate() {
+        match t.0 {
+            Tok::Op("{") => depth += 1,
+            Tok::Op("}") => depth = depth.saturating_sub(1),
+            Tok::End(semicolon) if depth == 0 => {
+                // `;;`: VRL has no empty statement.
+                if semicolon && k == start {
+                    return Err(Refusal::Computes("empty statement".into()));
+                }
+                stmts.push(&toks[start..k]);
+                start = k + 1;
             }
-            continue;
+            _ => {}
         }
-        if let Some((lhs, rhs)) = s.split_once('=') {
-            if let Some(c) = computes(rhs) {
-                return Err(Refusal::Computes(c));
+    }
+    stmts.push(&toks[start..]);
+    for st in stmts.into_iter().filter(|s| !s.is_empty()) {
+        let whole = text_of(src, st);
+        match st {
+            [(Tok::Ident(kw), _), rest @ ..] if kw == "if" => {
+                out.push(abort_stmt(src, rest, whole)?)
             }
-            let Path::Name(name) = path(lhs)? else {
-                return Err(Refusal::Computes("assignment into properties".into()));
-            };
-            out.push(Stmt::Assign(name, path(rhs)?));
-            continue;
+            [(Tok::Ident(kw), _), (Tok::Op("("), _), (Tok::Path(p), _), (Tok::Op(")"), _)]
+                if kw == "del" =>
+            {
+                match path(p)? {
+                    Path::Name(n) => out.push(Stmt::Del(n)),
+                    Path::Prop(_) => return Err(Refusal::Computes("del of a property".into())),
+                }
+            }
+            [(Tok::Path(lhs), _), (Tok::Op("="), eq), rhs @ ..] => {
+                let rhs_text = src[eq.end..st.last().expect("non-empty").1.end].trim();
+                if let Some(c) = computes(rhs_text) {
+                    return Err(Refusal::Computes(c));
+                }
+                let Path::Name(name) = path(lhs)? else {
+                    return Err(Refusal::Computes("assignment into properties".into()));
+                };
+                let [(Tok::Path(r), _)] = rhs else {
+                    return Err(Refusal::UnknownPath(rhs_text.to_owned()));
+                };
+                out.push(Stmt::Assign(name, path(r)?));
+            }
+            _ => {
+                if let Some(c) = computes(whole) {
+                    return Err(Refusal::Computes(c));
+                }
+                return Err(Refusal::Computes(format!("statement {whole}")));
+            }
         }
-        if let Some(c) = computes(s) {
-            return Err(Refusal::Computes(c));
-        }
-        return Err(Refusal::Computes(format!("statement {s}")));
     }
     Ok(out)
 }

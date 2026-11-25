@@ -7,7 +7,7 @@
 "if .key == 1 { abort }}"
   => Err(Computes("if body other than abort"))
 ".o{i} = .properties.f{i}.value"
-  => Err(UnknownPath(".o{i}"))
+  => Err(Computes("statement .o{i} = .properties.f{i}.value"))
 ".id = .key\ndel(.id)"
   => Ok([Assign("id", Name("key")), Del("id")])
 ".id = .key"
@@ -81,9 +81,9 @@
 ".e = .properties.enabled.value\nif {cond} {{ abort }}"
   => Err(Computes("if body other than abort"))
 ".e == false"
-  => Err(UnknownPath("= false"))
+  => Err(Computes("statement .e == false"))
 ".e != true"
-  => Err(UnknownPath(".e !"))
+  => Err(Computes("statement .e != true"))
 ".e = .properties.enabled.value"
   => Ok([Assign("e", Prop("enabled"))])
 ".a = .properties.amount.value\nif .a < 3 { abort }"
@@ -143,7 +143,7 @@
 ".o0 = .key\n"
   => Ok([Assign("o0", Name("key"))])
 ".o{i} = .properties.f{i}.value\n"
-  => Err(UnknownPath(".o{i}"))
+  => Err(Computes("statement .o{i} = .properties.f{i}.value"))
 ".a = .properties.amount.value\nif .a {op} 0 {{ abort }}"
   => Err(Computes("if body other than abort"))
 ".n = .key\nif .key >= 0 { abort }"
@@ -159,11 +159,11 @@
 ".a = .properties.amount.value\n.b = .key"
   => Ok([Assign("a", Prop("amount")), Assign("b", Name("key"))])
 "# a comment\n.n = .key\n\n.a = .properties.amount.value  # trailing"
-  => Err(UnknownPath(".properties.amount.value  # trailing"))
+  => Ok([Assign("n", Name("key")), Assign("a", Prop("amount"))])
 ".a=.key\nif .a<3{abort}"
-  => Err(UnknownPath(".a<3"))
+  => Ok([Assign("a", Name("key")), Abort { path: Name("a"), cmp: Lt, value: 3 }])
 "if .properties.title.value == \"a;b\" { abort }"
-  => Err(Computes("if without a block"))
+  => Ok([AbortText { path: Prop("title"), eq: true, text: "a;b" }])
 "if .properties.title.value == \"x#y\" { abort }"
   => Ok([AbortText { path: Prop("title"), eq: true, text: "x#y" }])
 "if .key > -5 { abort }"
@@ -175,7 +175,7 @@
 "if .properties.flag.value { abort }"
   => Ok([AbortBool { path: Prop("flag"), value: true }])
 ".a = .key;;.b = .key"
-  => Ok([Assign("a", Name("key")), Assign("b", Name("key"))])
+  => Err(Computes("empty statement"))
 "if .key > 3 { abort } else { abort }"
   => Err(Computes("if body other than abort"))
 "if .key > 3 { abort: \"x\" }"
