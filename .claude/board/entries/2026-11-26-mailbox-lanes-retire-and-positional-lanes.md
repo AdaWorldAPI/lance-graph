@@ -37,12 +37,20 @@ DECISION: EXO-469 (lance-graph · Decisions).
 
 **Same rule, second list (not mailbox-lanes):** `lance-graph-xlog/src/wide.rs:478-578` folds into `BTreeMap<u64, u32>` / `BTreeSet<u64>`; `lance-graph-xlog/tests/body_pair.rs` checks answers by decoding into `BTreeSet<(u32, u32)>`.
 
+**Same rule, the xlog repository (`AdaWorldAPI/xlog`, `origin/main` `d6de529`, the rev `crates/xlog-coverage-probe` pins):** `xlog-cube` executes xlog's compiled plans on `lance_graph_xlog::cube::Cube`, so it sits on the fabric. In `crates/xlog-cube/src/lib.rs`:
+- intake keyed by string, as tuples: `base: BTreeMap<String, Vec<(u32, u32)>>` (`:251`), `sets: BTreeMap<String, Vec<u32>>` (`:253`), `empty_sets` / `empty: BTreeSet<String>` (`:255`, `:263`);
+- output decoded into owned rows: `out: BTreeMap<Label, Rows>` with `type Rows = BTreeSet<Vec<u32>>` (`:264`, `:291`);
+- its module doc says *"no string reaches execution"*; intake by `String` and tuple-set output contradict it.
+
+`BTreeMap`/`BTreeSet` across the repo: 1,712 uses in 22 crates; `xlog-cube` 45 in `src/`, 44 in tests. The rest (xlog-logic, -cuda, -gpu, -prob, -runtime, pyxlog) is xlog's own engine, off the fabric; whether it migrates is that repo's decision under its `ENGINEERING.md` (not read here). This session has no push access to the xlog repo.
+
 ## Next
 
 1. DT64: `LaneBinding` drops `refs`; `lane_of` takes the field position; field → lane resolved once at class registration; `check_bound` compares rev, basis digest and each `LaneAddr`.
 2. Move the 14 string-keyed sources to position tables; the 18 lose an unused parameter.
 3. Retire `lance-graph-mailbox-lanes`; virtual-address-lab's test reads `MailboxSoaView` directly.
 4. Re-pin the allocation count to what remains, and add a test that fails if bind or check compares or allocates a string.
+5. xlog-cube (xlog repo): intake by codebook label, relations as cube lanes, results as masks read through the cube; no `String` key, no `Vec<(u32, u32)>`, no `BTreeSet<Vec<u32>>`.
 
 ## Agent runs
 
