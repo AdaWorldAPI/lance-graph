@@ -115,7 +115,11 @@ fn entry(u: usize) -> String {
                         STATES[st],
                         group(g)
                     ),
-                    None => format!(r#"{{"skuId":"{}","state":"{}"}}"#, sku(s), STATES[st]),
+                    None => format!(
+                        r#"{{"skuId":"{}","state":"{}","assignedByGroup":null}}"#,
+                        sku(s),
+                        STATES[st]
+                    ),
                 })
                 .collect();
             format!(
@@ -412,7 +416,7 @@ fn licence_states_select_intersect_and_resolve_against_the_oracle() {
     let groups: Vec<Guid128> = planes
         .explain(UserOrdinal(u0 as u16), gc)
         .unwrap()
-        .map(|p| p.assigned_by_group.unwrap())
+        .map(|p| p.assigning_group().unwrap())
         .collect();
     assert_eq!(
         groups,
@@ -511,7 +515,7 @@ fn stale_foreign_and_mismatched_bindings_are_refused() {
         for u in &mut p.users {
             if let Some(paths) = &mut u.paths {
                 paths.retain(|x| {
-                    x.assigned_by_group.is_some() || x.sku == Guid128::parse(&sku(7)).unwrap()
+                    x.assigning_group().is_some() || x.sku == Guid128::parse(&sku(7)).unwrap()
                 });
             }
         }
