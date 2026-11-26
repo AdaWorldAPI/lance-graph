@@ -197,6 +197,17 @@ fn ou_hhtl_of(dn: &Dn128) -> Option<OuHhtl> {
     Some(h)
 }
 
+/// The OU names of location `dn`, root first, as `dict` spells them: the
+/// location read as names, with no DN rendered or parsed. `None` when `dn` is
+/// deeper than the dictionary's [`OU_LEVELS`] or names a level `dict` does not
+/// know. It allocates the names, so it belongs where a location is shown,
+/// never in a fold.
+pub fn ou_names(dn: &Dn128, dict: &OuDictionary) -> Option<Vec<String>> {
+    ou_hhtl_of(dn)
+        .and_then(|h| dict.explain(&h))
+        .filter(|p| p.len() == dn.depth())
+}
+
 /// Project version `v` as AD entries under `naming_context` (e.g.
 /// `DC=example,DC=de`). `dict` resolves locations to OU names: the
 /// dictionary the observation was read with.
@@ -247,10 +258,7 @@ pub fn project(
             };
             let s = v.node_state(&g).expect("existing node");
             let dn = s.dn.ok_or(ProjectError::Unlocated { node: g })?;
-            let path = ou_hhtl_of(&dn)
-                .and_then(|h| dict.explain(&h))
-                .filter(|p| p.len() == dn.depth())
-                .ok_or(ProjectError::UnknownOu { node: g })?;
+            let path = ou_names(&dn, dict).ok_or(ProjectError::UnknownOu { node: g })?;
             for d in 1..=path.len() {
                 ous.insert(path[..d].to_vec());
             }

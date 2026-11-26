@@ -2,7 +2,7 @@
 //! marked with where it came from.
 
 use lance_graph_dir_sim::ad::{
-    base64, escape_rdn_value, project, to_ldif, Origin, ProjectError, Source, Value,
+    base64, escape_rdn_value, ou_names, project, to_ldif, Origin, ProjectError, Source, Value,
 };
 use lance_graph_dir_sim::observe::{from_graph, SYNTHETIC_OU};
 use lance_graph_dir_sim::*;
@@ -341,4 +341,44 @@ fn a_nested_group_is_a_member_not_dangling() {
         [format!("CN={alice},OU=Staff,{NC}").as_str()]
     );
     assert_eq!(p.dangling_members, 1);
+}
+
+/// A location reads as its OU names straight from the dictionary, root first,
+/// with no DN rendered: a sibling's name never answers for another's, an
+/// unknown level is `None`, and a location deeper than the dictionary's
+/// levels is `None`. Falsifier: an off-by-one between a `Dn128` code and the
+/// dictionary's segment, or names read from a level the location does not
+/// have.
+#[test]
+fn a_location_reads_as_its_ou_names() {
+    let mut dict = OuDictionary::new();
+    let users =
+        Dn128::from_ou_hhtl(&dict.intern(&["Germany", "Berlin", "Users"]).unwrap()).unwrap();
+    let groups =
+        Dn128::from_ou_hhtl(&dict.intern(&["Germany", "Berlin", "Groups"]).unwrap()).unwrap();
+    let svc = Dn128::from_ou_hhtl(&dict.intern(&["Germany", "Service Accounts"]).unwrap()).unwrap();
+    let neu = Dn128::from_ou_hhtl(
+        &dict
+            .intern(&["Germany", "Berlin", "Neu, ohne Rolle"])
+            .unwrap(),
+    )
+    .unwrap();
+    let names = |dn: &Dn128| ou_names(dn, &dict);
+    assert_eq!(names(&users).unwrap(), ["Germany", "Berlin", "Users"]);
+    assert_eq!(names(&groups).unwrap(), ["Germany", "Berlin", "Groups"]);
+    assert_eq!(names(&svc).unwrap(), ["Germany", "Service Accounts"]);
+    assert_eq!(
+        names(&neu).unwrap(),
+        ["Germany", "Berlin", "Neu, ohne Rolle"]
+    );
+    assert_eq!(names(&Dn128::ROOT).unwrap(), Vec::<String>::new());
+    // Siblings have different codes at the last level, and the codes are not
+    // the dictionary's 1-based segments.
+    assert_ne!(users.codes(), groups.codes());
+    // A code the dictionary never allocated under that parent.
+    let mut unknown = users.codes().to_vec();
+    *unknown.last_mut().unwrap() = 200;
+    assert_eq!(names(&Dn128::new(&unknown).unwrap()), None);
+    // Deeper than the dictionary can hold.
+    assert_eq!(names(&Dn128::new(&[0; 9]).unwrap()), None);
 }

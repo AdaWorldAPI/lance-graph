@@ -12,7 +12,7 @@ use std::cell::Cell;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
-use lance_graph_dir_sim::dt64::{DirLanes, UserBasis, F_PATH1, F_UPN, LANE_REV};
+use lance_graph_dir_sim::dt64::{path_level, DirLanes, UserBasis, F_PATH1, F_UPN, LANE_REV};
 use lance_graph_dir_sim::{Observation, ObservedNode, Rule, UserOrdinal, VersionStore, View};
 use lance_graph_dt64::dr::Scope;
 use lance_graph_dt64::{
@@ -178,8 +178,10 @@ fn path_lanes_read_each_level_of_the_users_location() {
     let mut present = 0usize;
     let mut read_allocs = 0u64;
     for (k, &f) in path.iter().enumerate() {
-        let lane = b.lane(&bs, &basis, lanes.frames(), &lanes, f).unwrap();
+        // The borrow is counted too: a lane check resolves every bound path
+        // predicate again (`lane_of`), so a parser that allocates shows here.
         let a0 = allocs();
+        let lane = b.lane(&bs, &basis, lanes.frames(), &lanes, f).unwrap();
         let cells: [Option<u32>; 5] = std::array::from_fn(|r| lane.get(r as u32));
         read_allocs += allocs() - a0;
         for row in 0..lanes.users_len() as u32 {
@@ -191,7 +193,10 @@ fn path_lanes_read_each_level_of_the_users_location() {
             present += usize::from(expect.is_some());
         }
     }
-    assert_eq!(read_allocs, 0, "reading the cells allocates nothing");
+    assert_eq!(
+        read_allocs, 0,
+        "borrowing the lanes and reading the cells allocates nothing"
+    );
     assert_eq!(checked, 5 * LEVELS);
     // Anti-vacuity: values at level 1 and 2, and absences at every level.
     assert_eq!(present, 3 + 2, "three users at Path1, two at Path2");
@@ -310,5 +315,30 @@ fn only_the_canonical_path_predicates_bind() {
                 r.err()
             );
         }
+    }
+}
+
+/// The one path parser, as consumers call it: each canonical level, and no
+/// other spelling. Falsifier: a parser that accepts a leading zero, a sign or
+/// a level outside 1..=16, or one that reads another prefix.
+#[test]
+fn path_level_is_the_canonical_parser() {
+    for k in 1..=16u8 {
+        assert_eq!(path_level(&format!("dir:ouPath/{k}")), Some(k));
+    }
+    for bad in [
+        "dir:ouPath/0",
+        "dir:ouPath/17",
+        "dir:ouPath/01",
+        "dir:ouPath/+1",
+        "dir:ouPath/-1",
+        "dir:ouPath/ 1",
+        "dir:ouPath/1a",
+        "dir:ouPath/",
+        "dir:ouPath/256",
+        "dir:ouPath1",
+        "dir:userPrincipalName",
+    ] {
+        assert_eq!(path_level(bad), None, "{bad}");
     }
 }
