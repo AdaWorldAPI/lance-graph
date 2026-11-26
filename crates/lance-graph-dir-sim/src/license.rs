@@ -46,7 +46,7 @@ use lance_graph_quack::{Agg, Filter, Mask};
 use ogar_az::license::{LicensesPage, PathState, SkuCapacity, SkuPage};
 use ogar_dir_core::Guid128;
 
-use ogar_az::license::{EffectiveSku, LicensePath};
+use ogar_az::license::{EffectiveSku, LicensePath, Origin};
 use ogar_dir_sim::VersionId;
 
 use crate::exec::{self, Kept};
@@ -62,6 +62,20 @@ pub enum Via {
     Direct,
     /// Inherited from a group.
     Group,
+    /// The path did not report `assignedByGroup`: its origin is unknown, and
+    /// it is neither direct nor through a group.
+    Unreported,
+}
+
+impl Via {
+    /// How `p` reaches its user, from the origin OGAR decoded.
+    pub fn of(p: &LicensePath) -> Via {
+        match p.origin {
+            Some(Origin::Direct) => Via::Direct,
+            Some(Origin::Group(_)) => Via::Group,
+            None => Via::Unreported,
+        }
+    }
 }
 
 /// One licence-state code: a SKU, how it is assigned, and its reported state.
@@ -89,6 +103,7 @@ impl LicenseState {
         let via = match self.via {
             Via::Direct => 0,
             Via::Group => 1,
+            Via::Unreported => 2,
         };
         (self.sku.0, via, rank, text)
     }
@@ -101,6 +116,7 @@ impl LicenseState {
         let via = match self.via {
             Via::Direct => "direct",
             Via::Group => "group",
+            Via::Unreported => "unreported",
         };
         let state = match &self.state {
             PathState::Active => "Active",
@@ -115,9 +131,7 @@ impl LicenseState {
     }
 
     fn matches(&self, p: &LicensePath) -> bool {
-        p.sku == self.sku
-            && p.state == self.state
-            && (p.assigned_by_group.is_some() == (self.via == Via::Group))
+        p.sku == self.sku && p.state == self.state && Via::of(p) == self.via
     }
 }
 
@@ -320,11 +334,7 @@ impl LicensePlanes {
             for p in paths {
                 let code = LicenseState {
                     sku: p.sku,
-                    via: if p.assigned_by_group.is_some() {
-                        Via::Group
-                    } else {
-                        Via::Direct
-                    },
+                    via: Via::of(p),
                     state: p.state.clone(),
                 };
                 let i = match states.iter().position(|s| *s == code) {

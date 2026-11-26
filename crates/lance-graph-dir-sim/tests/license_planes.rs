@@ -45,8 +45,14 @@ fn page(entries: &[String]) -> LicensesPage {
 fn path(sku: &str, state: &str, group: Option<&str>) -> String {
     match group {
         Some(gr) => format!(r#"{{"skuId":"{sku}","state":"{state}","assignedByGroup":"{gr}"}}"#),
-        None => format!(r#"{{"skuId":"{sku}","state":"{state}"}}"#),
+        // Graph's direct assignment: the property is present and null.
+        None => format!(r#"{{"skuId":"{sku}","state":"{state}","assignedByGroup":null}}"#),
     }
+}
+
+/// A path whose entry omits `assignedByGroup`.
+fn unreported_path(sku: &str, state: &str) -> String {
+    format!(r#"{{"skuId":"{sku}","state":"{state}"}}"#)
 }
 
 fn entry(u: u8, paths: Option<&[String]>) -> String {
@@ -384,7 +390,7 @@ fn the_evidence_keeps_both_assigning_groups_behind_one_bit() {
     let groups: Vec<Guid128> = p
         .explain(UserOrdinal(0), group_code)
         .unwrap()
-        .map(|x| x.assigned_by_group.unwrap())
+        .map(|x| x.assigning_group().unwrap())
         .collect();
     assert_eq!(groups, vec![g(GROUP), g(GROUP2)]);
     assert_eq!(p.holder_count(&g(SKU)), 2);
@@ -482,4 +488,25 @@ fn the_link_chain_sees_a_missing_middle_page() {
     // A loop back to the first page.
     let loops = linked(&[entry(1, Some(&[]))], Some(a));
     assert_eq!(fetched(3, vec![(a, p1()), (b, loops)]), Coverage::Ambiguous);
+}
+
+/// Falsifier: reading an omitted `assignedByGroup` as direct folds u1 into
+/// the direct code; it must get its own code and stay out of the direct set.
+#[test]
+fn an_unreported_origin_is_its_own_code() {
+    let p = build(
+        2,
+        &[
+            entry(0, Some(&[path(SKU, "Active", None)])),
+            entry(1, Some(&[unreported_path(SKU, "Active")])),
+        ],
+    )
+    .unwrap();
+    assert_eq!(p.states().len(), 2, "direct and unreported are two codes");
+    assert_eq!(p.states()[0].via, Via::Direct);
+    assert_eq!(p.states()[1].via, Via::Unreported);
+    assert_eq!(p.with_state(0).unwrap().rows(), vec![0]);
+    assert_eq!(p.with_state(1).unwrap().rows(), vec![1]);
+    // Still one SKU held by both: the origin is unknown, the seat is not.
+    assert_eq!(p.holder_count(&g(SKU)), 2);
 }
