@@ -814,5 +814,9 @@ fn a_read_only_act_allocates_what_was_measured() {
     );
 }
 
-/// Measured on this fixture; lower it when `act` gets leaner.
-const MEASURED_READ_ONLY_ACT_ALLOCATIONS: u64 = 41;
+/// Measured on this fixture; lower it when `act` gets leaner. Two of them
+/// are the `label` of `META`, cloned by the guard's and the operands'
+/// `bind_lanes`: a `LaneBinding` keeps each bound field's whole `FieldRef` so
+/// `check_bound` can call `lane_of` without a view, and the store keeps no
+/// copy of the basis to borrow from (Decision J).
+const MEASURED_READ_ONLY_ACT_ALLOCATIONS: u64 = 43;
