@@ -1,3 +1,10 @@
+## 2026-11-25 — lance-graph PR #2188 (merged `be002fd`) — D-DIRSIM-DT64-PATHS: OU path levels as bound lanes, published `UserBasis`
+
+- **Added:** `lance-graph-dir-sim::dt64::{UserBasis, F_PATH1, PATH_IRI_PREFIX}`; `dir:ouPath/1..16` bind the level code of a user's `Dn128` beside UPN and primary SMTP; `View::location`, sharing `slot_dn` with `node_state`.
+- **Locked (measured):** `tests/dt64_paths.rs` 4 tests (basis order, each level against the fixture's codes with 0 allocations on the cell read, a simulated move, canonical predicates only); 4 disable runs red; the full dir-sim suite and clippy `-D warnings` clean with `--all-features`.
+- **Not done:** VRL cannot read the per-row `UserLane` (contiguous lanes only); no methods registered for the user class; `LaneBinding::lane()` allocated 3 times per call in the test, untraced.
+- **Confidence:** merged; first consumer report-rs `rpt-m365-manager` S3 uses the basis for its columns but not yet the lanes for its values.
+
 ## 2026-11-18 — lance-graph PRs #2128, #2129, #2130, #2132 (merged `6b6c0bb`) — one frame for tiles and codes, typed ranges and a grouped count, a three-valued guard under a gate
 
 - **Added:**

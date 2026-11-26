@@ -1,3 +1,10 @@
+## 2026-11-25 — dir-sim user class: OU path lanes and `UserBasis` (D-DIRSIM-DT64-PATHS, merged #2188)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-dir-sim::dt64` (feature `dt64`): `UserBasis::new(class, levels)` (UPN, Primary SMTP, Path1..Path`levels`, clamped to 16); `F_PATH1 = 2`; `PATH_IRI_PREFIX = "dir:ouPath/"`; `DirLanes` binds `dir:ouPath/1..16` (canonical spelling only) to the level code of the user's location; `LANE_REV` unchanged (additive).
+- `lance-graph-dir-sim::View::location(&Guid128) -> Option<Option<Dn128>>`.
+
 ## 2026-11-25 — VRL migration finished: the lab moves into lance-graph-vrl (S0)
 
 ### Current Contract Inventory — net delta

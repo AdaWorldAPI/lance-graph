@@ -79,12 +79,20 @@ pub const PATH_IRI_PREFIX: &str = "dir:ouPath/";
 /// basis without them binds exactly the lanes it did before.
 pub const LANE_REV: SchemaRev = SchemaRev(1);
 
-/// The OU path level a predicate names (`dir:ouPath/3` is level 3), if any.
-fn path_level(iri: &str) -> Option<u8> {
+/// The OU path level a predicate names (`dir:ouPath/3` is level 3), if any:
+/// the one parser of the path predicates, for this crate's lanes and for
+/// every consumer that reads them.
+///
+/// One spelling per level: decimal digits with no sign and no leading zero,
+/// 1..=16. `dir:ouPath/01`, `/+1`, `/0` and `/17` name no level. It
+/// allocates nothing: a lane check calls it for every bound path field.
+pub fn path_level(iri: &str) -> Option<u8> {
     let digits = iri.strip_prefix(PATH_IRI_PREFIX)?;
+    if digits.starts_with('0') || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
     let k: u8 = digits.parse().ok()?;
-    // One spelling per level: `dir:ouPath/01` and `dir:ouPath/+1` are no lane.
-    ((1..=DN_LEVELS as u8).contains(&k) && digits == k.to_string()).then_some(k)
+    (1..=DN_LEVELS as u8).contains(&k).then_some(k)
 }
 
 /// What a user lane reads.
