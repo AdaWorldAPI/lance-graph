@@ -172,6 +172,16 @@ pub enum Gap {
         /// `UNRESOLVED_CALL` rows in the whole store.
         store_dynamic_calls: u32,
     },
+    /// Functions whose body the harvest did not read (`BODY_NOT_STRUCTURED`, e.g. an `async fn`
+    /// whose coroutine was not translated) may call the symbol: they, and everything that
+    /// reaches them, are in `graded.unknown`. Their calls have no rows, so their absence from
+    /// `confirmed` proves nothing.
+    UnreadBodies {
+        /// Positions in `graded.unknown` reached through an unread body.
+        unknown: u32,
+        /// Functions with an unread body in the whole store.
+        store_unread_bodies: u32,
+    },
     /// Functions that take the address of the symbol, or of a function in the answer, without
     /// calling it (`REFERENCES` rows) and are in none of the three masks. A reference is not a
     /// call edge, so they are not graded; whether they pass the address on to a caller is not
@@ -527,7 +537,20 @@ impl Codegraph {
         if possible > 0 {
             gaps.push(Gap::TraitDispatch { possible });
         }
-        let unknown = popcount(&graded.unknown);
+        // `graded.unknown` has two causes. The part an unread body explains is its own gap; the
+        // rest is what a dynamic call can explain, and only a dynamic call in the store can.
+        let mut via_unread = self.unread_reach(g)?;
+        for (u, k) in via_unread.iter_mut().zip(&graded.unknown) {
+            *u &= *k;
+        }
+        let unread = popcount(&via_unread);
+        if unread > 0 {
+            gaps.push(Gap::UnreadBodies {
+                unknown: unread,
+                store_unread_bodies: popcount(self.unread_bodies()),
+            });
+        }
+        let unknown = popcount(&graded.unknown) - unread;
         let store_dynamic_calls = self.coverage().dynamic_calls;
         if unknown > 0 || (store_dynamic_calls > 0 && self.dynamic_may_reach(g, &graded)) {
             gaps.push(Gap::DynamicCalls {

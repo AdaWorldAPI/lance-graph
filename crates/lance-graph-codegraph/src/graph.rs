@@ -96,6 +96,9 @@ struct Masks {
     called: Vec<u64>,
     may_targets: Vec<u64>,
     dynamic_callers: Vec<u64>,
+    /// Functions whose body the harvest did not read (`BODY_NOT_STRUCTURED`
+    /// residuals). Their calls are unknown: such a body may call anything.
+    unread_bodies: Vec<u64>,
     stored_owner: Vec<u64>,
 }
 
@@ -422,8 +425,16 @@ fn masks_of(
         called: vec![0; words],
         may_targets: vec![0; words],
         dynamic_callers: vec![0; words],
+        unread_bodies: vec![0; words],
         stored_owner: vec![0; words],
     };
+    // A subject with no position (a residual for a function with no row) has
+    // nothing to mark.
+    for id in lanes.all_unread_bodies() {
+        if let Some(q) = pos.at(id) {
+            set(&mut m.unread_bodies, q);
+        }
+    }
     let p = |id: u32| pos.at(id).unwrap_or(NONE);
     for i in 0..lanes.len() {
         let (s, o) = (lanes.subject[i], lanes.object[i]);
@@ -717,11 +728,23 @@ impl Codegraph {
         // their own file, so they can change while the rows do not. Read them
         // first: the unchanged-rows shortcut may only skip a refresh whose
         // residuals are unchanged too. A refusal here leaves the graph as is.
-        let residuals = artifact::read_residuals(dir, krate).map_err(RefreshRefusal::Intake)?;
+        let res_file = artifact::read_residual_file(dir, krate).map_err(RefreshRefusal::Intake)?;
+        let residuals = res_file.as_ref().map(|r| r.counts);
+        let unread: &[String] = res_file
+            .as_ref()
+            .map_or(&[], |r| r.unread_bodies.as_slice());
         let unchanged = |digest| {
             self.symbols.get(krate).is_some_and(|k| {
                 self.lanes.digest_of(k) == Some(digest)
                     && self.lanes.residuals_of(k) == Some(residuals)
+                    // The counts can match while the subjects differ (one
+                    // unread body swapped for another).
+                    && self
+                        .lanes
+                        .unread_bodies_of(k)
+                        .iter()
+                        .map(|&id| self.symbols.name(id))
+                        .eq(unread.iter().map(String::as_str))
             })
         };
         match artifact::crate_source(dir, krate) {
@@ -766,6 +789,8 @@ impl Codegraph {
         // ---- prepare: everything below borrows the graph immutably ----
         let kid = syms.intern(krate);
         fresh.set_residuals(kid, residuals);
+        let unread_ids = unread.iter().map(|s| syms.intern(s)).collect();
+        fresh.set_unread_bodies(kid, unread_ids);
 
         // Edges of the crate's old rows, before any new position exists. Every
         // other crate's rows are in both the old and the new lane set, so the
@@ -1202,6 +1227,12 @@ impl Codegraph {
     /// Subjects of UNRESOLVED_CALL rows.
     pub fn dynamic_callers(&self) -> &[u64] {
         &self.masks.dynamic_callers
+    }
+    /// Functions whose body the harvest did not read: the subjects of
+    /// `BODY_NOT_STRUCTURED` residuals that have a position. Their calls and
+    /// references are unknown, so no row-backed answer about them is complete.
+    pub fn unread_bodies(&self) -> &[u64] {
+        &self.masks.unread_bodies
     }
     /// Symbols whose first path segment names a crate with a CRATE row.
     pub fn stored_owner(&self) -> &[u64] {

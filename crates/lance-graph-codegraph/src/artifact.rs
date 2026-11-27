@@ -328,6 +328,10 @@ pub struct Lanes {
     /// `(crate text id, residual counts)`. `None`: no `<krate>.residuals.tsv`
     /// was found, so nothing is known about what the harvest missed.
     residuals: Vec<(u32, Option<ResidualCounts>)>,
+    /// `(crate text id, text ids of its unread bodies)`: the
+    /// `BODY_NOT_STRUCTURED` subjects of the crate's residuals file, kept and
+    /// replaced with its residual counts.
+    unread_bodies: Vec<(u32, Vec<u32>)>,
 }
 
 impl Lanes {
@@ -377,6 +381,28 @@ impl Lanes {
             Some(e) => e.1 = counts,
             None => self.residuals.push((krate, counts)),
         }
+    }
+
+    /// The text ids of `krate`'s unread bodies (empty when none, or when the
+    /// crate was read without a residuals file).
+    pub fn unread_bodies_of(&self, krate: u32) -> &[u32] {
+        self.unread_bodies
+            .iter()
+            .find(|r| r.0 == krate)
+            .map_or(&[], |r| r.1.as_slice())
+    }
+
+    /// Record the unread bodies read beside `krate`'s rows.
+    pub fn set_unread_bodies(&mut self, krate: u32, ids: Vec<u32>) {
+        match self.unread_bodies.iter_mut().find(|e| e.0 == krate) {
+            Some(e) => e.1 = ids,
+            None => self.unread_bodies.push((krate, ids)),
+        }
+    }
+
+    /// Every unread body of every crate, as text ids.
+    pub fn all_unread_bodies(&self) -> impl Iterator<Item = u32> + '_ {
+        self.unread_bodies.iter().flat_map(|r| r.1.iter().copied())
     }
 
     /// The crates read (each has a recorded file digest), in read order.
@@ -449,6 +475,9 @@ impl Lanes {
         }
         for (k, r) in other.residuals {
             self.set_residuals(k, r);
+        }
+        for (k, ids) in other.unread_bodies {
+            self.set_unread_bodies(k, ids);
         }
     }
 }
@@ -593,6 +622,23 @@ pub const RESIDUAL_SUFFIX: &str = ".residuals.tsv";
 /// Read `<krate>.residuals.tsv` of `dir`: `Ok(None)` when the file does not
 /// exist (nothing is known about what was missed), counts by kind otherwise.
 pub fn read_residuals(dir: &Path, krate: &str) -> Result<Option<ResidualCounts>, IntakeRefusal> {
+    Ok(read_residual_file(dir, krate)?.map(|r| r.counts))
+}
+
+/// One `<krate>.residuals.tsv`, as read.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ResidualFile {
+    /// Residuals by kind.
+    pub counts: ResidualCounts,
+    /// The subjects of the `BODY_NOT_STRUCTURED` rows, in file order: the
+    /// functions whose bodies the harvest did not read. Their calls and
+    /// references are unknown, so a query must not read the absence of a row
+    /// from them as "calls nothing".
+    pub unread_bodies: Vec<String>,
+}
+
+/// [`read_residuals`] with the subjects of the unread bodies.
+pub fn read_residual_file(dir: &Path, krate: &str) -> Result<Option<ResidualFile>, IntakeRefusal> {
     let path = dir.join(format!("{krate}{RESIDUAL_SUFFIX}"));
     let text = match fs::read_to_string(&path) {
         Ok(t) => t,
@@ -604,7 +650,7 @@ pub fn read_residuals(dir: &Path, krate: &str) -> Result<Option<ResidualCounts>,
         .map_err(IntakeRefusal::Residual)
 }
 
-fn parse_residuals(text: &str) -> Result<ResidualCounts, ResidualRefusal> {
+fn parse_residuals(text: &str) -> Result<ResidualFile, ResidualRefusal> {
     let mut lines = text.lines();
     let version = lines
         .next()
@@ -617,20 +663,23 @@ fn parse_residuals(text: &str) -> Result<ResidualCounts, ResidualRefusal> {
     if lines.next() != Some("#schema reason\tsubject") {
         return Err(ResidualRefusal::Schema);
     }
-    let mut counts = ResidualCounts::default();
+    let mut out = ResidualFile::default();
     for (i, l) in lines.enumerate() {
         let line = i + 3;
         if l.is_empty() {
             continue;
         }
         let mut f = l.split('\t');
-        let (Some(reason), Some(_subject), None) = (f.next(), f.next(), f.next()) else {
+        let (Some(reason), Some(subject), None) = (f.next(), f.next(), f.next()) else {
             return Err(ResidualRefusal::Arity { line });
         };
         let kind = ResidualKind::parse(reason).ok_or(ResidualRefusal::UnknownReason { line })?;
-        counts.0[kind.index()] += 1;
+        out.counts.0[kind.index()] += 1;
+        if kind == ResidualKind::BodyNotStructured {
+            out.unread_bodies.push(subject.to_owned());
+        }
     }
-    Ok(counts)
+    Ok(out)
 }
 
 const SUFFIX: &str = ".rows.tsv";
@@ -702,7 +751,13 @@ pub fn read_dir(dir: &Path, symbols: &mut Symbols) -> Result<Lanes, IntakeRefusa
             read_text_as(&text, stem, symbols, &mut lanes)?;
         }
         if let Some(id) = symbols.get(stem) {
-            lanes.set_residuals(id, read_residuals(dir, stem)?);
+            let res = read_residual_file(dir, stem)?;
+            let unread = res
+                .as_ref()
+                .map(|r| r.unread_bodies.iter().map(|s| symbols.intern(s)).collect())
+                .unwrap_or_default();
+            lanes.set_residuals(id, res.map(|r| r.counts));
+            lanes.set_unread_bodies(id, unread);
         }
     }
     Ok(lanes)
