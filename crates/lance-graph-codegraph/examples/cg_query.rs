@@ -479,13 +479,38 @@ fn main() -> ExitCode {
     };
     match graded {
         Ok((gr, sites)) => {
+            // An unread body may call any function in the store, so its
+            // UNKNOWN callees are the whole store: one counted line, not a
+            // name per function.
+            let body_unread = bit(g.unread_bodies(), pos);
+            let collapse_unknown = cmd == "callees" && body_unread;
             for (grade, mask) in [
                 ("CONFIRMED", &gr.confirmed),
                 ("POSSIBLE", &gr.possible),
                 ("UNKNOWN", &gr.unknown),
             ] {
+                if grade == "UNKNOWN" && collapse_unknown {
+                    continue;
+                }
                 for n in names(&g, mask) {
                     println!("{cmd}\t{grade}\t{n}");
+                }
+            }
+            if collapse_unknown {
+                let n: u32 = gr.unknown.iter().map(|w| w.count_ones()).sum();
+                println!("{cmd}\tUNKNOWN\tbody-not-read\t{sym}\tfunctions={n}");
+            }
+            if cmd != "callees" {
+                let unread = gr
+                    .unknown
+                    .iter()
+                    .zip(g.unread_bodies())
+                    .map(|(a, b)| (a & b).count_ones())
+                    .sum::<u32>();
+                if unread > 0 {
+                    println!(
+                        "{cmd}\tUNKNOWN\tunread-bodies\t{unread} functions whose body was not read"
+                    );
                 }
             }
             if let Some(s) = sites {

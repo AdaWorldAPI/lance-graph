@@ -4,8 +4,15 @@
 //! Grading: **confirmed** means a `CALLS_RESOLVED` / `REFERENCES` row backs
 //! it. **possible** means only `MAY_DISPATCH` (plus `IMPLEMENTS`) backs it; a
 //! `MAY_DISPATCH` row is never confirmed. **unknown** means a dynamic call
-//! (`UNRESOLVED_CALL`, the `?dynamic` position) or a function-pointer
-//! reference could reach it; it is never reported as "unaffected".
+//! (`UNRESOLVED_CALL`, the `?dynamic` position), a function-pointer
+//! reference, or a body the harvest did not read could reach it; it is never
+//! reported as "unaffected".
+//!
+//! An unread body (a `BODY_NOT_STRUCTURED` residual, e.g. an `async fn`
+//! whose coroutine Charon did not translate) has no call rows at all, so an
+//! empty confirmed set from it means "not observed", never "calls nothing":
+//! it is an unknown caller of every function, and every function is an
+//! unknown callee of it.
 
 use lance_graph_xlog::cube::{CubeRefusal, RelId};
 use lance_graph_xlog::wide::WideRows;
@@ -121,7 +128,9 @@ impl Codegraph {
     /// with `sites` their row count. Possible: callers that `MAY_DISPATCH` to
     /// a `Trait::method` that `g` implements (never confirmed). Unknown: the
     /// dynamic callers, when `g` is an impl or is referenced (a dyn call or
-    /// fn-pointer call may reach it). An out-of-range `g` yields empty masks.
+    /// fn-pointer call may reach it), and every function whose body was not
+    /// read ([`Codegraph::unread_bodies`]), which may call `g` directly. An
+    /// out-of-range `g` yields empty masks.
     pub fn callers(&mut self, g: Pos) -> Result<Calls, QueryRefusal> {
         let w = self.words();
         let (confirmed, sites) = self.partners(CALLS, g, true).map_err(refuse)?;
@@ -133,9 +142,12 @@ impl Codegraph {
         mask_andnot_assign(&mut possible, &confirmed);
 
         let mut unknown = vec![0u64; w];
-        let reachable = has(self.impl_subjects(), g) || has(self.referenced(), g);
-        if reachable {
-            unknown.copy_from_slice(self.dynamic_callers());
+        if self.symbol(g).is_some() {
+            let reachable = has(self.impl_subjects(), g) || has(self.referenced(), g);
+            if reachable {
+                unknown.copy_from_slice(self.dynamic_callers());
+            }
+            mask_or_assign(&mut unknown, self.unread_bodies());
             let mut seen = confirmed.clone();
             mask_or_assign(&mut seen, &possible);
             mask_andnot_assign(&mut unknown, &seen);
@@ -153,7 +165,9 @@ impl Codegraph {
     /// What `f` calls. Confirmed: callees in `CALLS`, `sites` their row
     /// count. Possible: impls of every `Trait::method` that `f` may dispatch
     /// to (never confirmed). Unknown: the `?dynamic` position, when `f` has an
-    /// unresolved call. An out-of-range `f` yields empty masks.
+    /// unresolved call; and, when `f`'s body was not read, every function in
+    /// the store not already graded (calls to functions outside the store
+    /// are not representable here). An out-of-range `f` yields empty masks.
     pub fn callees(&mut self, f: Pos) -> Result<Calls, QueryRefusal> {
         let w = self.words();
         let (confirmed, sites) = self.partners(CALLS, f, false).map_err(refuse)?;
@@ -169,6 +183,12 @@ impl Codegraph {
             if self.symbol(f).is_some() && has(self.dynamic_callers(), f) {
                 unknown[d as usize / 64] |= 1 << (d % 64);
             }
+        }
+        if self.symbol(f).is_some() && has(self.unread_bodies(), f) {
+            mask_or_assign(&mut unknown, self.fns());
+            let mut seen = confirmed.clone();
+            mask_or_assign(&mut seen, &possible);
+            mask_andnot_assign(&mut unknown, &seen);
         }
         Ok(Calls {
             graded: Graded {
@@ -233,9 +253,11 @@ impl Codegraph {
     /// Confirmed: functions in `RCONF⁺` of `g`. Possible: in `RPOSS⁺` but not
     /// confirmed (dispatch edges). Unknown: when `g`, or anything it reaches
     /// in `RPOSS⁺`, is an impl or referenced and a `?dynamic` position exists,
-    /// the dynamic callers (`RPOSS⁺` of `?dynamic`) not already graded. All
-    /// masks are restricted to functions. Closures of any width are read; an
-    /// out-of-range `g` yields empty masks.
+    /// the dynamic callers (`RPOSS⁺` of `?dynamic`) not already graded. Also
+    /// unknown: every function whose body was not read (it may call `g`) and
+    /// everything that reaches one (`RPOSS⁺` of it). All masks are restricted
+    /// to functions. Closures of any width are read; an out-of-range `g`
+    /// yields empty masks.
     pub fn impact(&self, g: Pos) -> Result<Graded, QueryRefusal> {
         let w = self.words();
         let cc = &self.closure(RCONF).map_err(refuse)?.0;
@@ -272,15 +294,42 @@ impl Codegraph {
             mask_or_assign(&mut dyn_reachable, self.referenced());
             if intersects(&reach, &dyn_reachable) {
                 mask_and(&row(cp, d), self.fns(), &mut unknown);
-                let mut seen = confirmed.clone();
-                mask_or_assign(&mut seen, &possible);
-                mask_andnot_assign(&mut unknown, &seen);
             }
         }
+        mask_or_assign(&mut unknown, &self.unread_reach(g)?);
+        let mut seen = confirmed.clone();
+        mask_or_assign(&mut seen, &possible);
+        mask_andnot_assign(&mut unknown, &seen);
         Ok(Graded {
             confirmed,
             possible,
             unknown,
         })
+    }
+
+    /// The functions a change of `g` may affect through a body the harvest did
+    /// not read: every unread body other than `g` (it may call `g`) and
+    /// everything that reaches one (`RPOSS⁺` of it), restricted to functions.
+    /// Not yet subtracted against any graded mask; [`Codegraph::impact`] adds
+    /// it to `unknown`. Empty when no body is unread.
+    pub fn unread_reach(&self, g: Pos) -> Result<Vec<u64>, QueryRefusal> {
+        let w = self.words();
+        let mut out = vec![0u64; w];
+        if self.symbol(g).is_none() || !self.unread_bodies().iter().any(|&x| x != 0) {
+            return Ok(out);
+        }
+        let cp = &self.closure(RPOSS).map_err(refuse)?.0;
+        for u in bits(self.unread_bodies()) {
+            if u == g {
+                continue;
+            }
+            let mut via = vec![0u64; w];
+            cp.row_into(u, &mut via);
+            via[u as usize / 64] |= 1 << (u % 64);
+            let mut fns_via = vec![0u64; w];
+            mask_and(&via, self.fns(), &mut fns_via);
+            mask_or_assign(&mut out, &fns_via);
+        }
+        Ok(out)
     }
 }

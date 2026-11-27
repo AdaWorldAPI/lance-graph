@@ -1169,12 +1169,20 @@ mod suite_b {
             .open()
             .impact_report("lib::helper", &fx.scope(&["lib"]))
             .unwrap();
+        // Re-pinned with per-function unread bodies: `lib::entry`'s body was not read, so
+        // it may call `helper`. It is therefore UNKNOWN in the answer (`UnreadBodies`),
+        // and because `entry` is PUBLIC the consumer frontier is public too. Before, the
+        // residual was only a crate-level count and the answer itself was empty.
         assert!(
-            matches!(r.gaps.as_slice(), [Gap::HarvestIncomplete { krate, residuals, partial: false, no_residuals_file: false }]
-            if krate == "lib" && residuals.total() == 1),
+            matches!(r.gaps.as_slice(), [
+                Gap::ExternalConsumersUnobserved { .. },
+                Gap::UnreadBodies { unknown: 1, store_unread_bodies: 1 },
+                Gap::HarvestIncomplete { krate, residuals, partial: false, no_residuals_file: false },
+            ] if krate == "lib" && residuals.total() == 1),
             "{:?}",
             r.gaps
         );
+        assert_eq!(r.graded.unknown, fx.open().mask_of(&["lib::entry"]));
 
         std::fs::remove_file(fx.store.join("lib.residuals.tsv")).unwrap();
         let r = fx
