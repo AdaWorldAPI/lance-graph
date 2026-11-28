@@ -59,26 +59,49 @@ async fn a_second_writer_at_the_same_version_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let uri = uri(&dir);
     let mut seed = VersionedAppend::at(&uri, None);
-    assert_eq!(seed.append(version("K01-a", 1, "aa", None)).await.unwrap(), 1);
+    assert_eq!(
+        seed.append(version("K01-a", 1, "aa", None)).await.unwrap(),
+        1
+    );
 
     // Both writers read the dataset at version 1.
     let mut first = VersionedAppend::open(&uri).await.unwrap();
     let mut second = VersionedAppend::open(&uri).await.unwrap();
     assert_eq!((first.version(), second.version()), (Some(1), Some(1)));
 
-    assert_eq!(first.append(version("K01-a", 2, "bb", Some(1))).await.unwrap(), 2);
+    assert_eq!(
+        first
+            .append(version("K01-a", 2, "bb", Some(1)))
+            .await
+            .unwrap(),
+        2
+    );
     match second.append(version("K01-a", 2, "cc", Some(1))).await {
         Err(AppendError::StaleWriter { expected, found }) => {
             assert_eq!((expected, found), (Some(1), Some(2)));
         }
         other => panic!("the second writer must be refused: {other:?}"),
     }
-    assert_eq!(second.version(), Some(1), "a refused writer does not advance");
-    assert_eq!(stored_ns(&uri).await, vec![1, 2], "nothing of the refused append landed");
+    assert_eq!(
+        second.version(),
+        Some(1),
+        "a refused writer does not advance"
+    );
+    assert_eq!(
+        stored_ns(&uri).await,
+        vec![1, 2],
+        "nothing of the refused append landed"
+    );
 
     // Reopened, the second writer sees version 2 and lands as version 3.
     let mut second = VersionedAppend::open(&uri).await.unwrap();
-    assert_eq!(second.append(version("K01-a", 3, "cc", Some(2))).await.unwrap(), 3);
+    assert_eq!(
+        second
+            .append(version("K01-a", 3, "cc", Some(2)))
+            .await
+            .unwrap(),
+        3
+    );
     assert_eq!(stored_ns(&uri).await, vec![1, 2, 3]);
 }
 
