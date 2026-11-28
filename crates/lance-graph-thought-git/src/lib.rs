@@ -24,15 +24,23 @@
 //!   protected readers, moved in slice S3a. They run over the oracle's
 //!   `Thought` chains and are the reference a squash over the resident deltas
 //!   is checked against, so they sit behind the same feature.
+//! - `receipt` (feature `oracle`): the D-TGB-4 receipt and replay, moved in
+//!   slice S4a. Its durable side (`VersionStore`, `commit_cycle`,
+//!   `MetadataTable`, `BaseRef`) is a SIMULATED boundary standing in for Lance
+//!   and `LanceCycleWriter`, so the module is a lab reference; the real
+//!   landing goes through `WalSink` / `LanceCycleWriter` (S4b, waits on
+//!   EXO-148 for `DurableRef` / `ThoughtCommitId`).
 //!
-//! The givens layer, the squash over the resident deltas,
-//! the receipt and the landing follow in later slices; the inventory is on
+//! The givens layer, the squash over the resident deltas and the durable
+//! landing follow in later slices; the inventory is on
 //! EXO-379.
 
 #[cfg(feature = "oracle")]
 pub mod fixtures;
 #[cfg(feature = "oracle")]
 pub mod oracle;
+#[cfg(feature = "oracle")]
+pub mod receipt;
 pub mod slots;
 pub mod spaces;
 #[cfg(feature = "oracle")]

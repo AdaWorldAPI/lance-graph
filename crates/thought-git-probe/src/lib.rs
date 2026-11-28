@@ -6,8 +6,10 @@
 //! pool; it has no production land, rebase or persistence pipeline.
 //!
 //! The pre-registration, written before any thought-git code existed. Its
-//! fixtures, the oracle and the slot pool moved to `lance-graph-thought-git`
-//! (D-TGB-7 slice S1); this probe now uses them from there:
+//! fixtures, the oracle, the slot pool (S1), the squash gate (S3a) and the
+//! receipt (S4a) moved to `lance-graph-thought-git` (D-TGB-7); what stays here
+//! is the pre-registration itself and the signal checks over the contract,
+//! which use the crate's fixtures:
 //!
 //! - `lance_graph_thought_git::fixtures`: the thoughts every later D-TGB item is tested on, one per
 //!   Rubicon outcome, a stack of unremarkable thoughts, one thought per
@@ -24,5 +26,3 @@
 //! `PREREGISTRATION.md` lists the falsifier and the disable of every later
 //! D-TGB item, with the fixture it runs on. What is still OPEN there (the
 //! anomaly thresholds, what "satisfactory" means) is left open on purpose.
-
-pub mod receipt;
