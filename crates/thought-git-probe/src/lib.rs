@@ -26,4 +26,3 @@
 //! anomaly thresholds, what "satisfactory" means) is left open on purpose.
 
 pub mod receipt;
-pub mod squash;
