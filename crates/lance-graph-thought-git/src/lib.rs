@@ -12,12 +12,16 @@
 //! at a time, each slice moving code rather than copying it:
 //!
 //! - [`slots`]: the slot pool (D-TGB-1), moved in slice S1.
+//! - [`spaces`]: the resident thought spaces (D-HL-5/7): sparse per-slot XOR
+//!   deltas over one borrowed base, merged on read, with saccades as alpha
+//!   overlay claims. Moved in slice S2 from
+//!   `cognitive-shader-driver/examples/thought_layers_probe.rs`.
 //! - `oracle` and `fixtures` (feature `oracle`): the from-scratch reference and
 //!   the pre-registered fixtures (D-TGB-0). They are the independent oracle
 //!   every implementation is checked against, not execution, so they are off
 //!   by default.
 //!
-//! The resident spaces (`ThoughtTables`, the givens layer), the squash gate,
+//! The givens layer, the squash gate,
 //! the receipt and the landing follow in later slices; the inventory is on
 //! EXO-379.
 
@@ -26,3 +30,4 @@ pub mod fixtures;
 #[cfg(feature = "oracle")]
 pub mod oracle;
 pub mod slots;
+pub mod spaces;
