@@ -247,6 +247,9 @@ exclude = [
     # and signal checks over lance-graph-contract only. Lab probe; run from
     # its directory: `cd crates/thought-git-probe && cargo test`.
     "crates/thought-git-probe",
+    # D-TGB-7 the shared thought-git crate, filled by migration from the probe
+    # above. Own workspace: `cd crates/lance-graph-thought-git && cargo test`.
+    "crates/lance-graph-thought-git",
     # X-C2-1 injection harness (RP-SEAL Tier 0) — fault injection over a
     # synthetic cycle; anti-vacuity gate reproduces the known in-tree
     # false-accepts against the REAL live implementations. Verify via

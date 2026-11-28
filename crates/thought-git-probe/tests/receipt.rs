@@ -8,13 +8,13 @@ use lance_graph_contract::revision::{
     BasisView, CodebookId, EncounterEvidence, EvidentialEffect, GadamerRevision, GrammarId,
     HorizonId, InterpretiveHorizon, LanguageId, LensId, QuestionId, RevisionPolicy,
 };
-use thought_git_probe::fixtures::{self, Cell, Outcome, Thought, cell, main_version};
-use thought_git_probe::oracle::{Version, next_version};
+use lance_graph_thought_git::fixtures::{self, Cell, Outcome, Thought, cell, main_version};
+use lance_graph_thought_git::oracle::{Version, next_version};
+use lance_graph_thought_git::slots::{Eviction, Slot, SlotPool};
 use thought_git_probe::receipt::{
     self, BaseRef, CommitError, DERIVE, EXEC_DEFAULT, ExecConfig, MetaKey, MetadataTable, Plan,
     ProgramInputs, Receipt, Refusal, Replayed, VersionStore,
 };
-use thought_git_probe::slots::{Eviction, Slot, SlotPool};
 
 // ---------------------------------------------------------------- helpers
 

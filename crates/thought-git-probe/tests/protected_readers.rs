@@ -5,8 +5,8 @@
 //! before this file was written. Predictions D1..D5 are the tests below; each
 //! disable is named on the test it must turn red.
 
-use thought_git_probe::fixtures::{Cell, Outcome, Thought, cell, givens, main_version};
-use thought_git_probe::oracle::{Givens, Version, next_version};
+use lance_graph_thought_git::fixtures::{Cell, Outcome, Thought, cell, givens, main_version};
+use lance_graph_thought_git::oracle::{Givens, Version, next_version};
 use thought_git_probe::squash::{
     Lane, ProtectedRefusal, Reader, bytes, history_contradictions, history_divergences,
     history_multiplicity, land_interleaved, protected_squash, squashed_multiplicity,

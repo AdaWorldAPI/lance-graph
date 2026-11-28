@@ -1,9 +1,9 @@
 //! D-TGB-1: the slot pool under its two starting policies, with squashing
 //! along dependency chains before anything is evicted.
 
-use thought_git_probe::fixtures::{Outcome, Thought, cell};
-use thought_git_probe::oracle;
-use thought_git_probe::slots::{Eviction, LIVE_SLOTS, Pressure, Slot, SlotPool, Stale};
+use lance_graph_thought_git::fixtures::{Outcome, Thought, cell};
+use lance_graph_thought_git::oracle;
+use lance_graph_thought_git::slots::{Eviction, LIVE_SLOTS, Pressure, Slot, SlotPool, Stale};
 
 /// Fill the pool with root thoughts (branched from main); `parents[t]` names
 /// the earlier thought `t` branches from instead.

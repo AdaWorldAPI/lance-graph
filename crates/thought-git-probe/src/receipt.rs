@@ -46,9 +46,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::fixtures::{Cell, Outcome, Thought};
-use crate::oracle::{Givens, Version, next_version};
-use crate::slots::{Slot, SlotPool, Stale};
+use lance_graph_thought_git::fixtures::{Cell, Outcome, Thought};
+use lance_graph_thought_git::oracle::{Givens, Version, next_version};
+use lance_graph_thought_git::slots::{Slot, SlotPool, Stale};
 
 /// A sealed version a thought reads from. Probe stand-in for D-CPG's
 /// `DurableRef`; a version number alone is not enough once branches exist.

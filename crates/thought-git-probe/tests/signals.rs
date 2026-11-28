@@ -12,7 +12,7 @@ use lance_graph_contract::revision::{
     GadamerRevision, GrammarId, HorizonId, InterpretiveHorizon, LanguageId, LensId, QuestionId,
     RevisionKind, RevisionPolicy, RevisionVerdict,
 };
-use thought_git_probe::fixtures::{
+use lance_graph_thought_git::fixtures::{
     Outcome, REGRESSION_SCANPATH, ROWS, SMOOTH_SCANPATH, SURPRISE_ATTENDED, SURPRISE_EXPECTED,
     rubicon_outcomes,
 };

@@ -5,12 +5,14 @@
 //! This probe holds the pre-registration and the first lab piece, the slot
 //! pool; it has no production land, rebase or persistence pipeline.
 //!
-//! The pre-registration, written before any thought-git code existed:
+//! The pre-registration, written before any thought-git code existed. Its
+//! fixtures, the oracle and the slot pool moved to `lance-graph-thought-git`
+//! (D-TGB-7 slice S1); this probe now uses them from there:
 //!
-//! - [`fixtures`]: the thoughts every later D-TGB item is tested on, one per
+//! - `lance_graph_thought_git::fixtures`: the thoughts every later D-TGB item is tested on, one per
 //!   Rubicon outcome, a stack of unremarkable thoughts, one thought per
 //!   anomaly signal, and a lane that is never written.
-//! - [`oracle`]: the from-scratch reference. Given the givens (layer 0), the
+//! - `lance_graph_thought_git::oracle`: the from-scratch reference. Given the givens (layer 0), the
 //!   previous version and the thoughts that land, it computes the next
 //!   version without any incremental state. Every later implementation is
 //!   compared against it.
@@ -23,8 +25,5 @@
 //! D-TGB item, with the fixture it runs on. What is still OPEN there (the
 //! anomaly thresholds, what "satisfactory" means) is left open on purpose.
 
-pub mod fixtures;
-pub mod oracle;
 pub mod receipt;
-pub mod slots;
 pub mod squash;
