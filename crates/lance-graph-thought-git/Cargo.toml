@@ -1,0 +1,22 @@
+[package]
+name = "lance-graph-thought-git"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99.0"
+publish = false
+description = "D-TGB-7: the shared thought-git capability. W0 is the canonical resident state, W1..=63 reusable resident thought spaces; branch, change, diff, squash, discard and replay stay resident, and only admitted changes land, through the one canonical writer. Migrated from crates/thought-git-probe slice by slice."
+
+# Its own workspace root, excluded from the lance-graph workspace, like the
+# probe it is migrated from. Run from THIS directory: `cargo test`.
+[workspace]
+
+[features]
+default = []
+# The from-scratch oracle and the pre-registered fixtures (D-TGB-0). They are
+# the independent reference every implementation is checked against, not
+# execution: off by default, so nothing on the hot path can reach them.
+oracle = []
+
+[dev-dependencies]
+# The crate's own tests always run against the oracle.
+lance-graph-thought-git = { path = ".", features = ["oracle"] }

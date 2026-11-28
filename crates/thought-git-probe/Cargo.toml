@@ -12,3 +12,5 @@ description = "D-TGB-0 pre-registration: thought-git fixtures, the from-scratch 
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# The slot pool, the oracle and the fixtures moved there (D-TGB-7 slice S1).
+lance-graph-thought-git = { path = "../lance-graph-thought-git", features = ["oracle"] }

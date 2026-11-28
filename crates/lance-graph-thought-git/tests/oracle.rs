@@ -1,11 +1,11 @@
 //! The oracle's four rules, each pinned on a fixture whose answer differs
 //! under the rule's disable (named in each test).
 
-use thought_git_probe::fixtures::{
+use lance_graph_thought_git::fixtures::{
     self, Outcome, cell, contradiction_thought, divergent_pair, givens, main_version,
     rubicon_outcomes, unremarkable_stack, unwritten_cells,
 };
-use thought_git_probe::oracle::{Contradiction, next_version, squash};
+use lance_graph_thought_git::oracle::{Contradiction, next_version, squash};
 
 /// Rule 1. Disable: land every outcome → the Plan, Prune and Veto cells appear.
 #[test]

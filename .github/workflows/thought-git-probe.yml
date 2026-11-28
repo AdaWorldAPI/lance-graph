@@ -1,8 +1,9 @@
 name: Thought-git probe
-# `crates/thought-git-probe` (D-TGB-0/1/4) is excluded from the workspace and
-# has its own [workspace], so no workspace job builds it. It path-deps only
-# lance-graph-contract, which has no dependencies, so no sibling checkout is
-# needed.
+# `crates/thought-git-probe` (D-TGB-0/1/4) and `crates/lance-graph-thought-git`
+# (D-TGB-7, the crate the probe is migrated into) are excluded from the
+# workspace and have their own [workspace], so no workspace job builds them.
+# They path-dep only lance-graph-contract and each other, so no sibling
+# checkout is needed.
 # Manual-only: GitHub-hosted runner minutes are capped (the account's
 # included minutes are used up), so this workflow no longer starts on push,
 # pull_request or a schedule. Run it from the Actions tab when needed, and run
@@ -18,6 +19,22 @@ jobs:
     defaults:
       run:
         working-directory: crates/thought-git-probe
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+  crate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: crates/lance-graph-thought-git
     env:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_INCREMENTAL: "0"

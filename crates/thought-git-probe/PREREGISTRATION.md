@@ -1,7 +1,9 @@
 # D-TGB pre-registration (D-TGB-0)
 
 Written before any thought-git code exists. Every later item is checked
-against the oracle in `src/oracle.rs` on the fixtures in `src/fixtures.rs`.
+against the oracle in `lance-graph-thought-git/src/oracle.rs` on the fixtures in
+`lance-graph-thought-git/src/fixtures.rs` (both moved there, with the slot pool, in
+D-TGB-7 slice S1).
 Its falsifier and its disable are fixed here. A disable is a deliberate break
 of the implementation; the falsifier must turn red under it. If an item
 changes one of these, the change is recorded here with its reason, never made
@@ -36,7 +38,7 @@ on the real `lance-graph-contract` code (`tests/signals.rs`):
 
 | item | falsifier | disable | fixture |
 |---|---|---|---|
-| D-TGB-1 slot pool (built, `src/slots.rs`) | the 64th branch picks a candidate (FIFO oldest, LeastUsed idlest); a candidate with a live parent is squashed into it, one with a live child absorbs that child; only a chain-free candidate is evicted; the new thought's parent is never removed; stale handles are refused; a freed slot is reused without pressure | ignore the generation; LeastUsed keyed on age only; evict instead of squashing a chain; let the new thought's parent be the candidate | `tests/slots.rs` |
+| D-TGB-1 slot pool (built, `lance-graph-thought-git/src/slots.rs`) | the 64th branch picks a candidate (FIFO oldest, LeastUsed idlest); a candidate with a live parent is squashed into it, one with a live child absorbs that child; only a chain-free candidate is evicted; the new thought's parent is never removed; stale handles are refused; a freed slot is reused without pressure | ignore the generation; LeastUsed keyed on age only; evict instead of squashing a chain; let the new thought's parent be the candidate | `lance-graph-thought-git/tests/slots.rs` |
 | D-TGB-2 lane labels | after `Commit` no live edge carries the landed slot; an edge from a recycled slot's old generation is refused | read W of a sealed row as meaningful (proposed here; the plan names none) | `rubicon_outcomes` (the Commit thought) |
 | D-TGB-3 landing | equals `next_version` on every fixture; an empty cycle writes nothing; two thoughts in one cycle give one version; a re-submitted batch reconciles; a missing metadata row is detected at replay | one batch per thought (second `Commit` in a cycle must hit `HashConflict`) | all fixtures, landed together and one per version |
 | D-TGB-3 write into 59..63 | landing the same thought twice leaves 59..63 unchanged; a thought supported only by replayed material lands with certification unchanged; `Block` leaves the version count unchanged; `pearl::hydrate` never changes certification, `pearl::revise` never changes topology | let `revise` lower a certification; let `hydrate` move certification | the Gadamer cases in `tests/signals.rs`, as edges (needs `lance-graph-planner`, added when D-TGB-3 starts) |

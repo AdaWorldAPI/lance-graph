@@ -7,8 +7,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::fixtures::{Cell, Outcome, Thought};
-use crate::oracle::Givens;
+use lance_graph_thought_git::fixtures::{Cell, Outcome, Thought};
+use lance_graph_thought_git::oracle::Givens;
 
 /// A thought lane: its id (1..=63) and its chain of origin, oldest first.
 pub struct Lane {
@@ -175,7 +175,7 @@ pub fn squash_gate(g: &Givens, lanes: &[Lane]) -> Result<Squashed, Refusal> {
 // givens), compares that with the answer the full history gives, and refuses
 // when a protected reader cannot be answered. Refusal is a valid result.
 
-use crate::oracle::{Contradiction, Divergence, Version, next_version};
+use lance_graph_thought_git::oracle::{Contradiction, Divergence, Version, next_version};
 
 /// What may later be asked of a squashed family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
