@@ -26,14 +26,14 @@
 
 use std::sync::Arc;
 
-use arrow_array::{Array, BinaryArray, RecordBatch, UInt32Array, UInt64Array, UInt8Array};
+use arrow_array::{
+    Array, BinaryArray, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array, UInt8Array,
+};
 use arrow_schema::{ArrowError, DataType, Field, Schema};
+use lance::dataset::{WriteMode, WriteParams};
 use lance::Dataset;
 use lance_graph_dir_sim::image::StoredImage;
 use lance_graph_dir_sim::log::{replay, Batch, LogError, LogState, Record, ReplayError};
-
-pub mod append;
-pub use append::{AppendError, VersionedAppend};
 
 /// Why a save or a restore failed.
 #[derive(Debug)]
@@ -68,18 +68,6 @@ pub enum StoreError {
 impl From<lance::Error> for StoreError {
     fn from(e: lance::Error) -> Self {
         StoreError::Lance(e)
-    }
-}
-
-impl From<AppendError> for StoreError {
-    fn from(e: AppendError) -> Self {
-        match e {
-            AppendError::Lance(e) => StoreError::Lance(e),
-            AppendError::StaleWriter { expected, found } => {
-                StoreError::StaleWriter { expected, found }
-            }
-            AppendError::Race { expected, found } => StoreError::Race { expected, found },
-        }
     }
 }
 
@@ -146,12 +134,12 @@ fn is_not_found(e: &lance::Error) -> bool {
 }
 
 /// A writer's handle on the log dataset at `uri`.
-///
-/// The commit discipline (stale writer refused before writing, race reported after) is
-/// [`VersionedAppend`]'s; this type adds the log's own rule, that a batch is the next one.
 #[derive(Debug, Clone)]
 pub struct LanceLog {
-    writer: VersionedAppend,
+    uri: String,
+    /// The dataset version this writer last saw; `None` while there is no
+    /// dataset.
+    version: Option<u64>,
 }
 
 impl LanceLog {
@@ -160,14 +148,15 @@ impl LanceLog {
     /// already there.
     pub fn new(uri: impl Into<String>) -> Self {
         Self {
-            writer: VersionedAppend::at(uri, None),
+            uri: uri.into(),
+            version: None,
         }
     }
 
     /// The dataset version this writer last saw (the physical commit
     /// counter, not a logical version).
     pub fn version(&self) -> Option<u64> {
-        self.writer.version()
+        self.version
     }
 
     /// Read the whole log at `uri` once and replay it: the stored image,
@@ -187,7 +176,7 @@ impl LanceLog {
             Ok(ds) => ds,
             Err(e) if is_not_found(&e) => {
                 let (image, state) = replay(Vec::new()).map_err(StoreError::Replay)?;
-                return Ok((image, state, LanceLog::new(uri)));
+                return Ok((image, state, LanceLog { uri, version: None }));
             }
             Err(e) => return Err(e.into()),
         };
@@ -195,13 +184,7 @@ impl LanceLog {
         let records = from_batch(&all)?;
         let (image, state) = replay(records).map_err(StoreError::Replay)?;
         let version = Some(ds.version().version);
-        Ok((
-            image,
-            state,
-            LanceLog {
-                writer: VersionedAppend::at(uri, version),
-            },
-        ))
+        Ok((image, state, LanceLog { uri, version }))
     }
 
     /// Store `batch` as one Lance commit, then advance `log` past it.
@@ -223,16 +206,64 @@ impl LanceLog {
                 found: batch.number(),
             }));
         }
+        let found = match Dataset::open(&self.uri).await {
+            Ok(ds) => Some(ds.latest_version_id().await?),
+            Err(e) if is_not_found(&e) => None,
+            Err(e) => return Err(e.into()),
+        };
+        if found != self.version {
+            return Err(StoreError::StaleWriter {
+                expected: self.version,
+                found,
+            });
+        }
         let rb = to_batch(&batch.records).map_err(|e| StoreError::Schema(e.to_string()))?;
-        let made = self.writer.append(rb).await?;
+        let reader = RecordBatchIterator::new([Ok(rb)], schema());
+        let mode = if found.is_some() {
+            WriteMode::Append
+        } else {
+            WriteMode::Create
+        };
+        let params = WriteParams {
+            mode,
+            ..WriteParams::default()
+        };
+        let ds = match Dataset::write(reader, self.uri.as_str(), Some(params)).await {
+            Ok(ds) => ds,
+            // Another writer created the dataset after the check above.
+            Err(lance::Error::DatasetAlreadyExists { .. }) => {
+                return Err(StoreError::StaleWriter {
+                    expected: None,
+                    found: Dataset::open(&self.uri)
+                        .await
+                        .ok()
+                        .map(|d| d.version().version),
+                })
+            }
+            Err(e) => return Err(e.into()),
+        };
+        let made = ds.version().version;
+        let next = next_version(found);
+        if made != next {
+            return Err(StoreError::Race {
+                expected: next,
+                found: made,
+            });
+        }
         log.committed(batch).map_err(StoreError::Log)?;
+        self.version = Some(made);
         Ok(made)
     }
 }
 
+/// The dataset version a commit on top of `seen` makes: Lance numbers a
+/// new dataset 1 and each later commit one higher.
+fn next_version(seen: Option<u64>) -> u64 {
+    seen.map_or(1, |v| v + 1)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::append::next_version;
     use super::*;
 
     #[test]
