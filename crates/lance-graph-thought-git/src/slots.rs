@@ -37,7 +37,7 @@ pub enum Eviction {
 }
 
 /// A handle to a live slot, valid while its generation matches.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Slot {
     /// 1..=63.
     pub index: u8,

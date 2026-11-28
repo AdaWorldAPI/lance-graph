@@ -51,9 +51,11 @@ pub const SLOTS: usize = 512 / SLOT;
 /// The key occupies slot 0. It is the address and never changes.
 const KEY_SLOT: u32 = 1 << 0;
 
-/// A thought. Its identity is a number; any name is a label kept elsewhere.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ThoughtId(pub u8);
+/// A thought: the slot pool's generation-qualified handle. A reused slot
+/// index carries a new generation, so it is a different thought and never
+/// reads a former thought's deltas (D-TGB-7). Any name is a label kept
+/// elsewhere.
+pub type ThoughtId = crate::slots::Slot;
 
 /// A table index, `0..MAX_TABLES`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -182,6 +184,9 @@ pub fn row_bytes(r: &NodeRow) -> [u8; 512] {
 }
 
 /// Who owns a table.
+// At most `MAX_TABLES` of these exist, one per table, so the size of the
+// `Slots` variant (one handle per 16-byte slot) costs nothing worth a box.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Owner {
     Whole(ThoughtId),
@@ -529,6 +534,34 @@ impl<'a> ThoughtTables<'a> {
             .collect())
     }
 
+    /// Discard `thought`: its placement, its saccades and its deltas go, and
+    /// its table or slot is free for the next thought. The base (W0) is
+    /// borrowed and untouched, and other thoughts sharing the table keep their
+    /// slots. Afterwards the handle is [`Refusal::Unplaced`], so a reused slot
+    /// index with a new generation starts from the base.
+    ///
+    /// # Errors
+    /// [`Refusal::Unplaced`] when `thought` has no placement.
+    pub fn discard(&mut self, thought: ThoughtId) -> Result<(), Refusal> {
+        let p = self.placement.remove(&thought).ok_or(Refusal::Unplaced)?;
+        self.saccades.remove(&thought);
+        let mine = Self::allowed(p);
+        let t = &mut self.tables[p.table().0 as usize];
+        t.deltas.retain(|_, d| match d.restrict(!mine) {
+            Some(rest) => {
+                *d = rest;
+                true
+            }
+            None => false,
+        });
+        match (&mut t.owner, p) {
+            (owner @ Owner::Whole(_), Placement::Table(_)) => *owner = Owner::Slots([None; SLOTS]),
+            (Owner::Slots(slots), Placement::Slot(_, s)) => slots[s as usize] = None,
+            _ => {}
+        }
+        Ok(())
+    }
+
     /// Bytes stored across all tables.
     #[must_use]
     pub fn stored_bytes(&self) -> usize {
@@ -586,6 +619,14 @@ type RowWrites = Vec<(AlphaAddr, [u8; 512])>;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A thought handle as the slot pool issues it: generation 0.
+    fn thought(index: u8) -> ThoughtId {
+        ThoughtId {
+            index,
+            generation: 0,
+        }
+    }
     use lance_graph_contract::canonical_node::{EdgeBlock, NodeGuid, TailVariant};
 
     fn base(n: u32) -> Vec<NodeRow> {
@@ -618,15 +659,15 @@ mod tests {
         let alloc = AlphaAllocation::over(&rows);
         let mut tt = ThoughtTables::over(&alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        tt.place(thought(1), Placement::Table(t)).unwrap();
         let w = tt
-            .write(ThoughtId(1), rows[3].key, 1, &row_bytes(&rows[3]))
+            .write(thought(1), rows[3].key, 1, &row_bytes(&rows[3]))
             .unwrap();
         assert_eq!(w, Written::NoChange);
         assert_eq!(tt.stored_bytes(), 0);
         assert_eq!(tt.written_by(rows[3].key), 0);
         assert!(
-            tt.looked(ThoughtId(1)).unwrap().contains(3),
+            tt.looked(thought(1)).unwrap().contains(3),
             "the look is recorded"
         );
     }
@@ -639,14 +680,14 @@ mod tests {
         let alloc = AlphaAllocation::over(&rows);
         let mut tt = ThoughtTables::over(&alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        tt.place(thought(1), Placement::Table(t)).unwrap();
         let new = changed(&rows[2], 7, 0x5A);
-        let w = tt.write(ThoughtId(1), rows[2].key, 1, &new).unwrap();
+        let w = tt.write(thought(1), rows[2].key, 1, &new).unwrap();
         assert_eq!(w, Written::Stored { slots: 1 << 7 });
         assert_eq!(tt.stored_bytes(), SLOT);
-        assert_eq!(tt.read(ThoughtId(1), rows[2].key).unwrap(), new);
+        assert_eq!(tt.read(thought(1), rows[2].key).unwrap(), new);
         assert_eq!(
-            tt.read(ThoughtId(1), rows[1].key).unwrap(),
+            tt.read(thought(1), rows[1].key).unwrap(),
             row_bytes(&rows[1]),
             "an untouched row reads the base"
         );
@@ -660,14 +701,14 @@ mod tests {
         let alloc = AlphaAllocation::over(&rows);
         let mut tt = ThoughtTables::over(&alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
-        tt.write(ThoughtId(1), rows[0].key, 1, &changed(&rows[0], 4, 1))
+        tt.place(thought(1), Placement::Table(t)).unwrap();
+        tt.write(thought(1), rows[0].key, 1, &changed(&rows[0], 4, 1))
             .unwrap();
         let second = changed(&rows[0], 9, 2);
-        tt.write(ThoughtId(1), rows[0].key, 1, &second).unwrap();
-        assert_eq!(tt.read(ThoughtId(1), rows[0].key).unwrap(), second);
+        tt.write(thought(1), rows[0].key, 1, &second).unwrap();
+        assert_eq!(tt.read(thought(1), rows[0].key).unwrap(), second);
         assert_eq!(tt.stored_bytes(), SLOT, "only the slot of the latest write");
-        tt.write(ThoughtId(1), rows[0].key, 1, &row_bytes(&rows[0]))
+        tt.write(thought(1), rows[0].key, 1, &row_bytes(&rows[0]))
             .unwrap();
         assert_eq!(tt.stored_bytes(), 0, "back to the base: nothing stored");
     }
@@ -679,14 +720,14 @@ mod tests {
         let alloc = AlphaAllocation::over(&rows);
         let mut tt = ThoughtTables::over(&alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        tt.place(thought(1), Placement::Table(t)).unwrap();
         let mut b = row_bytes(&rows[1]);
         b[5] ^= 1;
         assert_eq!(
-            tt.write(ThoughtId(1), rows[1].key, 1, &b),
+            tt.write(thought(1), rows[1].key, 1, &b),
             Err(Refusal::KeyChanged)
         );
-        assert!(tt.scanpath(ThoughtId(1)).unwrap().is_empty(), "no saccade");
+        assert!(tt.scanpath(thought(1)).unwrap().is_empty(), "no saccade");
     }
 
     /// Local placement: thoughts sharing a table each see only their slot,
@@ -697,25 +738,25 @@ mod tests {
         let alloc = AlphaAllocation::over(&rows);
         let mut tt = ThoughtTables::over(&alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Slot(t, 22)).unwrap();
-        tt.place(ThoughtId(2), Placement::Slot(t, 23)).unwrap();
+        tt.place(thought(1), Placement::Slot(t, 22)).unwrap();
+        tt.place(thought(2), Placement::Slot(t, 23)).unwrap();
         assert_eq!(
-            tt.place(ThoughtId(3), Placement::Slot(t, 22)),
+            tt.place(thought(3), Placement::Slot(t, 22)),
             Err(Refusal::Occupied)
         );
         let a = changed(&rows[0], 22, 0x11);
         let b = changed(&rows[0], 23, 0x22);
-        tt.write(ThoughtId(1), rows[0].key, 1, &a).unwrap();
-        tt.write(ThoughtId(2), rows[0].key, 1, &b).unwrap();
-        assert_eq!(tt.read(ThoughtId(1), rows[0].key).unwrap(), a);
-        assert_eq!(tt.read(ThoughtId(2), rows[0].key).unwrap(), b);
+        tt.write(thought(1), rows[0].key, 1, &a).unwrap();
+        tt.write(thought(2), rows[0].key, 1, &b).unwrap();
+        assert_eq!(tt.read(thought(1), rows[0].key).unwrap(), a);
+        assert_eq!(tt.read(thought(2), rows[0].key).unwrap(), b);
         assert_eq!(tt.tables_used(), 1);
         assert_eq!(
-            tt.differs(ThoughtId(1), ThoughtId(2), rows[0].key).unwrap(),
+            tt.differs(thought(1), thought(2), rows[0].key).unwrap(),
             (1 << 22) | (1 << 23)
         );
         assert_eq!(
-            tt.write(ThoughtId(1), rows[0].key, 1, &changed(&rows[0], 23, 9)),
+            tt.write(thought(1), rows[0].key, 1, &changed(&rows[0], 23, 9)),
             Err(Refusal::OutsideSlot)
         );
     }
@@ -728,24 +769,24 @@ mod tests {
         let alloc = AlphaAllocation::over(&rows);
         let mut tt = ThoughtTables::over(&alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Slot(t, 22)).unwrap();
-        tt.place(ThoughtId(2), Placement::Slot(t, 23)).unwrap();
-        tt.look(ThoughtId(1), rows[0].key, 1).unwrap();
-        tt.look(ThoughtId(2), rows[4].key, 1).unwrap();
-        tt.write(ThoughtId(1), rows[2].key, 1, &changed(&rows[2], 22, 1))
+        tt.place(thought(1), Placement::Slot(t, 22)).unwrap();
+        tt.place(thought(2), Placement::Slot(t, 23)).unwrap();
+        tt.look(thought(1), rows[0].key, 1).unwrap();
+        tt.look(thought(2), rows[4].key, 1).unwrap();
+        tt.write(thought(1), rows[2].key, 1, &changed(&rows[2], 22, 1))
             .unwrap();
-        tt.look(ThoughtId(2), rows[1].key, 1).unwrap();
+        tt.look(thought(2), rows[1].key, 1).unwrap();
         assert_eq!(
-            tt.scanpath(ThoughtId(1)).unwrap(),
+            tt.scanpath(thought(1)).unwrap(),
             vec![rows[0].key, rows[2].key]
         );
         assert_eq!(
-            tt.scanpath(ThoughtId(2)).unwrap(),
+            tt.scanpath(thought(2)).unwrap(),
             vec![rows[4].key, rows[1].key]
         );
         let (a, b) = (
-            tt.looked(ThoughtId(1)).unwrap(),
-            tt.looked(ThoughtId(2)).unwrap(),
+            tt.looked(thought(1)).unwrap(),
+            tt.looked(thought(2)).unwrap(),
         );
         assert!(a.contains(0) && a.contains(2) && !a.contains(4) && !a.contains(1));
         assert!(b.contains(4) && b.contains(1) && !b.contains(0) && !b.contains(2));
@@ -762,21 +803,19 @@ mod tests {
         let shared = local.open_table().unwrap();
         for s in 2..12u8 {
             let t = global.open_table().unwrap();
-            global.place(ThoughtId(s), Placement::Table(t)).unwrap();
-            local
-                .place(ThoughtId(s), Placement::Slot(shared, s))
-                .unwrap();
+            global.place(thought(s), Placement::Table(t)).unwrap();
+            local.place(thought(s), Placement::Slot(shared, s)).unwrap();
             for r in &rows {
                 let b = changed(r, usize::from(s), s);
-                global.write(ThoughtId(s), r.key, 1, &b).unwrap();
-                local.write(ThoughtId(s), r.key, 1, &b).unwrap();
+                global.write(thought(s), r.key, 1, &b).unwrap();
+                local.write(thought(s), r.key, 1, &b).unwrap();
             }
         }
         for s in 2..12u8 {
             for r in &rows {
                 assert_eq!(
-                    global.read(ThoughtId(s), r.key).unwrap(),
-                    local.read(ThoughtId(s), r.key).unwrap()
+                    global.read(thought(s), r.key).unwrap(),
+                    local.read(thought(s), r.key).unwrap()
                 );
             }
         }
@@ -805,13 +844,13 @@ mod tests {
         let mut tt = ThoughtTables::over(&alloc, 1);
         for th in 0..5u8 {
             let t = tt.open_table().unwrap();
-            tt.place(ThoughtId(th), Placement::Table(t)).unwrap();
+            tt.place(thought(th), Placement::Table(t)).unwrap();
         }
-        tt.write(ThoughtId(1), rows[2].key, 1, &changed(&rows[2], 3, 1))
+        tt.write(thought(1), rows[2].key, 1, &changed(&rows[2], 3, 1))
             .unwrap();
-        tt.write(ThoughtId(4), rows[2].key, 1, &changed(&rows[2], 3, 2))
+        tt.write(thought(4), rows[2].key, 1, &changed(&rows[2], 3, 2))
             .unwrap();
-        tt.write(ThoughtId(0), rows[2].key, 1, &row_bytes(&rows[2]))
+        tt.write(thought(0), rows[2].key, 1, &row_bytes(&rows[2]))
             .unwrap();
         assert_eq!(tt.written_by(rows[2].key), 0b1_0010);
         assert_eq!(tt.written_by(rows[3].key), 0);
@@ -831,7 +870,7 @@ mod tests {
                     .filter(|(i, _)| (i + usize::from(th)) % 3 != 0)
                     .map(|(i, r)| (r.key, changed(r, 2 + (i + usize::from(th)) % 28, th + 1)))
                     .collect();
-                (ThoughtId(th), rs)
+                (thought(th), rs)
             })
             .collect();
         let mut seq = ThoughtTables::over(&alloc, 1);
@@ -958,13 +997,13 @@ mod tests {
     }
 
     fn one_thought(rows: &[NodeRow]) -> (AlphaAllocation<'_>, ThoughtId) {
-        (AlphaAllocation::over(rows), ThoughtId(1))
+        (AlphaAllocation::over(rows), thought(1))
     }
 
     fn placed<'a>(alloc: &'a AlphaAllocation<'a>) -> ThoughtTables<'a> {
         let mut tt = ThoughtTables::over(alloc, 1);
         let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        tt.place(thought(1), Placement::Table(t)).unwrap();
         tt
     }
 
@@ -1141,5 +1180,57 @@ mod tests {
         let w = tt.write_epi(&b, th, rows[6].key, 1, &row).unwrap();
         assert!(matches!(w, Written::Stored { .. }));
         assert_eq!(lane(&tt.read(th, rows[6].key).unwrap(), 7), (true, 0x80));
+    }
+
+    /// Discard drops the thought's deltas and leaves the base unchanged; other
+    /// thoughts in the same table keep theirs.
+    #[test]
+    fn discard_leaves_the_base_and_the_neighbours() {
+        let rows = base(4);
+        let alloc = AlphaAllocation::over(&rows);
+        let mut tt = ThoughtTables::over(&alloc, 1);
+        let shared = tt.open_table().unwrap();
+        tt.place(thought(2), Placement::Slot(shared, 2)).unwrap();
+        tt.place(thought(3), Placement::Slot(shared, 3)).unwrap();
+        let two = changed(&rows[1], 2, 0x11);
+        let three = changed(&rows[1], 3, 0x22);
+        tt.write(thought(2), rows[1].key, 1, &two).unwrap();
+        tt.write(thought(3), rows[1].key, 1, &three).unwrap();
+        assert_eq!(tt.stored_bytes(), 2 * SLOT);
+
+        tt.discard(thought(2)).unwrap();
+        assert_eq!(tt.stored_bytes(), SLOT, "only the discarded slot is gone");
+        assert_eq!(tt.read(thought(3), rows[1].key).unwrap(), three);
+        assert_eq!(tt.read(thought(2), rows[1].key), Err(Refusal::Unplaced));
+        assert_eq!(tt.looked(thought(2)), Err(Refusal::Unplaced));
+        assert_eq!(tt.discard(thought(2)), Err(Refusal::Unplaced));
+        // The base is borrowed and was never written.
+        assert_eq!(row_bytes(&rows[1]), row_bytes(&base(4)[1]));
+    }
+
+    /// A slot index reused under a new generation is a new thought: it reads
+    /// the base, not the former thought's deltas, and the old handle is
+    /// refused.
+    #[test]
+    fn a_reused_slot_does_not_read_the_former_thought() {
+        let rows = base(4);
+        let alloc = AlphaAllocation::over(&rows);
+        let mut tt = ThoughtTables::over(&alloc, 1);
+        let t = tt.open_table().unwrap();
+        let old = thought(5);
+        tt.place(old, Placement::Table(t)).unwrap();
+        tt.write(old, rows[0].key, 1, &changed(&rows[0], 6, 0x33))
+            .unwrap();
+        tt.discard(old).unwrap();
+
+        let new = ThoughtId {
+            index: 5,
+            generation: 1,
+        };
+        tt.place(new, Placement::Table(t)).unwrap();
+        assert_eq!(tt.read(new, rows[0].key).unwrap(), row_bytes(&rows[0]));
+        assert_eq!(tt.stored_bytes(), 0);
+        assert_eq!(tt.read(old, rows[0].key), Err(Refusal::Unplaced));
+        assert!(!tt.looked(new).unwrap().contains(0), "no inherited saccade");
     }
 }

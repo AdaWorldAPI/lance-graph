@@ -26,6 +26,14 @@ fn base(n: u32) -> Vec<NodeRow> {
         .collect()
 }
 
+/// A thought handle as the slot pool issues it: generation 0.
+fn thought(index: u8) -> ThoughtId {
+    ThoughtId {
+        index,
+        generation: 0,
+    }
+}
+
 fn main() {
     let rows = base(256);
     let alloc = AlphaAllocation::over(&rows);
@@ -33,14 +41,14 @@ fn main() {
     let shared = tt.open_table().expect("budget");
     // 30 thoughts, each changing one slot of every row, all in one table.
     for s in 2..32u8 {
-        tt.place(ThoughtId(s), Placement::Slot(shared, s))
+        tt.place(thought(s), Placement::Slot(shared, s))
             .expect("free slot");
     }
     for s in 2..32u8 {
         for r in &rows {
             let mut b = row_bytes(r);
             b[usize::from(s) * SLOT] ^= 0xFF;
-            tt.write(ThoughtId(s), r.key, 1, &b).expect("own slot");
+            tt.write(thought(s), r.key, 1, &b).expect("own slot");
         }
     }
     println!(
