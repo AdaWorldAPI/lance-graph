@@ -9,10 +9,18 @@
 //!   If the dataset has moved since, [`VersionedAppend::append`] refuses before writing
 //!   ([`AppendError::StaleWriter`]): Lance would rebase the append onto the newer version,
 //!   which would interleave two writers' batches.
-//! - **A race is reported, never hidden.** A writer that commits between that check and
-//!   this commit makes the new version something other than the next one. The batch has
-//!   landed by then, so that is reported after the fact ([`AppendError::Race`]) and the
-//!   writer's version is not advanced.
+//! - **One writer per dataset.** The supported deployment has a single batch writer
+//!   publishing to a dataset, and who may read or write what is decided by the read/write
+//!   allow and deny masks, not by racing commits. So there is no concurrent publication
+//!   to arbitrate, and this type adds no lock, fence or conditional commit. Lance 14 would
+//!   not provide one for appends anyway: an `Append` whose read version is behind is
+//!   rebased onto the newer one, because `Append` is compatible with `Append`
+//!   (lance 14.0.3 `src/io/commit/conflict_resolver.rs`, `check_append_txn`).
+//! - **A second writer is a deployment fault, reported after the fact.** If one appears
+//!   anyway and commits between the stale check and this commit, the new version is not
+//!   the next one. The batch HAS landed by then: [`AppendError::Race`] reports a landed
+//!   batch, never a refusal, and must not be retried as if nothing was written. The
+//!   writer's version is not advanced; the caller reopens and reads what landed.
 //! - **Two clocks, never mixed.** The Lance dataset version is the physical commit counter,
 //!   used only for the two checks above. The caller's logical version (a document's `n`, a
 //!   log's batch number) lives in its own records, and this type never reads or writes it.
@@ -39,9 +47,10 @@ pub enum AppendError {
         /// The version the dataset is at.
         found: Option<u64>,
     },
-    /// The commit landed, but not as the next version: another writer committed between
-    /// this writer's check and its commit. The batch is stored; the writer's version was
-    /// not advanced.
+    /// The commit LANDED, but not as the next version: a second writer, outside the
+    /// one-writer contract, committed between this writer's check and its commit. The
+    /// batch is stored, so this is not a refusal and a retry would write it twice. The
+    /// writer's version was not advanced.
     Race {
         /// The version the commit should have made.
         expected: u64,
