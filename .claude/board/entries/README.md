@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-706 entries, 2026-08-06 .. 2026-11-27.
+707 entries, 2026-08-06 .. 2026-11-28.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-28 | `versioned-append` |  | [2026-11-28-versioned-append.md](2026-11-28-versioned-append.md) |
 | 2026-11-27 | `codegraph-unread-bodies` |  | [2026-11-27-codegraph-unread-bodies.md](2026-11-27-codegraph-unread-bodies.md) |
 | 2026-11-26 | `mailbox-lanes-retire-and-positional-lanes` |  | [2026-11-26-mailbox-lanes-retire-and-positional-lanes.md](2026-11-26-mailbox-lanes-retire-and-positional-lanes.md) |
 | 2026-11-26 | `D-DIRSIM-DT64-PATHS-2` |  | [2026-11-26-d-dirsim-dt64-paths-2.md](2026-11-26-d-dirsim-dt64-paths-2.md) |
