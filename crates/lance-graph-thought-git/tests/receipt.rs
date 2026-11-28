@@ -10,11 +10,11 @@ use lance_graph_contract::revision::{
 };
 use lance_graph_thought_git::fixtures::{self, Cell, Outcome, Thought, cell, main_version};
 use lance_graph_thought_git::oracle::{Version, next_version};
-use lance_graph_thought_git::slots::{Eviction, Slot, SlotPool};
-use thought_git_probe::receipt::{
+use lance_graph_thought_git::receipt::{
     self, BaseRef, CommitError, DERIVE, EXEC_DEFAULT, ExecConfig, MetaKey, MetadataTable, Plan,
     ProgramInputs, Receipt, Refusal, Replayed, VersionStore,
 };
+use lance_graph_thought_git::slots::{Eviction, Slot, SlotPool};
 
 // ---------------------------------------------------------------- helpers
 

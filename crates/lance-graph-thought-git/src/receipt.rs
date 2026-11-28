@@ -36,7 +36,9 @@
 //! after staging, before sealing) may be restaged only with the same
 //! receipt.
 //!
-//! Lab only, not production-admitted. [`BaseRef`] stands in for D-CPG's
+//! Moved from `crates/thought-git-probe` into `lance-graph-thought-git` in
+//! D-TGB-7 slice S4a, behind the `oracle` feature. Lab only, not
+//! production-admitted. [`BaseRef`] stands in for D-CPG's
 //! `DurableRef` (dataset, branch, version), which has no contract type yet;
 //! [`VersionStore`] stands in for Lance, and [`VersionStore::commit_cycle`]
 //! for the coalesced per-cycle commit of `LanceCycleWriter` (EXO-55). Nothing
@@ -46,9 +48,9 @@
 
 use std::collections::BTreeMap;
 
-use lance_graph_thought_git::fixtures::{Cell, Outcome, Thought};
-use lance_graph_thought_git::oracle::{Givens, Version, next_version};
-use lance_graph_thought_git::slots::{Slot, SlotPool, Stale};
+use crate::fixtures::{Cell, Outcome, Thought};
+use crate::oracle::{Givens, Version, next_version};
+use crate::slots::{Slot, SlotPool, Stale};
 
 /// A sealed version a thought reads from. Probe stand-in for D-CPG's
 /// `DurableRef`; a version number alone is not enough once branches exist.
