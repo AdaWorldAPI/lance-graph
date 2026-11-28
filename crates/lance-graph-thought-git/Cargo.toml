@@ -10,6 +10,13 @@ description = "D-TGB-7: the shared thought-git capability. W0 is the canonical r
 # probe it is migrated from. Run from THIS directory: `cargo test`.
 [workspace]
 
+[dependencies]
+# The resident spaces read through the contract's alpha channel and node row.
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The canonical DR512 codec decides whether a 9-bit lane was never touched
+# (`spaces::never_touched`); the same sibling checkout as every other crate.
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
 [features]
 default = []
 # The from-scratch oracle and the pre-registered fixtures (D-TGB-0). They are

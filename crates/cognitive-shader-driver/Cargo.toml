@@ -293,6 +293,9 @@ grpc = ["_lab-dtos", "dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 lab = ["serve", "grpc", "with-engine", "with-planner"]
 
 [dev-dependencies]
+# The resident thought spaces moved there (D-TGB-7 slice S2); the
+# `thought_layers_probe` example runs them.
+lance-graph-thought-git = { path = "../lance-graph-thought-git" }
 # D-CTX-0: the one Fisher-Z calibrator, for the probe only. Production code
 # borrows the calibrated bytes; it never depends on the calibrator.
 bgz-tensor = { path = "../bgz-tensor" }
