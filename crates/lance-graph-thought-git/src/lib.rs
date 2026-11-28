@@ -20,8 +20,12 @@
 //!   the pre-registered fixtures (D-TGB-0). They are the independent oracle
 //!   every implementation is checked against, not execution, so they are off
 //!   by default.
+//! - `squash` (feature `oracle`): the D-TGA-5 squash gate and the D-TGA-5D
+//!   protected readers, moved in slice S3a. They run over the oracle's
+//!   `Thought` chains and are the reference a squash over the resident deltas
+//!   is checked against, so they sit behind the same feature.
 //!
-//! The givens layer, the squash gate,
+//! The givens layer, the squash over the resident deltas,
 //! the receipt and the landing follow in later slices; the inventory is on
 //! EXO-379.
 
@@ -31,3 +35,5 @@ pub mod fixtures;
 pub mod oracle;
 pub mod slots;
 pub mod spaces;
+#[cfg(feature = "oracle")]
+pub mod squash;

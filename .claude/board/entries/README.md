@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-709 entries, 2026-08-06 .. 2026-11-28.
+710 entries, 2026-08-06 .. 2026-11-28.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-28 | `D-TGB-7` |  | [2026-11-28-d-tgb-7-s3a-squash-reference.md](2026-11-28-d-tgb-7-s3a-squash-reference.md) |
 | 2026-11-28 | `D-TGB-7` |  | [2026-11-28-d-tgb-7-s2c-slot-keyed-spaces.md](2026-11-28-d-tgb-7-s2c-slot-keyed-spaces.md) |
 | 2026-11-28 | `D-TGB-7` |  | [2026-11-28-d-tgb-7-s2-resident-spaces.md](2026-11-28-d-tgb-7-s2-resident-spaces.md) |
 | 2026-11-28 | `D-TGB-7` |  | [2026-11-28-d-tgb-7-s1-thought-git-crate.md](2026-11-28-d-tgb-7-s1-thought-git-crate.md) |

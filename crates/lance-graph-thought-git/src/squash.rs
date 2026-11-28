@@ -1,5 +1,9 @@
-//! D-TGA-5: the squash gate, moved here from `tests/squash_gate.rs` so that
-//! D-TGA-5D (`tests/protected_readers.rs`) can use it. The semantics are those
+//! D-TGA-5: the squash gate, first moved from `tests/squash_gate.rs` into the
+//! probe's `src/squash.rs` so that D-TGA-5D (`tests/protected_readers.rs`)
+//! could use it, then into this crate in D-TGB-7 slice S3a, behind the
+//! `oracle` feature: it runs over the oracle's thought chains and is the
+//! reference a squash over the resident deltas is checked against. The
+//! semantics are those
 //! pre-registered in
 //! `.claude/board/entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`:
 //! strict R1/R2 over landed final states, Commit-only (P8), blame as a lane
@@ -7,8 +11,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use lance_graph_thought_git::fixtures::{Cell, Outcome, Thought};
-use lance_graph_thought_git::oracle::Givens;
+use crate::fixtures::{Cell, Outcome, Thought};
+use crate::oracle::Givens;
 
 /// A thought lane: its id (1..=63) and its chain of origin, oldest first.
 pub struct Lane {
@@ -175,7 +179,7 @@ pub fn squash_gate(g: &Givens, lanes: &[Lane]) -> Result<Squashed, Refusal> {
 // givens), compares that with the answer the full history gives, and refuses
 // when a protected reader cannot be answered. Refusal is a valid result.
 
-use lance_graph_thought_git::oracle::{Contradiction, Divergence, Version, next_version};
+use crate::oracle::{Contradiction, Divergence, Version, next_version};
 
 /// What may later be asked of a squashed family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

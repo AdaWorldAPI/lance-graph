@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use lance_graph_thought_git::fixtures::{Cell, Outcome, Thought, cell, givens, main_version};
 use lance_graph_thought_git::oracle::{Version, next_version, squash};
-use thought_git_probe::squash::{Lane, Refusal, squash_gate};
+use lance_graph_thought_git::squash::{Lane, Refusal, squash_gate};
 
 fn commit(id: u32, writes: Vec<(Cell, u64)>) -> Thought {
     Thought::new(id, writes, Outcome::Commit)
